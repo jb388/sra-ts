@@ -1,0 +1,28 @@
+Files: "Litter_Incubation.xlsx"
+Source: M. Rost <mrost@bgc-jena.mpg.de>
+Curator: J. Beem-Miller
+Date: 21-Nov-2019
+Contents:
+  - CO2 release data for 2019 Sierra Nevada litter samples
+Notes:
+  - need to find dry weights and H2O added data
+  - samples analyzed:
+    - 1_GRrf-L_1
+    - 2_GRrf-L_2
+    - 3_GRwf-L_1
+    - 4_GRwf-L_2
+    - 5_GRpp-L_1
+    - 6_GRpp-L_2
+    - 7_ANrf-L_1
+    - 8_ANrf-L_2
+    - 9_ANwf-L_1
+    - 10_ANwf-L_2
+    - 11_ANpp-L_1
+    - 12_ANpp-L_2
+    - 13_BSrf-L_1
+    - 14_BSrf-L_2
+    - 15_BSwf-L_1
+    - 16_BSwf-L_2
+    - 17_BSpp-L_1
+    - 18_BSpp-L_2
+References:
