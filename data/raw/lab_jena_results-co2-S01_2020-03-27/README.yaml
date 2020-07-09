@@ -6,61 +6,33 @@ Contents:
   - CO2 release data for batch 1 of the 2019 Sierra Nevada soil incubations
 Notes:
   - samples are composites of depth increments collected from 3 spatially replicated soil pits/profiles
+  - original file name was "Sierra_Nevada_Inc_2019.xlsx"
   - samples analyzed:
-    - Beem-Miller_14.xlsx:
-      - GRwf_1_0-4_Sierra Nevada_2001
-      - GRwf_1_4-13_Sierra Nevada_2001
-      - GRwf_1_13-28_Sierra Nevada_2001
-      - GRwf_2_0-4_Sierra Nevada_2001
-      - GRwf_2_4-13_Sierra Nevada_2001
-      - GRwf_2_13-28_Sierra Nevada_2001
-      - GRwf_3_0-4_Sierra Nevada_2001
-      - GRwf_3_4-13_Sierra Nevada_2001
-      - GRwf_3_13-28_Sierra Nevada_2001
-      - ANwf_1_0-11_Sierra Nevada_2001
-      - ANwf_1_11-35_Sierra Nevada_2001
-      - ANwf_2_0-11_Sierra Nevada_2001
-      - ANwf_2_11-35_Sierra Nevada_2001
-      - ANwf_3_0-11_Sierra Nevada_2001
-      - ANwf_3_11-35_Sierra Nevada_2001
-      - ANpp_2_6-13_Sierra Nevada_2001
-      - ANpp_2_13-33_Sierra Nevada_2001
-      - ANpp_3_0-6_Sierra Nevada_2001
-      - ANpp_3_6-13_Sierra Nevada_2001
-      - ANpp_3_13-33_Sierra Nevada_2001
-      - BSpp_2_28-49_Sierra Nevada_2001
-      - BSpp_2_49-60_Sierra Nevada_2001
-      - BSpp_3_0-7_Sierra Nevada_2001
-      - BSpp_3_7-18_Sierra Nevada_2001
-      - BSpp_3_18-28_Sierra Nevada_2001
-      - BSpp_3_28-49_Sierra Nevada_2001
-      - BSpp_3_49-61_Sierra Nevada_2001
-    - Beem-Miller_15.xlsx:
-      - BSrf_1_0-3_Sierra Nevada_2001
-      - BSrf_1_3-8_Sierra Nevada_2001
-      - BSrf_1_8-15_Sierra Nevada_2001
-      - BSrf_1_15-30_Sierra Nevada_2001
-      - BSrf_1_30-48_Sierra Nevada_2001
-      - BSrf_1_48-76_Sierra Nevada_2001
-      - BSrf_2_3-8_Sierra Nevada_2001
-      - BSrf_2_8-15_Sierra Nevada_2001
-      - BSrf_2_15-30_Sierra Nevada_2001
-      - BSrf_2_30-45_Sierra Nevada_2001
-      - BSrf_2_45-76_Sierra Nevada_2001
-      - BSrf_3_3-8_Sierra Nevada_2001
-      - BSrf_3_8-15_Sierra Nevada_2001
-      - BSrf_3_15-30_Sierra Nevada_2001
-      - BSrf_3_30-48_Sierra Nevada_2001
-      - BSrf_3_48-76_Sierra Nevada_2001
-      - BSwf_1_0-10_Sierra Nevada_2001
-      - BSwf_1_10-19_Sierra Nevada_2001
-      - BSwf_1_19-40_Sierra Nevada_2001
-      - BSwf_1_40-60_Sierra Nevada_2001
-      - BSwf_3_40-60_Sierra Nevada_2001
-      - BSpp_1_0-7_Sierra Nevada_2001
-      - BSpp_1_7-18_Sierra Nevada_2001
-      - BSpp_1_18-28_Sierra Nevada_2001
-      - BSpp_1_28-49_Sierra Nevada_2001
-      - BSpp_1_49-75_Sierra Nevada_2001
-      - BSpp_2_0-7_Sierra Nevada_2001
+    - GRrf_comp_0-10
+    - GRrf_comp_10-20
+    - GRrf_comp_20-30
+    - GRwf_comp_0-10
+    - GRwf_comp_10-20
+    - GRwf_comp_20-30
+    - GRpp_comp_0-10
+    - GRpp_comp_10-20
+    - GRpp_comp_20-30
+    - ANrf_comp_0-10
+    - ANrf_comp_10-20
+    - ANrf_comp_20-30
+    - ANwf_comp_0-10
+    - ANwf_comp_10-20
+    - ANwf_comp_20-30
+    - ANpp_comp_0-10
+    - ANpp_comp_10-20
+    - ANpp_comp_20-30
+    - BSrf_comp_0-10
+    - BSrf_comp_10-20
+    - BSrf_comp_20-30
+    - BSwf_comp_0-10
+    - BSwf_comp_10-20
+    - BSwf_comp_20-30
+    - BSpp_comp_0-10
+    - BSpp_comp_10-20
+    - BSpp_comp_20-30
 References:
