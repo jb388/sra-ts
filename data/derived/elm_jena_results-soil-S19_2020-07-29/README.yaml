@@ -1,0 +1,19 @@
+Files:
+  - "elm_jena_results-soil-S19_1_2020-08-07.csv"
+  - "elm_jena_results-soil-S19_1_2020-08-07.xls"
+  - "elm_jena_results-soil-S19_2_2020-08-07.csv"
+  - "elm_jena_results-soil-S19_2_2020-08-07.xls"
+  - "elm_jena_results-soil-S19_3_2020-08-07.csv"
+  - "elm_jena_results-soil-S19_3_2020-08-07.xls"
+Source: J. Beem-Miller <jbeem@bgc-jena.mpg.de>
+Curator: J. Beem-Miller <jbeem@bgc-jena.mpg.de>
+Date: 07 Aug 2020
+Contents:
+  - carbon and nitrogen data for Sierra Nevada 2019 bulk soil samples
+Notes:
+  - .xls files are copied from the data/raw/elm_jena_results-soil-S19_2020-07-29
+  - processing steps were as follows:
+    1. convert "Probenname" to "ID"
+    2. add sheet "CleanIDs_CN", which is a pivot table using using the converted IDs in which replicates are counted and C and N data are averaged as needed
+    3. add sheet "elm_jena_results-soil-S19_x_2020-08-07.csv", which contains the same data as on the pivot table ("CleanIDs_CN"), and save it as a .csv file
+References:

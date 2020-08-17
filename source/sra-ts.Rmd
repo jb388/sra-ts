@@ -1,14 +1,13 @@
 ---
 title: "Sierra Nevada Time Series"
 author: "J. Beem-Miller"
-date: "09 Jun 2020"
+date: "10 Aug 2020"
 output:
+  pdf_document:
+    latex_engine: xelatex
   html_notebook:
     toc: yes
     toc_depth: 2
-    css: custom.css
-  pdf_document:
-    latex_engine: xelatex
     css: custom.css
 header_includes:
   - \usepackage[utf8]{inputenc}
@@ -22,11 +21,384 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
 ```{r setup, include = FALSE}
 library(ggplot2)
 library(dplyr)
-library(tidyr)
-library(SoilR)
-library(corrplot)
-library(openxlsx)
 library(ISRaD)
+library(GSIF)
+library(aqp)
 ```
 
 # Data preparation script for Sierra Nevada time series analysis
+
+```{r load ams-jena-ingest fx}
+# 1. Read in isotope data from various sources
+# First load helper functions 'read_jena_ams_results.R', 'read_jena_iso_results.R' 
+source("./utilities/jena_ams_ingest.R")
+source("./utilities/jena_iso_ingest.R")
+```
+
+```{r read iso data, include = FALSE}
+# 2. Next read in data from the appropriate directories in 'data/raw'
+# 14C
+# identify subdirectories in 'raw' directory with "ams_jena" in name
+ams_jena_results_dirs <- list.files("../data/raw", pattern = "ams_jena_results", full.names = TRUE)
+ams_results_ls <- lapply(seq_along(ams_jena_results_dirs), function(i) {
+  read_jena_ams_results(ams_jena_results_dirs[i])
+})
+names(ams_results_ls) <- list.files("../data/raw", pattern = "ams_jena_results")
+
+# # 13C
+# # identify subdirectories in 'raw' directory with "iso_jena" in name
+# iso_jena_results_dirs <- list.files("../data/raw", pattern = "iso_jena_results", full.names = TRUE)
+# iso_results_ls <- lapply(seq_along(iso_jena_results_dirs), function(i) {
+#   read_jena_iso_results(iso_jena_results_dirs[i])
+# })
+# names(iso_results_ls) <- list.files("../data/raw", pattern = "iso_jena_results")
+```
+
+```{r data-template}
+# Create template for data
+template19.fx <- function(pm, eco, ndepth) {
+  df <- data.frame(Year = rep(2019, ndepth * 3),
+                   PM = rep(pm, ndepth * 3),
+                   ECO = rep(eco, ndepth * 3),
+                   pro_rep = rep(seq(1,3), each = ndepth),
+                   lyr_top = rep(seq(0, (ndepth-1) * 10, by = 10), 3),
+                   lyr_bot = rep(seq(10, (ndepth) * 10, by = 10), 3))
+  df$pro_name <- paste0(df$PM, df$ECO, "_", df$pro_rep)
+  df$lyr_name <- paste0(df$pro_name, "_", df$lyr_top, "-", df$lyr_bot)
+  return(df)
+}
+
+# GRrf 
+GRrf <- template19.fx("GR", "rf", 7)
+GRrf <- if(any(GRrf$lyr_name == "GRrf_1_60_70")) {
+  GRrf <- GRrf[-which(GRrf$lyr_name == "GRrf_1_60_70"), ] # NB: GRrf_1_60_70 doesn't exist
+} else {
+  GRrf <- GRrf
+}
+# GRwf
+GRwf <- template19.fx("GR", "wf", 9)
+# GRpp
+GRpp <- template19.fx("GR", "pp", 8)
+
+# ANrf 
+ANrf <- template19.fx("AN", "rf", 6)
+# ANwf
+ANwf <- template19.fx("AN", "wf", 6)
+# ANpp
+ANpp <- template19.fx("AN", "pp", 8)
+
+# BSrf 
+BSrf <- template19.fx("BS", "rf", 8)
+BSrf <- if(any(BSrf$lyr_name == "GRrf_1_60_70")) {
+  BSrf <- BSrf[-which(BSrf$lyr_name == "BSrf_1_70_80"), ] # NB: BSrf_1_70_80 doesn't exist
+} else {
+  BSrf <- BSrf
+} 
+# BSwf
+BSwf <- template19.fx("BS", "wf", 7)
+# BSpp
+BSpp <- template19.fx("BS", "pp", 8)
+BSpp[BSpp$lyr_bot == 80, "lyr_bot"] <- 75 # only sampled to 75cm, not 80
+
+sra.2019 <- rbind(GRrf, GRwf, GRpp,
+                  ANrf, ANwf, ANpp,
+                  BSrf, BSwf, BSpp)
+
+# Top 30cm comp data (incubations, density)
+sra.2019.inc <- data.frame(Year = rep(2019, 54),
+                           PM = rep(c("GR", "BS", "AN"), each = 18),
+                           ECO = rep(c("rf", "wf", "pp"), each = 6, times = 3),
+                           inc_rep = rep(c(1,2), each = 3, times = 9),
+                           lyr_top = rep(seq(0, 20, by = 10), times = 18),
+                           lyr_bot = rep(seq(10, 30, by = 10), times = 18))
+sra.2019.inc$inc_name <- paste0(sra.2019.inc$PM, sra.2019.inc$ECO, "_comp_Inc_", sra.2019.inc$lyr_top, "-", sra.2019.inc$lyr_bot)
+
+# 2001 data
+sra.2001 <- vector(mode = "list", length = length(unique(sra.2019$pro_name)))
+names(sra.2001) <- unique(sra.2019$pro_name)
+
+# 2009 data (from)
+ras18.lyr <- read.csv("/Users/jeff/R/14Constraint/ras_2018.csv")
+ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
+```
+
+*Merge templates with 14C, C, and N data*
+
+Radiocarbon analyses for the 2001 samples were not run originally, but were completed on archived samples in 2020. All profiles for each site are plotted below in order to give a sense of the within site variability.
+
+```{r merge-iso-data}
+# Extract 14C data for 2001 samples
+for(i in seq_along(sra.2001)) {
+  sra.2001[[i]] <- lapply(ams_results_ls, function(ls) {
+    lapply(ls, function(df) {
+      if(any(grepl(names(sra.2001)[i], df$Probe))) {
+       df[grep(names(sra.2001)[i], df$Probe), ] 
+      }
+    })
+  })
+  sra.2001[[i]] <- Filter(Negate(is.null), unlist(sra.2001[[i]], recursive = FALSE))
+}
+sra.2001 <- bind_rows(unlist(sra.2001, recursive = FALSE))
+
+# create ID field, trim df, and add depths
+sra.2001$ID <- unlist(strsplit(sra.2001$Probe, "_Sierra Nevada_2001"))
+sra.2001 <- sra.2001[ , c("ID", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
+names(sra.2001) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+sra.2001$lyr_top <- as.numeric(ifelse(substr(sra.2001$ID, 9, 9) == "-",
+                                      substr(sra.2001$ID, 8, 8),
+                                      substr(sra.2001$ID, 8, 9)))
+sra.2001$lyr_bot <- as.numeric(ifelse(substr(sra.2001$ID, 9, 9) == "-", 
+                                      substr(sra.2001$ID, 10, nchar(sra.2001$ID)),
+                                      substr(sra.2001$ID, 11, nchar(sra.2001$ID))))
+sra.2001$pro_rep <- substr(sra.2001$ID, 6, 6)
+sra.2001$PM <- factor(substr(sra.2001$ID, 1, 2))
+sra.2001$ECO <- factor(substr(sra.2001$ID, 3, 4), levels = c("pp", "wf", "rf"))
+sra.2001$pro_name <- substr(sra.2001$ID, 1, 6)
+sra.2001$PMeco <- substr(sra.2001$ID, 1, 4)
+
+# remove outlier ANpp sample
+sra.2001 <- sra.2001[-which(sra.2001$ID == "ANpp_3_6-13"), ]
+
+# make list by PMeco
+sra.2001.ls <- split(sra.2001, sra.2001$PMeco)
+```
+
+```{r plot-2001-profiles}
+pro.plot <- function(df) {
+  ggplot(df, aes(d14c, lyr_bot, color = PM, shape = ECO, group = pro_rep)) +
+    geom_vline(xintercept = 0) +
+    geom_hline(yintercept = 0) +
+    geom_point(size = 3) +
+    geom_path() +
+    scale_y_reverse(limits = c(40, 0)) +
+    scale_x_continuous(limits = c(-100, 180)) +
+    scale_color_manual(values = c("AN" = "blue", 
+                                  "BS" = "red", 
+                                  "GR" = "darkgray")) +
+    scale_shape_manual(values = c("pp" = 15, 
+                                  "rf" = 16, 
+                                  "wf" = 17)) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank())
+}
+
+lapply(sra.2001.ls, function(df) pro.plot(df))
+```
+>**Fig. `r {fig.n <- 1}`. Profiles of $\Delta$^14^C for 2001 samples**
+
+>*Caption:* Within-site variability of $\Delta$^14^C for the 2001 samples.
+
+*2001 mean radiocarbon profiles*
+
+Mean profiles are shown below for the 2001 samples, error bars show ±1 standard deviation.
+
+```{r plot-2001-avg-profiles}
+# combine reps
+sra.2001.sum.ls  <- lapply(sra.2001.ls, function(df) {
+  df <- data.frame(df %>%
+                     filter(lyr_bot <= 40) %>%
+                     mutate(lyr_top_ch = as.character(lyr_top),
+                            lyr_bot_ch = as.character(lyr_bot)) %>%
+                     select(PM, ECO, PMeco, fm, d14c, lyr_top_ch, lyr_bot_ch) %>%
+                     group_by(PM, ECO, PMeco, lyr_top_ch, lyr_bot_ch) %>%
+                     summarize_all(list(mean = mean, sd = sd), na.rm = TRUE))
+  names(df) <- c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot", "fm", "d14c", "fm_sd", "d14c_sd")
+  df$lyr_top <- as.numeric(df$lyr_top)
+  df$lyr_bot <- as.numeric(df$lyr_bot)
+  return(df)
+})
+sra.2001.sum <- bind_rows(sra.2001.sum.ls)
+sra.2001.sum <- sra.2001.sum[order(sra.2001.sum$lyr_bot), ]
+
+# plot
+sra.2001.sum %>%
+  mutate(d14c_u = d14c + d14c_sd,
+         d14c_l = d14c - d14c_sd) %>%
+  ggplot(., aes(d14c, lyr_bot, color = PM, shape = ECO, group = PMeco)) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_point(size = 3) +
+  geom_errorbarh(
+    aes(xmin = d14c_l, 
+        xmax = d14c_u,
+        color = PM), 
+    height = 1.5) +
+  geom_path() +
+  scale_y_reverse(limits = c(40, 0)) +
+  scale_x_continuous(limits = c(-100, 180)) +    
+  scale_color_manual(values = c("AN" = "blue", 
+                                "BS" = "red", 
+                                "GR" = "darkgray")) +
+  scale_shape_manual(values = c("pp" = 15, 
+                                "rf" = 16, 
+                                "wf" = 17)) +
+  facet_grid(rows = vars(PM), cols = vars(ECO)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+>**Fig. `r {fig.n + 1}`. Mean profile $\Delta$^14^C for 2001 samples**
+
+>*Caption:* Mean $\Delta$^14^C by depth for each site in 2001. Error bars show ±1 standard deviation.
+
+*2009 radiocarbon profiles*
+
+Mean profiles are shown below for the 2009 samples (error bars not shown as only a single replicate profile was analyzed).
+
+```{r plot-2009-profiles}
+# add PMeco col
+ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
+ras18.lyr$PMeco <- paste0(ras18.lyr$PM, ras18.lyr$ECO)
+
+ras18.lyr %>%
+  filter(lyr_bot <= 40) %>%
+  ggplot(., aes(lyr_14c, lyr_bot, color = PM, shape = ECO, group = PMeco)) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_point(size = 3) +
+  geom_path() +
+  scale_y_reverse(limits = c(40, 0)) +
+  scale_x_continuous(limits = c(-100, 180)) +    
+  scale_color_manual(values = c("AN" = "blue", 
+                                "BS" = "red", 
+                                "GR" = "darkgray")) +
+  scale_shape_manual(values = c("pp" = 15, 
+                                "rf" = 16, 
+                                "wf" = 17)) +
+  facet_grid(rows = vars(PM), cols = vars(ECO)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+>**Fig. `r {fig.n + 2}`. Mean profile $\Delta$^14^C for 2009 samples**
+
+>*Caption:* Mean $\Delta$^14^C by depth for each site in 2009. Error bars not shown as only a single replicate profile was analyzed per site.
+
+*Fit splines to 2009 data to predict at 2001 depths*
+
+Soils collected in both the 2001 and 2009 sampling campaigns were sampled by horizon, but the depth intervals differed between the two sampling years. In 2009, full profiles were excavated for each site, as opposed to the shorter profiles collected in 2001 from the GR and AN sites. Radiocarbon was measured on all three replicate profiles at each site for the 2001 samples, but only for one of the replicate profiles at each site in 2009, e.g. ANpp rep2, etc.
+
+In order to compare the radiocarbon profiles between 2001 and 2009, we interpolated both radiocarbon and carbon stock data at 1 cm intervals for each site in the 2009 dataset, and then summed the carbon-stock-weighted radiocarbon values for each depth interval sampled in 2001. A monotonic cubic spline fit was used for the carbon stock interpolation (Wendt and Hauser 2013), and a mass-preserving spline was used to fit the radiocarbon data (Bishop, T.F.A., McBratney, A.B., Laslett, G.M., (1999) Modelling soil attribute depth functions with equal-area quadratic smoothing splines. Geoderma, 91(1-2): 27-45).
+
+```{r spline-09, include = FALSE}
+# spline fit for fm
+sra.2009.ls <- split(ras18.lyr, ras18.lyr$PMeco)
+sra.2009.fm.sp <- lapply(sra.2009.ls, function(x) {
+  depths(x) <- pro_name ~ lyr_top + lyr_bot
+  x.mps <- mpspline(x, var.name = "lyr_fraction_modern")
+  x.mps$var.1cm <- x.mps$var.1cm[1:max(x$lyr_bot)]
+  return(x.mps)
+})
+
+# spline fit for carbon stocks (for calc weighted averages)
+depth.spline <- function(x) {
+  sp <- spline(x, method = "hyman") # fit monotonic cubic spline
+  sp.ss <- smooth.spline(sp) # convert to class "spline" with smooth.spline fxn
+  std <- seq(1, max(x$lyr_bot)+1, by = 1) # in cm
+  sp <- predict(sp.ss, std) 
+  df <- data.frame(sp)
+  colnames(df) <- c("lyr_bot","lyr_soc")
+  for(i in seq_along(df$lyr_bot)) {
+    if(i == 1) {
+      df$lyr_soc[i] <- df$lyr_soc[i]
+    } else {
+      df$lyr_soc[i] <- df$lyr_soc[i + 1] - df$lyr_soc[i]
+    }
+  }
+  return(df[-length(df$lyr_soc), ])
+}
+
+# run spline
+sra.2009.oc.sp <- lapply(sra.2009.ls, function(x) {
+  depth.spline(x[, c("lyr_bot", "lyr_soc_cmtv")])
+})
+
+# calculate stock weights for 2001 
+cwt <- lapply(seq_along(sra.2009.oc.sp), function(i) {
+  d <- sort(sra.2001.sum.ls[[i]][["lyr_bot"]])
+  c <- vector(mode = "list", length = length(d))
+  for(j in seq_along(d)) {
+    if(j == 1) {
+      c[[j]] <- sra.2009.oc.sp[[i]][1:d[j], "lyr_soc"]
+    } else {
+      c[[j]] <- sra.2009.oc.sp[[i]][(d[j-1]+1):d[j], "lyr_soc"] 
+    }
+  }
+  return(unlist(lapply(c, function(x) x/sum(x))))
+})
+names(cwt) <- names(sra.2009.oc.sp)
+
+# calculate fm_wts 
+fm.wt <- lapply(seq_along(cwt), function(i) {
+  df <- data.frame(cwt = cwt[[i]])
+  df$fm <- sra.2009.fm.sp[[i]][["var.1cm"]][1:length(cwt[[i]])]
+  df$fm_wt <- df$fm * df$cwt
+  return(df)
+})
+names(fm.wt) <- names(cwt)
+
+# calculate weighted average of fm for each interval
+sra.01.09.ls <- lapply(seq_along(sra.2001.sum.ls), function(i) {
+  sra.2001.sum.ls[[i]] <- sra.2001.sum.ls[[i]][order(sra.2001.sum.ls[[i]][["lyr_bot"]]), ]
+  d <- sra.2001.sum.ls[[i]][["lyr_bot"]]
+  f <- vector(mode = "list", length = length(d))
+  for(j in seq_along(d)) {
+    if(j == 1) {
+      f[[j]] <- sum(fm.wt[[i]][1:d[j], "fm_wt"])
+    } else {
+      f[[j]] <- sum(fm.wt[[i]][(d[j-1]+1):d[j], "fm_wt"])
+    }
+  }
+  return(cbind(sra.2001.sum.ls[[i]], fm_01 = unlist(f)))
+})
+names(sra.01.09.ls) <- names(fm.wt)
+
+nms <- c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot", "fm", "fm_sd")
+sra.01.09 <- sra.2001.sum[ , nms]
+sra.01.09$fm <- unlist(lapply(sra.01.09.ls, function(df) df$fm_01))
+sra.01.09$fm_sd <- NA 
+sra.01.09$Year <- as.character(2009)
+sra.01.09 <- rbind(cbind(sra.2001.sum[ , nms], Year = as.character(2001)), sra.01.09)
+  
+# plot 2001 and 2009 fm data
+calc_fm <- function(d14c, obs_date_y) {
+        lambda <- 0.00012097
+        fm <- (((d14c/1000) + 1)/exp(lambda * (1950 - obs_date_y)))
+        return(fm)
+    }
+atm.2001 <- calc_fm(graven[graven$Date == 2001.5, "NHc14"], 2001)
+atm.2009 <- calc_fm(graven[graven$Date == 2009.5, "NHc14"], 2009)
+```
+
+```{r plot-09-01-profiles}
+sra.01.09 %>%
+  mutate(PMeco_year = paste0(PMeco, Year),
+         ecoYear = paste0(ECO, Year),
+         fm_u = fm + fm_sd,
+         fm_l = fm - fm_sd) %>%
+  ggplot(., aes(fm, lyr_bot, color = PM, shape = ecoYear, group = PMeco_year)) +
+  geom_vline(xintercept = atm.2001) +
+  geom_vline(xintercept = atm.2009, linetype = "dashed") +  
+  geom_point(size = 3) +
+  geom_path(aes(linetype = Year)) +
+  geom_errorbarh(
+    aes(xmin = fm_l, 
+        xmax = fm_u,
+        color = PM), 
+    height = 1.5) +
+  scale_y_reverse() +
+  scale_x_continuous() +    
+  scale_color_manual(values = c("AN" = "blue", 
+                                "BS" = "red", 
+                                "GR" = "darkgray")) +
+  scale_shape_manual(values = c("pp2001" = 15, 
+                                "rf2001" = 16, 
+                                "wf2001" = 17,
+                                "pp2009" = 0, 
+                                "rf2009" = 1, 
+                                "wf2009" = 2)) +
+  facet_grid(rows = vars(PM), cols = vars(ECO)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+>**Fig. `r {fig.n + 3}`. Mean profile $\Delta$^14^C for all sites in 2001 and 2009**
+
+>*Caption:* Solid symbols connected by solid lines show fraction modern by depth for each site in 2001; error bars show ±1 standard deviation. Open symbols conneted by dashed lines show interpolated values of fraction modern measured in 2009. Solid and dashed vertical lines show the fraction modern of the atmosphere in 2001 and 2009, respectively, for reference. 
