@@ -124,7 +124,7 @@ ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
 
 *Merge templates with 14C, C, and N data*
 
-Radiocarbon analyses for the 2001 samples were not run originally, but were completed on archived samples in 2020. All profiles for each site are plotted below in order to give a sense of the within site variability.
+Radiocarbon analyses for the 2001 samples were not run originally, but were completed on archived samples in 2020.
 
 ```{r merge-iso-data}
 # Extract 14C data for 2001 samples
@@ -163,7 +163,7 @@ sra.2001 <- sra.2001[-which(sra.2001$ID == "ANpp_3_6-13"), ]
 sra.2001.ls <- split(sra.2001, sra.2001$PMeco)
 ```
 
-```{r plot-2001-profiles}
+```{r plot-2001-profiles, include = FALSE}
 pro.plot <- function(df) {
   ggplot(df, aes(d14c, lyr_bot, color = PM, shape = ECO, group = pro_rep)) +
     geom_vline(xintercept = 0) +
@@ -172,27 +172,48 @@ pro.plot <- function(df) {
     geom_path() +
     scale_y_reverse(limits = c(40, 0)) +
     scale_x_continuous(limits = c(-100, 180)) +
-    scale_color_manual(values = c("AN" = "blue", 
+    scale_color_manual(name = "parent material",
+                       labels = c("AN" = "andesite",
+                                  "BS" = "basalt",
+                                  "GR" = "granite"),
+                       values = c("AN" = "blue", 
                                   "BS" = "red", 
                                   "GR" = "darkgray")) +
-    scale_shape_manual(values = c("pp" = 15, 
+    scale_shape_manual(name = "ecosystem",
+                       labels = c("pp" = expression(italic("P. ponderosa")),
+                                  "rf" = expression(italic("A. magnifica")),
+                                  "wf" = expression(italic("A. concolor"))),
+                       values = c("pp" = 15, 
                                   "rf" = 16, 
                                   "wf" = 17)) +
+    xlab(expression(Delta*''^14*'C (‰)')) +
+    ylab("Depth (cm)") +
     theme_bw() +
     theme(panel.grid.minor = element_blank())
 }
 
 lapply(sra.2001.ls, function(df) pro.plot(df))
 ```
->**Fig. `r {fig.n <- 1}`. Profiles of $\Delta$^14^C for 2001 samples**
-
->*Caption:* Within-site variability of $\Delta$^14^C for the 2001 samples.
-
 *2001 mean radiocarbon profiles*
 
 Mean profiles are shown below for the 2001 samples, error bars show ±1 standard deviation.
 
 ```{r plot-2001-avg-profiles}
+# fm and d14c conversion functions
+lambda <- 0.00012097 # = 1/(true mean life of 14C)
+calc_fm <- function(d14c, obs_date_y) {
+  ((d14c/1000) + 1)/exp(lambda * (1950 - obs_date_y))
+}
+calc_14c <- function(fm, obs_date_y) {
+  (fm * exp(lambda * (1950 - obs_date_y)) - 1) * 1000
+}
+
+# calc atm in 2001, 2009
+atm.d14.2001 <- graven[graven$Date == 2001.5, "NHc14"]
+atm.fm.2001 <- calc_fm(atm.d14.2001, 2001)
+atm.d14.2009 <- graven[graven$Date == 2009.5, "NHc14"]
+atm.fm.2009 <- calc_fm(atm.d14.2009, 2009)
+
 # combine reps
 sra.2001.sum.ls  <- lapply(sra.2001.ls, function(df) {
   df <- data.frame(df %>%
@@ -213,30 +234,39 @@ sra.2001.sum <- sra.2001.sum[order(sra.2001.sum$lyr_bot), ]
 # plot
 sra.2001.sum %>%
   mutate(d14c_u = d14c + d14c_sd,
-         d14c_l = d14c - d14c_sd) %>%
-  ggplot(., aes(d14c, lyr_bot, color = PM, shape = ECO, group = PMeco)) +
-  geom_vline(xintercept = 0) +
+         d14c_l = d14c - d14c_sd,
+         eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite"))) %>%
+  ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
+  geom_vline(xintercept = atm.d14.2001) +
   geom_hline(yintercept = 0) +
   geom_point(size = 3) +
   geom_errorbarh(
     aes(xmin = d14c_l, 
         xmax = d14c_u,
-        color = PM), 
+        color = pm), 
     height = 1.5) +
   geom_path() +
   scale_y_reverse(limits = c(40, 0)) +
   scale_x_continuous(limits = c(-100, 180)) +    
-  scale_color_manual(values = c("AN" = "blue", 
-                                "BS" = "red", 
-                                "GR" = "darkgray")) +
-  scale_shape_manual(values = c("pp" = 15, 
-                                "rf" = 16, 
-                                "wf" = 17)) +
-  facet_grid(rows = vars(PM), cols = vars(ECO)) +
+  scale_color_manual(name = "parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "ecosystem",
+                     values = c("warm" = 15, 
+                                "cool" = 16, 
+                                "cold" = 17)) +
+  xlab(expression(Delta*''^14*'C (‰)')) +
+  ylab("Depth (cm)") +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 1}`. Mean profile $\Delta$^14^C for 2001 samples**
+>**Fig. `r {fig.n <- 1}`. Mean profile $\Delta$^14^C for 2001 samples**
 
 >*Caption:* Mean $\Delta$^14^C by depth for each site in 2001. Error bars show ±1 standard deviation.
 
@@ -250,25 +280,33 @@ ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
 ras18.lyr$PMeco <- paste0(ras18.lyr$PM, ras18.lyr$ECO)
 
 ras18.lyr %>%
-  filter(lyr_bot <= 40) %>%
-  ggplot(., aes(lyr_14c, lyr_bot, color = PM, shape = ECO, group = PMeco)) +
-  geom_vline(xintercept = 0) +
+  mutate(eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite"))) %>%
+  ggplot(., aes(lyr_14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
+  geom_vline(xintercept = atm.d14.2009, linetype = "dashed") +
   geom_hline(yintercept = 0) +
   geom_point(size = 3) +
-  geom_path() +
-  scale_y_reverse(limits = c(40, 0)) +
+  geom_path(linetype = "dashed") +
+  scale_y_reverse() +
   scale_x_continuous(limits = c(-100, 180)) +    
-  scale_color_manual(values = c("AN" = "blue", 
-                                "BS" = "red", 
-                                "GR" = "darkgray")) +
-  scale_shape_manual(values = c("pp" = 15, 
-                                "rf" = 16, 
-                                "wf" = 17)) +
-  facet_grid(rows = vars(PM), cols = vars(ECO)) +
+  scale_color_manual(name = "parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "ecosystem",
+                     values = c("warm" = 0, 
+                                "cool" = 1, 
+                                "cold" = 2)) +
+  xlab(expression(Delta*''^14*'C (‰)')) +
+  ylab("Depth (cm)") +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 2}`. Mean profile $\Delta$^14^C for 2009 samples**
+>**Fig. `r {fig.n + 1}`. Mean profile $\Delta$^14^C for 2009 samples**
 
 >*Caption:* Mean $\Delta$^14^C by depth for each site in 2009. Error bars not shown as only a single replicate profile was analyzed per site.
 
@@ -292,7 +330,7 @@ sra.2009.fm.sp <- lapply(sra.2009.ls, function(x) {
 depth.spline <- function(x) {
   sp <- spline(x, method = "hyman") # fit monotonic cubic spline
   sp.ss <- smooth.spline(sp) # convert to class "spline" with smooth.spline fxn
-  std <- seq(1, max(x$lyr_bot)+1, by = 1) # in cm
+  std <- seq(0, max(x$lyr_bot)+1, by = 1) # in cm
   sp <- predict(sp.ss, std) 
   df <- data.frame(sp)
   colnames(df) <- c("lyr_bot","lyr_soc")
@@ -303,8 +341,19 @@ depth.spline <- function(x) {
       df$lyr_soc[i] <- df$lyr_soc[i + 1] - df$lyr_soc[i]
     }
   }
+  df <- df[-1,]
   return(df[-length(df$lyr_soc), ])
 }
+
+# add timepoint zero data
+sra.2009.ls <- lapply(sra.2009.ls, function(df) {
+  t0 <- data.frame(matrix(nrow = 1, ncol = ncol(df)))
+  xy <- c(which(names(df) == "lyr_bot"), which(names(df) == "lyr_soc_cmtv"))
+  t0[ , xy] <- 0
+  names(t0) <- names(df)
+  new <- rbind(t0, df)
+  return(new)
+})
 
 # run spline
 sra.2009.oc.sp <- lapply(sra.2009.ls, function(x) {
@@ -312,8 +361,9 @@ sra.2009.oc.sp <- lapply(sra.2009.ls, function(x) {
 })
 
 # calculate stock weights for 2001 
+sra.2001.sum.ls <- lapply(sra.2001.sum.ls, function(df) df[order(df$lyr_bot), ])
 cwt <- lapply(seq_along(sra.2009.oc.sp), function(i) {
-  d <- sort(sra.2001.sum.ls[[i]][["lyr_bot"]])
+  d <- sra.2001.sum.ls[[i]][["lyr_bot"]]
   c <- vector(mode = "list", length = length(d))
   for(j in seq_along(d)) {
     if(j == 1) {
@@ -337,7 +387,6 @@ names(fm.wt) <- names(cwt)
 
 # calculate weighted average of fm for each interval
 sra.01.09.ls <- lapply(seq_along(sra.2001.sum.ls), function(i) {
-  sra.2001.sum.ls[[i]] <- sra.2001.sum.ls[[i]][order(sra.2001.sum.ls[[i]][["lyr_bot"]]), ]
   d <- sra.2001.sum.ls[[i]][["lyr_bot"]]
   f <- vector(mode = "list", length = length(d))
   for(j in seq_along(d)) {
@@ -347,58 +396,68 @@ sra.01.09.ls <- lapply(seq_along(sra.2001.sum.ls), function(i) {
       f[[j]] <- sum(fm.wt[[i]][(d[j-1]+1):d[j], "fm_wt"])
     }
   }
-  return(cbind(sra.2001.sum.ls[[i]], fm_01 = unlist(f)))
+  return(cbind(sra.2001.sum.ls[[i]], fm_09 = unlist(f)))
 })
 names(sra.01.09.ls) <- names(fm.wt)
 
+# create tidy combined '01 and '09 data frame
 nms <- c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot", "fm", "fm_sd")
-sra.01.09 <- sra.2001.sum[ , nms]
-sra.01.09$fm <- unlist(lapply(sra.01.09.ls, function(df) df$fm_01))
-sra.01.09$fm_sd <- NA 
-sra.01.09$Year <- as.character(2009)
-sra.01.09 <- rbind(cbind(sra.2001.sum[ , nms], Year = as.character(2001)), sra.01.09)
-  
-# plot 2001 and 2009 fm data
-calc_fm <- function(d14c, obs_date_y) {
-        lambda <- 0.00012097
-        fm <- (((d14c/1000) + 1)/exp(lambda * (1950 - obs_date_y)))
-        return(fm)
-    }
-atm.2001 <- calc_fm(graven[graven$Date == 2001.5, "NHc14"], 2001)
-atm.2009 <- calc_fm(graven[graven$Date == 2009.5, "NHc14"], 2009)
+sra.01.09.df <- bind_rows(sra.01.09.ls)
+sra.01.09 <- sra.01.09.df[, nms]
+sra.01.09 <- rbind(cbind(sra.01.09, Year = as.character(2001)), 
+                   data.frame(sra.01.09.df[, nms[1:5]],
+                              fm = sra.01.09.df$fm_09,
+                              fm_sd = NA,
+                              Year = as.character(2009)))
+
+# calc d14c from fm
+sra.01.09$d14c <- calc_14c(sra.01.09$fm, as.numeric(as.character(sra.01.09$Year)))
+sra.01.09$d14c_sd <- abs(sra.01.09$d14c - calc_14c(sra.01.09$fm + sra.01.09$fm_sd, as.numeric(as.character(sra.01.09$Year))))
 ```
 
 ```{r plot-09-01-profiles}
 sra.01.09 %>%
   mutate(PMeco_year = paste0(PMeco, Year),
          ecoYear = paste0(ECO, Year),
-         fm_u = fm + fm_sd,
-         fm_l = fm - fm_sd) %>%
-  ggplot(., aes(fm, lyr_bot, color = PM, shape = ecoYear, group = PMeco_year)) +
-  geom_vline(xintercept = atm.2001) +
-  geom_vline(xintercept = atm.2009, linetype = "dashed") +  
+         eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         d14c_u = d14c + d14c_sd,
+         d14c_l = d14c - d14c_sd,
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite")),
+         ecoYear2 = ifelse(ecoYear == "pp2001", "warm (2001)",
+                           ifelse(ecoYear == "pp2009", "warm (2009)",
+                                  ifelse(ecoYear == "wf2001", "cool (2001)",
+                                         ifelse(ecoYear == "wf2009", "cool (2009)",
+                                                ifelse(ecoYear == "rf2001", "cold (2001)", "cold (2009)")))))) %>%
+  ggplot(., aes(d14c, lyr_bot, color = pm, shape = ecoYear2, group = PMeco_year)) +
+  geom_vline(xintercept = atm.d14.2001) +
+  geom_vline(xintercept = atm.d14.2009, linetype = "dashed") +  
   geom_point(size = 3) +
   geom_path(aes(linetype = Year)) +
   geom_errorbarh(
-    aes(xmin = fm_l, 
-        xmax = fm_u,
-        color = PM), 
+    aes(xmin = d14c_l, 
+        xmax = d14c_u,
+        color = pm), 
     height = 1.5) +
   scale_y_reverse() +
   scale_x_continuous() +    
-  scale_color_manual(values = c("AN" = "blue", 
-                                "BS" = "red", 
-                                "GR" = "darkgray")) +
-  scale_shape_manual(values = c("pp2001" = 15, 
-                                "rf2001" = 16, 
-                                "wf2001" = 17,
-                                "pp2009" = 0, 
-                                "rf2009" = 1, 
-                                "wf2009" = 2)) +
-  facet_grid(rows = vars(PM), cols = vars(ECO)) +
+  scale_color_manual(values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_shape_manual(values = c("warm (2001)" = 15, 
+                                "cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "warm (2009)" = 0, 
+                                "cool (2009)" = 1, 
+                                "cold (2009)" = 2)) +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
+  xlab(expression(Delta*''^14*'C (‰)')) +
+  ylab("Depth (cm)") +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 3}`. Mean profile $\Delta$^14^C for all sites in 2001 and 2009**
+>**Fig. `r {fig.n + 2}`. Mean profile fraction modern for all sites in 2001 and 2009**
 
 >*Caption:* Solid symbols connected by solid lines show fraction modern by depth for each site in 2001; error bars show ±1 standard deviation. Open symbols conneted by dashed lines show interpolated values of fraction modern measured in 2009. Solid and dashed vertical lines show the fraction modern of the atmosphere in 2001 and 2009, respectively, for reference. 
