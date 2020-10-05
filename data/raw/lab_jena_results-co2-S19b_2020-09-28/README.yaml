@@ -1,12 +1,15 @@
 Files: "Sierra_Nevada_Inc_2001_2019_23-03-2020.xlsx"
 Source: M. Rost <mrost@bgc-jena.mpg.de>
 Curator: J. Beem-Miller
-Date: 27-Mar-2020
+Date: 28-Sep-2020
 Contents:
-  - CO2 release data for batch 1 of the 2019 Sierra Nevada soil incubations
+  - CO2 release data for batch 2 of the 2019 Sierra Nevada soil incubations
 Notes:
   - samples are composites of depth increments collected from 3 spatially replicated soil pits/profiles
-  - original file name was "Sierra_Nevada_Inc_2019.xlsx"
+  - reps were run as a separate batch due to miscommunication
+  - incubations not performed until late summer 2020 due to COVID-19
+  - modified sample names from original (suffix "_rep" was missing from all but the first measurment date)
+  - added sheet 'S19b-flux' to compile time series of CO2 fluxes
   - samples analyzed:
     - GRrf_comp_0-10
     - GRrf_comp_10-20

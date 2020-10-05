@@ -1,0 +1,81 @@
+Files: "Beem-Miller_16.xlsx"
+Source: A. Steinhof <steinhof@bgc-jena.mpg.de>
+Curator: J. Beem-Miller
+Date: 03-Aug-2020
+Contents:
+  - AMS results (14C) for bulk soil from 2019 sampling
+Notes:
+  - samples analyzed:
+    - Beem-Miller_16.xlsx:
+      - 81_ANrf_2_0-10_Sierra Nevada_2019_bulksoil
+      - 87_ANrf_3_0-10_Sierra Nevada_2019_bulksoil
+      - 88_ANrf_3_10-20_Sierra Nevada_2019_bulksoil
+      - 75_ANrf_1_0-10_Sierra Nevada_2019_bulksoil
+      - 76_ANrf_1_10-20_Sierra Nevada_2019_bulksoil
+      - 94_ANwf_1_0-10_Sierra Nevada_2019_bulksoil
+      - 50_GRpp_1_0-10_Sierra Nevada_2019_bulksoil
+      - 67_GRpp_3_10-20_Sierra Nevada_2019_bulksoil
+      - 95_ANwf_1_10-20_Sierra Nevada_2019_bulksoil
+      - 82_ANrf_2_10-20_Sierra Nevada_2019_bulksoil
+      - 96_ANwf_1_20-30_Sierra Nevada_2019_bulksoil
+      - 77_ANrf_1_20-30_Sierra Nevada_2019_bulksoil
+      - 7_GRrf_2_0-10_Sierra Nevada_2019_bulksoil
+      - 90_ANrf_3_30-40_Sierra Nevada_2019_bulksoil
+      - 86_ANrf_2_50-60_Sierra Nevada_2019_bulksoil
+      - 1_GRrf_1_0-10_Sierra Nevada_2019_bulksoil
+      - 78_ANrf_1_30-40_Sierra Nevada_2019_bulksoil
+      - 98_ANwf_1_40-50_Sierra Nevada_2019_bulksoil
+      - 99_ANwf_1_50-60_Sierra Nevada_2019_bulksoil
+      - 83_ANrf_2_20-30_Sierra Nevada_2019_bulksoil
+      - 97_ANwf_1_30-40_Sierra Nevada_2019_bulksoil
+      - 85_ANrf_2_40-50_Sierra Nevada_2019_bulksoil
+      - 32_GRwf_2_10-20_Sierra Nevada_2019_bulksoil
+      - 91_ANrf_3_40-50_Sierra Nevada_2019_bulksoil
+      - 89_ANrf_3_20-30_Sierra Nevada_2019_bulksoil
+      - 84_ANrf_2_30-40_Sierra Nevada_2019_bulksoil
+      - 92_ANrf_3_50-60_Sierra Nevada_2019_bulksoil
+      - 31_GRwf_2_0-10_Sierra Nevada_2019_bulksoil
+      - 79_ANrf_1_40-50_Sierra Nevada_2019_bulksoil
+      - 51_GRpp_1_10-20_Sierra Nevada_2019_bulksoil
+      - 80_ANrf_1_50-60_Sierra Nevada_2019_bulksoil
+      - 33_GRwf_2_20-30_Sierra Nevada_2019_bulksoil
+      - 201_BSpp_3_10-20_Sierra Nevada_2019_bulksoil
+      - 200_BSpp_3_0-10_Sierra Nevada_2019_bulksoil
+      - 58_GRpp_2_0-10_Sierra Nevada_2019_bulksoil
+      - 66_GRpp_3_0-10_Sierra Nevada_2019_bulksoil
+      - 52_GRpp_1_20-30_Sierra Nevada_2019_bulksoil
+      - 22_GRwf_1_0-10_Sierra Nevada_2019_bulksoil
+      - 4_GRrf_1_30-40_Sierra Nevada_2019_bulksoil
+      - 40_GRwf_3_0-10_Sierra Nevada_2019_bulksoil
+      - 59_GRpp_2_10-20_Sierra Nevada_2019_bulksoil
+      - 2_GRrf_1_10-20_Sierra Nevada_2019_bulksoil
+      - 34_GRwf_2_30-40_Sierra Nevada_2019_bulksoil
+      - 202_BSpp_3_20-30_Sierra Nevada_2019_bulksoil
+      - 14_GRrf_3_0-10_Sierra Nevada_2019_bulksoil
+      - 35_GRwf_2_40-50_Sierra Nevada_2019_bulksoil
+      - 203_BSpp_3_30-40_Sierra Nevada_2019_bulksoil
+      - 8_GRrf_2_10-20_Sierra Nevada_2019_bulksoil
+      - 68_GRpp_3_20-30_Sierra Nevada_2019_bulksoil
+      - 53_GRpp_1_30-40_Sierra Nevada_2019_bulksoil
+      - 3_GRrf_1_20-30_Sierra Nevada_2019_bulksoil
+      - 36_GRwf_2_50-60_Sierra Nevada_2019_bulksoil
+      - 38_GRwf_2_70-80_Sierra Nevada_2019_bulksoil
+      - 37_GRwf_2_60-70_Sierra Nevada_2019_bulksoil
+      - 204_BSpp_3_40-50_Sierra Nevada_2019_bulksoil
+      - 15_GRrf_3_10-20_Sierra Nevada_2019_bulksoil
+      - 16_GRrf_3_20-30_Sierra Nevada_2019_bulksoil
+      - 54_GRpp_1_40-50_Sierra Nevada_2019_bulksoil
+      - 42_GRwf_3_20-30_Sierra Nevada_2019_bulksoil
+      - 24_GRwf_1_20-30_Sierra Nevada_2019_bulksoil
+      - 41_GRwf_3_10-20_Sierra Nevada_2019_bulksoil
+      - 23_GRwf_1_10-20_Sierra Nevada_2019_bulksoil
+      - 5_GRrf_1_40-50_Sierra Nevada_2019_bulksoil
+      - 69_GRpp_3_30-40_Sierra Nevada_2019_bulksoil
+      - 43_GRwf_3_30-40_Sierra Nevada_2019_bulksoil
+      - 70_GRpp_3_40-50_Sierra Nevada_2019_bulksoil
+      - 9_GRrf_2_20-30_Sierra Nevada_2019_bulksoil
+      - 12_GRrf_2_50-60_Sierra Nevada_2019_bulksoil
+      - 39_GRwf_2_80-90_Sierra Nevada_2019_bulksoil
+      - 44_GRwf_3_40-50_Sierra Nevada_2019_bulksoil
+      - 17_GRrf_3_30-40_Sierra Nevada_2019_bulksoil
+References:
