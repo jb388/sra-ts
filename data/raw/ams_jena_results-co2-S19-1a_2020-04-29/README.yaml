@@ -5,13 +5,14 @@ Source: M. Rost <mrost@bgc-jena.mpg.de>
 Curator: J. Beem-Miller
 Date: 29-Apr-2020
 Contents:
-  - AMS results (14C) for CO2 from 2019 sample incubations
+  - AMS results (14C) for CO2 from 2019 sample incubations, rep 1
 Notes:
+  - deleted "_Inc" from IDs in Rost_58.xlsx to match IDs in other files, e.g. "7_GRpp_comp_Inc_0-10" changed to "7_GRpp_comp_0-10"
   - samples analyzed:
     - Rost_58.xlsx:
-      - 7_GRpp_comp_Inc_0-10
-      - 16_ANpp_comp_Inc_0-10
-      - 25_BSpp_comp_Inc_0-10
+      - 7_GRpp_comp_0-10
+      - 16_ANpp_comp_0-10
+      - 25_BSpp_comp_0-10
     - Rost_61.xlsx:
       - 2_GRrf_comp_10-20
       - 3_GRrf_comp_20-30
