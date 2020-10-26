@@ -305,10 +305,8 @@ lapply(sra.2019.ls, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), df$
 ```{r plot-2019-co2-profiles, include = FALSE}
 lapply(sra.2019.inc.ls_1, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), NA))
 ```
+
 ## 2001 mean radiocarbon profiles
-
-Mean profiles are shown below for the 2001 samples, error bars show ±1 standard deviation.
-
 ```{r plot-2001-avg-profiles}
 # fm and d14c conversion functions
 lambda <- 0.00012097 # = 1/(true mean life of 14C)
@@ -355,6 +353,7 @@ sra.01.sum <- sra.01.sum %>%
                      ifelse(PM == "BS", "basalt", "granite")))
 
 # plot
+fig.n <- 1
 sra.01.sum %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
   geom_vline(xintercept = atm.d14.2001) +
@@ -382,14 +381,11 @@ sra.01.sum %>%
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n <- 1}`. Mean profile $\Delta$^14^C for 2001 samples**
+>**Fig. `r {fig.n}`. Mean profile $\Delta$^14^C for 2001 samples**
 
->*Caption:* Mean $\Delta$^14^C by depth for each site in 2001. Error bars show ±1 standard deviation.
+>*Caption:* Mean $\Delta$^14^C by depth for each site in 2001. Error bars show ±1 standard deviation, solid vertical line shows $\Delta$^14^C of the atmosphere in the year of sampling.
 
 ## 2009 radiocarbon profiles
-
-Mean profiles are shown below for the 2009 samples (error bars not shown as only a single replicate profile was analyzed).
-
 ```{r plot-2009-profiles}
 # add PMeco col
 ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
@@ -401,9 +397,11 @@ sra.09.sum <- ras18.lyr %>%
                       levels = c("warm", "cool", "cold")),
          pm = ifelse(PM == "AN", "andesite",
                      ifelse(PM == "BS", "basalt", "granite")))
+
+fig.n <- fig.n + 1
 sra.09.sum %>%
   ggplot(., aes(lyr_14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
-  geom_vline(xintercept = atm.d14.2009, linetype = "dashed") +
+  geom_vline(xintercept = atm.d14.2009) +
   geom_hline(yintercept = 0) +
   geom_point(size = 3) +
   geom_path(linetype = "dashed") +
@@ -423,14 +421,11 @@ sra.09.sum %>%
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 1}`. Profile $\Delta$^14^C for 2009 samples**
+>**Fig. `r {fig.n}`. Profile $\Delta$^14^C for 2009 samples**
 
->*Caption:* Profile $\Delta$^14^C by depth for each site in 2009. Error bars not shown as only a single replicate profile was analyzed per site.
+>*Caption:* Profile $\Delta$^14^C by depth for each site in 2009. Solid vertical line shows $\Delta$^14^C of the atmosphere in the year of sampling. Error bars not shown as only a single replicate profile was analyzed per site.
 
 ## 2019 mean radiocarbon profiles
-
-Mean profiles are shown below for the 2019 samples, error bars show ±1 standard deviation.
-
 ```{r plot-2019-avg-profiles}
 # combine reps
 sra.2019.sum.ls  <- lapply(sra.2019.ls, function(df) {
@@ -457,11 +452,12 @@ sra.19.sum <- sra.19.sum %>%
                      ifelse(PM == "BS", "basalt", "granite"))) 
 
 # plot
+fig.n <- fig.n + 1
 sra.19.sum %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
   geom_vline(xintercept = atm.d14.2019) +
   geom_hline(yintercept = 0) +
-  geom_point(size = 3) +
+  geom_point(size = 2.7) +
   geom_errorbarh(
     aes(xmin = d14c_l, 
         xmax = d14c_u,
@@ -484,9 +480,9 @@ sra.19.sum %>%
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 2}`. Mean profile $\Delta$^14^C for 2019 samples**
+>**Fig. `r {fig.n}`. Mean profile $\Delta$^14^C for 2019 samples**
 
->*Caption:* Mean $\Delta$^14^C by depth for each site in 2019. Error bars show ±1 standard deviation.
+>*Caption:* Mean $\Delta$^14^C by depth for each site in 2019. Error bars show ±1 standard deviation, solid vertical line shows $\Delta$^14^C of the atmosphere in the year of sampling.
 
 ## Change in $\Delta$^14^C over time between 2001 and 2019 
 
@@ -498,6 +494,7 @@ sra.19.sum$Year <- 2019
 sra.all <- rbind(sra.01.sum, sra.19.sum)
 sra.all$Year <- as.factor(sra.all$Year)
 
+fig.n <- fig.n + 1
 sra.all %>%
   mutate(PMeco_year = paste0(PMeco, Year),
          ecoYear = paste0(ECO, Year),
@@ -535,27 +532,27 @@ sra.all %>%
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 3}`. Mean profile $\Delta$^14^C for 2001 and 2019 samples**
+>**Fig. `r {fig.n}`. Mean profile $\Delta$^14^C for 2001 and 2019 samples**
 
->*Caption:* Mean $\Delta$^14^C by depth for each site in 2001 and 2019. Error bars show ±1 standard deviation.
+>*Caption:* Mean $\Delta$^14^C by depth for each site in 2001 and 2019. Error bars show ±1 standard deviation. Vertical lines show $\Delta$^14^C of the atmosphere in 2001 (solid) and 2019 (dashed).
 
 ## Incubation $\Delta$^14^C-CO~2~ for 2019 bulk soils
 
 ```{r plot-inc-d14c}
 sra.2019.inc.df_1 <- bind_rows(sra.2019.inc.ls_1)
-# remove GRrf 10-20 point
-sra.2019.inc.df_1[which(sra.2019.inc.df_1$PMeco == "GRrf" & sra.2019.inc.df_1$lyr_top == "10"), "d14c"] <- NA
 
+fig.n <- fig.n + 1
 sra.2019.inc.df_1 %>%
-  mutate(eco = factor(ifelse(ECO == "pp", "warm",
-                      ifelse(ECO == "wf", "cool", "cold")),
+  mutate(d14c = replace(d14c, which(d14c < -300), NA), # remove GRrf 10-20 point
+         eco = factor(ifelse(ECO == "pp", "warm",
+                             ifelse(ECO == "wf", "cool", "cold")),
                       levels = c("warm", "cool", "cold")),
          pm = ifelse(PM == "AN", "andesite",
                      ifelse(PM == "BS", "basalt", "granite"))) %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = ECO)) +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
-  geom_point(size = 4) +
+  geom_point(size = 3) +
   # geom_errorbarh(
   #   aes(xmin = d14c_l, 
   #       xmax = d14c_u,
@@ -580,9 +577,9 @@ sra.2019.inc.df_1 %>%
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 4}`. Rep 1 $\Delta$^14^C-CO~2~ of 2019 bulk soil incubations**
+>**Fig. `r {fig.n}`. Rep 1 $\Delta$^14^C-CO~2~ of 2019 bulk soil incubations**
 
->*Caption:* $\Delta$^14^CO~2~ by depth for each site in 2019. (Still waiting on rep 2 data)
+>*Caption:* $\Delta$^14^CO~2~ by depth for each site in 2019. (Still waiting for data from laboratory duplicates). Note that the 10-20 cm increment sample from the cold granite site appears to have been contaminated: $\Delta$^14^C-CO~2~ = `r {sra.2019.inc.df_1[sra.2019.inc.df_1$PMeco == "GRrf" & sra.2019.inc.df_1$lyr_bot == 20, "d14c"]}`.
 
 ## Incubation vs. bulk soil $\Delta$^14^C
 
@@ -599,6 +596,7 @@ sra.19.bulk[ , c("d14c", "d14c_l", "d14c_u")] <- sra.19.sum[which(sra.19.sum$lyr
 sra.19.bulk$Type <- "bulk"
 sra.19.inc.blk <- rbind(sra.19.inc, sra.19.bulk)
 
+fig.n <- fig.n + 1
 sra.19.inc.blk %>%
   mutate(ECOtype = paste0(ECO, Type),
          eco = factor(ifelse(ECO == "pp", "warm",
@@ -609,7 +607,7 @@ sra.19.inc.blk %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = ECOtype, linetype = Type)) +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
-  geom_point(size = 4) +
+  geom_point(size = 3) +
   geom_errorbarh(
     aes(xmin = d14c_l, 
         xmax = d14c_u,
@@ -640,7 +638,7 @@ sra.19.inc.blk %>%
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 5}`. $\Delta$^14^C of 2019 bulk soil incubations and corresponding bulk soil**
+>**Fig. `r {fig.n}`. $\Delta$^14^C of 2019 bulk soil incubations and corresponding bulk soil**
 
 >*Caption:* $\Delta$^14^C of bulk soil and respired CO~2~ by depth for each site in 2019. Error bars show one standard deviation for bulk soil, points show mean of three replicate profiles for bulk soils and single observations for respired CO~2~ (still waiting for data from laboratory duplicates). 
 
@@ -656,6 +654,7 @@ min.inc.blk <- min(sra.19.inc.blk2$d14c_l) # exclude highly negative incubation 
 max.inc.blk <- max(sra.19.inc.blk2$d14c_u, sra.19.inc.blk$d14c.inc)
 
 # What is the ideal grouping/expected relationship?
+fig.n <- fig.n + 1
 sra.19.inc.blk2 %>%
   mutate(depth = ifelse(lyr_top == 0, "0-10cm", ifelse(lyr_top == 10, "10-20cm", "20-30cm"))) %>%
   ggplot(., aes(d14c.bulk, d14c.inc, color = PM, shape = ECO, group = PM)) +
@@ -663,7 +662,7 @@ sra.19.inc.blk2 %>%
   geom_vline(xintercept = 0) +
   # geom_hline(yintercept = atm.d14.2019, linetype = "dashed") +
   geom_hline(yintercept = 0) +
-  geom_point(size = 4) +
+  geom_point(size = 3) +
   # geom_smooth(method = "lm", se = FALSE) +
   geom_errorbarh(
     aes(xmin = d14c_l, 
@@ -720,9 +719,161 @@ sra.19.inc.blk2 %>%
 #   theme_bw() +
 #   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 6}`. Regression of 2019 bulk soil incubations and corresponding bulk soil $\Delta$^14^C**
+>**Fig. `r {fig.n}`. Regression of 2019 bulk soil incubations and corresponding bulk soil $\Delta$^14^C**
 
 >*Caption:* Regressions of $\Delta$^14^C of bulk soil and respired CO~2~ by depth for each site in 2019. Error bars show one standard deviation for bulk soil, points show mean of three replicate profiles for bulk soils and single observations for respired CO~2~ (still waiting for data from laboratory duplicates).
+
+## Time series: $\Delta$^14^C by depth (as measured)
+```{r plot-timeseries-meas-depths}
+# combine '01, '09, '19 data
+sra.01.09.19.raw <- rbind(bind_rows(sra.2001.sum.ls),
+                          bind_rows(sra.2019.sum.ls))
+sra.2009.ls <- split(ras18.lyr, ras18.lyr$PMeco)
+sra.2009.df <- bind_rows(sra.2009.ls)
+colnames(sra.2009.df)[which(colnames(sra.2009.df) == "lyr_14c")] <- "d14c"
+sra.2009.df <- sra.2009.df[ , which(names(sra.2009.df) %in% names(sra.01.09.19.raw))]
+sra.2009.df <- cbind(sra.2009.df, 
+                     fm = NA,
+                     d14c_sd = NA,
+                     fm_sd = NA)
+sra.01.09.19.raw <- rbind(sra.01.09.19.raw, sra.2009.df)
+sra.01.09.19.raw$Year <- factor(c(rep(2001, nrow(bind_rows(sra.2001.sum.ls))),
+                                  rep(2019, nrow(bind_rows(sra.2019.sum.ls))),
+                                  rep(2009, nrow(sra.2009.df))),
+                                levels = c("2001", "2009", "2019"))
+
+# plot
+# w/ ribbons
+# sra.01.09.19.raw %>%
+#   mutate(PMeco_year = paste0(PMeco, Year),
+#          eco = factor(ifelse(ECO == "pp", "warm",
+#                       ifelse(ECO == "wf", "cool", "cold")),
+#                       levels = c("warm", "cool", "cold")),
+#          d14c_u = d14c + d14c_sd,
+#          d14c_l = d14c - d14c_sd,
+#          pm = ifelse(PM == "AN", "andesite",
+#                      ifelse(PM == "BS", "basalt", "granite"))) %>%
+#   ggplot(., aes(d14c, lyr_bot, group = PMeco_year)) +
+#   geom_vline(xintercept = 0) +
+#   geom_hline(yintercept = 0) +
+#   geom_ribbon(aes(xmin = d14c_l, xmax = d14c_u, fill = pm, alpha = Year, group = PMeco_year),
+#               color = NA, show.legend = FALSE) +
+#   geom_point(aes(fill = pm, color = pm, shape = eco, alpha = Year), size = 2) +
+#   geom_point(aes(shape = eco), color = "black", size = 3) +
+#   geom_path(aes(linetype = Year, color = pm), size = 0.7) +
+#   scale_y_reverse() +
+#   scale_color_manual(name = "Parent material",
+#                      values = c("andesite" = "blue", 
+#                                 "basalt" = "red", 
+#                                 "granite" = "darkgray")) +
+#   scale_fill_manual(name = "Parent material",
+#                     values = c("andesite" = "blue", 
+#                                "basalt" = "red", 
+#                                "granite" = "darkgray")) +
+#   scale_shape_manual(name = "Ecosystem",
+#                      values = c("warm" = 22, 
+#                                 "cool" = 21, 
+#                                 "cold" = 24)) +
+#   scale_alpha_manual(values = c("2001" = .6,
+#                                 "2009" = 0.4,
+#                                 "2019" = 0.2)) +
+#   facet_grid(rows = vars(eco), cols = vars(pm)) +
+#   xlab(expression(Delta*''^14*'C (‰)')) +
+#   ylab("Depth (cm)") +
+#   theme_bw() +
+#   theme(panel.grid.minor = element_blank())
+
+# with error bars
+# sra.01.09.19.raw %>%
+#   mutate(PMeco_year = paste0(PMeco, Year),
+#          eco = factor(ifelse(ECO == "pp", "warm",
+#                       ifelse(ECO == "wf", "cool", "cold")),
+#                       levels = c("warm", "cool", "cold")),
+#          d14c_u = d14c + d14c_sd,
+#          d14c_l = d14c - d14c_sd,
+#          pm = ifelse(PM == "AN", "andesite",
+#                      ifelse(PM == "BS", "basalt", "granite"))) %>%
+#   ggplot(., aes(d14c, lyr_bot, group = PMeco_year)) +
+#   geom_vline(xintercept = 0) +
+#   geom_hline(yintercept = 0) +
+#   geom_point(aes(fill = pm, color = pm, shape = eco, alpha = Year), size = 3.5) +
+#   geom_path(aes(linetype = Year, color = pm), size = 0.7) +
+#   geom_errorbarh(
+#     aes(xmin = d14c_l,
+#         xmax = d14c_u,
+#         color = pm,
+#         alpha = Year),
+#     height = 1.5) +
+#   scale_y_reverse() +
+#   scale_color_manual(name = "Parent material",
+#                      values = c("andesite" = "blue", 
+#                                 "basalt" = "red", 
+#                                 "granite" = "darkgray")) +
+#   scale_fill_manual(name = "Parent material",
+#                     values = c("andesite" = "blue", 
+#                                "basalt" = "red", 
+#                                "granite" = "darkgray")) +
+#   scale_shape_manual(name = "Ecosystem",
+#                      values = c("warm" = 15, 
+#                                 "cool" = 16, 
+#                                 "cold" = 17)) +
+#   scale_alpha_manual(values = c("2001" = 1,
+#                                 "2009" = 0.6,
+#                                 "2019" = 0.3)) +
+#   facet_grid(rows = vars(eco), cols = vars(pm)) +
+#   xlab(expression(Delta*''^14*'C (‰)')) +
+#   ylab("Depth (cm)") +
+#   theme_bw() +
+#   theme(panel.grid.minor = element_blank())
+
+# just topsoil, w/ error bars
+fig.n <- fig.n + 1
+sra.01.09.19.raw %>%
+  mutate(PMeco_year = paste0(PMeco, Year),
+         eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         d14c_u = d14c + d14c_sd,
+         d14c_l = d14c - d14c_sd,
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite"))) %>%
+  ggplot(., aes(d14c, lyr_bot, group = PMeco_year)) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_point(aes(fill = pm, color = pm, shape = eco, alpha = Year), size = 3) +
+  geom_path(aes(linetype = Year, color = pm), size = 0.7) +
+  geom_errorbarh(
+    aes(xmin = d14c_l,
+        xmax = d14c_u,
+        color = pm,
+        alpha = Year),
+    height = 1.5) +
+  scale_y_reverse(limits = c(41, 0)) +
+  scale_x_continuous(limits = c(-160, 190)) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_fill_manual(name = "Parent material",
+                    values = c("andesite" = "blue", 
+                               "basalt" = "red", 
+                               "granite" = "darkgray")) +
+  scale_shape_manual(name = "Ecosystem",
+                     values = c("warm" = 15, 
+                                "cool" = 16, 
+                                "cold" = 17)) +
+  scale_alpha_manual(values = c("2001" = 1,
+                                "2009" = 0.6,
+                                "2019" = 0.3)) +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
+  xlab(expression(Delta*''^14*'C (‰)')) +
+  ylab("Depth (cm)") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+>**Fig. `r {fig.n}`. Time series of $\Delta$^14^C by depth, as measured**
+
+>*Caption:* Points show mean of three profile replicates for 2001 and 2019 samples. Error bars show ± 1 standard deviation of the mean (only a single profile was analyzed in 2009). 
 
 ## Spline fitting
 *Fit splines to 2009 data to predict at 2001 depths*
@@ -747,12 +898,9 @@ PMeco_rep_depth <- bind_rows(
 elm_results_df <- cbind(elm_results_df, PMeco_rep_depth)
 ```
 
-Non-trivial to match 2009 bulk density to 2019 depth increments. How to do this? Need a "closest match" function. Or predict from C content using regression? Regression approach fits poorly: best R^2^ is `r {summary(lm(lyr_bd_samp ~ lyr_c_org * lyr_bot + PM + ECO, ras18.lyr))$r.squared}`. Actually, best approach is probably to use a spline function to predict bulk density for new intervals.
-
 ```{r spline-09-19-fm, include = FALSE}
 # spline fit for fm
 # 2009
-sra.2009.ls <- split(ras18.lyr, ras18.lyr$PMeco)
 sra.2009.fm.sp <- lapply(sra.2009.ls, function(x) {
   depths(x) <- pro_name ~ lyr_top + lyr_bot
   x.mps <- mpspline(x, var.name = "lyr_fraction_modern")
@@ -1014,9 +1162,9 @@ sra.01.09.19$d14c_sd <- abs(sra.01.09.19$d14c - calc_14c(sra.01.09.19$fm + sra.0
 ```
 
 ```{r plot-01-09-19-14c-profiles}
+fig.n <- fig.n + 1
 sra.01.09.19 %>%
   mutate(PMeco_year = paste0(PMeco, Year),
-         ecoYear = paste0(ECO, Year),
          eco = factor(ifelse(ECO == "pp", "warm",
                       ifelse(ECO == "wf", "cool", "cold")),
                       levels = c("warm", "cool", "cold")),
@@ -1027,7 +1175,7 @@ sra.01.09.19 %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, linetype = Year, group = PMeco_year)) +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
-  geom_point(aes(alpha = Year), size = 4) +
+  geom_point(aes(alpha = Year), size = 3) +
   geom_path(aes(linetype = Year)) +
   geom_errorbarh(
     aes(xmin = d14c_l, 
@@ -1053,6 +1201,6 @@ sra.01.09.19 %>%
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n + 7}`. Mean profile fraction modern for all sites in 2001 and 2009**
+>**Fig. `r {fig.n}`. Time series of $\Delta$^14^C by depth (2001, 2009, 2019)**
 
->*Caption:* Solid symbols connected by solid lines show fraction modern by depth for each site in 2001; error bars show ±1 standard deviation. Open symbols conneted by dashed lines show interpolated values of fraction modern measured in 2009. Solid and dashed vertical lines show the fraction modern of the atmosphere in 2001 and 2009, respectively, for reference. 
+>*Caption:* Points for 2001 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2009 and 2019 samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2001. Error bars show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009). 
