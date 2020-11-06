@@ -24,6 +24,8 @@ library(dplyr)
 library(ISRaD)
 library(GSIF)
 library(aqp)
+library(SoilR)
+library(FME)
 ```
 
 # Data preparation script for Sierra Nevada time series analysis
@@ -295,21 +297,21 @@ pro.plot <- function(df, maxDepth, min14C, rep) {
     theme(panel.grid.minor = element_blank())
 }
 
-lapply(sra.2001.ls, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), df$pro_rep))
+# lapply(sra.2001.ls, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), df$pro_rep))
 ```
 
 ```{r plot-2019-profiles, include = FALSE}
-lapply(sra.2019.ls, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), df$pro_rep))
+# lapply(sra.2019.ls, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), df$pro_rep))
 ```
 
 ```{r plot-2019-co2-profiles, include = FALSE}
-lapply(sra.2019.inc.ls_1, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), NA))
+# lapply(sra.2019.inc.ls_1, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), NA))
 ```
 
 ## 2001 mean radiocarbon profiles
 ```{r plot-2001-avg-profiles}
 # fm and d14c conversion functions
-lambda <- 0.00012097 # = 1/(true mean life of 14C)
+lambda <- 1/8267 # = 1/(true mean life of 14C)
 calc_fm <- function(d14c, obs_date_y) {
   ((d14c/1000) + 1)/exp(lambda * (1950 - obs_date_y))
 }
@@ -828,6 +830,7 @@ sra.01.09.19.raw$Year <- factor(c(rep(2001, nrow(bind_rows(sra.2001.sum.ls))),
 
 # just topsoil, w/ error bars
 fig.n <- fig.n + 1
+sra.01.09.19.raw <- sra.01.09.19.raw[order(sra.01.09.19.raw$lyr_top), ]
 sra.01.09.19.raw %>%
   mutate(PMeco_year = paste0(PMeco, Year),
          eco = factor(ifelse(ECO == "pp", "warm",
@@ -884,9 +887,9 @@ In order to compare the radiocarbon profiles between 2001, 2009, and 2019 we int
 
 ```{r cn-clean, include = FALSE}
 elm_results_df <- bind_rows(unlist(elm_results_ls, recursive = FALSE))
-# Split Probenname
+# Split IDs
 PMeco_rep_depth <- bind_rows(
-  lapply(strsplit(elm_results_df$Probenname, "_"), function(x) { 
+  lapply(strsplit(elm_results_df$ID, "_"), function(x) { 
     df <-  data.frame(PMeco = x[2],
                       pro_rep = x[3],
                       depth = x[4])
@@ -898,8 +901,47 @@ PMeco_rep_depth <- bind_rows(
 elm_results_df <- cbind(elm_results_df, PMeco_rep_depth)
 ```
 
-```{r spline-09-19-fm, include = FALSE}
-# spline fit for fm
+```{r soc-2001, include = FALSE}
+# add SOC data (lyr_soc_kgm2) to sra.2001.ls
+soc.2001 <- data.frame(read_excel("../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
+                                  sheet = "2001_bulk_data"))
+soc.2001 <- type.convert(soc.2001[complete.cases(soc.2001), ])
+soc.2001$lyr_soc_kgm2 <- soc.2001$C. * soc.2001$bd.g.cm3 * soc.2001$lyr_bot - soc.2001$lyr_top * 10^-1
+nms.2001 <- c("PMeco", "lyr_top", "lyr_bot", "pro_rep")
+sra.2001.ls <- lapply(sra.2001.ls, function(df) {
+  merge(df, soc.2001[ , c(nms.2001, "lyr_soc_kgm2")], by = nms.2001)
+})
+
+# calculate cumulative stocks
+# order 2001 data
+sra.2001.ls <- lapply(sra.2001.ls, function(df) {
+  ls <- split(df, df$pro_name)
+  ls <- lapply(ls, function(x) {
+    x <- x[order(x$lyr_bot), ]
+    x$lyr_soc_cmtv <- NA
+    for(i in seq_along(x$lyr_bot)) {
+      if(i == 1) {
+        x$lyr_soc_cmtv[i] <- x$lyr_soc_kgm2[i]
+      } else {
+        x$lyr_soc_cmtv[i] <- x$lyr_soc_kgm2[i] + x$lyr_soc_cmtv[i-1] 
+      }
+    }
+    return(x)
+  })
+  return(unsplit(ls, df$pro_name))
+})
+```
+
+```{r spline-fm, include = FALSE}
+## spline fit for fm
+sra.2001.fm.sp <- lapply(sra.2001.ls, function(df) {
+  lapply(split(df, df$pro_name), function(x) {
+    depths(x) <- pro_name ~ lyr_top + lyr_bot
+    x.mps <- mpspline(x, var.name = "fm")
+    x.mps$var.1cm <- x.mps$var.1cm[1:max(x$lyr_bot)]
+    return(x.mps)
+  })
+})
 # 2009
 sra.2009.fm.sp <- lapply(sra.2009.ls, function(x) {
   depths(x) <- pro_name ~ lyr_top + lyr_bot
@@ -919,6 +961,7 @@ sra.2019.fm.sp <- lapply(sra.2019.ls, function(df) {
 ```
 
 ```{r spline-bd-soc-19, include = FALSE}
+# Need SOC stock data for 2019 samples: use BD from 2009 samples 
 # spline fit for bulk density
 sra.2009.bd.sp <- lapply(sra.2009.ls, function(x) {
   depths(x) <- pro_name ~ lyr_top + lyr_bot
@@ -988,12 +1031,12 @@ sra.2019.ls <- lapply(sra.2019.ls, function(df) {
 })
 ```
 
-```{r spline-soc-stocks, include = FALSE}
+```{r spline-soc, include = FALSE}
 # spline fit for carbon stocks (for calc weighted averages)
 depth.spline <- function(x) {
   sp <- spline(x, method = "hyman") # fit monotonic cubic spline
   sp.ss <- smooth.spline(sp) # convert to class "spline" with smooth.spline fxn
-  std <- seq(0, max(x$lyr_bot)+1, by = 1) # in cm
+  std <- seq(0, 100) # in cm (linear beyond last measured depth)
   sp <- predict(sp.ss, std) 
   df <- data.frame(sp)
   colnames(df) <- c("lyr_bot","lyr_soc")
@@ -1009,6 +1052,18 @@ depth.spline <- function(x) {
 }
 
 # add (0, 0) point for (lyr_bot, lyr_cmtv_stock)
+sra.2001.sp.ls <- lapply(sra.2001.ls, function(df) {
+  ls <- lapply(split(df, df$pro_name), function(x) {
+    t0 <- data.frame(matrix(nrow = 1, ncol = ncol(x)))
+    xy <- c(which(names(x) == "lyr_bot"), which(names(x) == "lyr_soc_cmtv"))
+    t0[ , xy] <- 0
+    names(t0) <- names(x)
+    t0$pro_name <- unique(x$pro_name)
+    return(rbind(t0, x))
+  })
+  return(bind_rows(ls))
+})
+
 # 2009
 sra.2009.sp.ls <- lapply(sra.2009.ls, function(df) {
   t0 <- data.frame(matrix(nrow = 1, ncol = ncol(df)))
@@ -1032,7 +1087,13 @@ sra.2019.sp.ls <- lapply(sra.2019.ls, function(df) {
   return(bind_rows(ls))
 })
 
-# run spline
+## run spline
+# 2001
+sra.2001.oc.sp <- lapply(sra.2001.sp.ls, function(df) {
+  lapply(split(df, df$pro_name), function(x) {
+    depth.spline(x[, c("lyr_bot", "lyr_soc_cmtv")])
+  })
+})
 # 2009
 sra.2009.oc.sp <- lapply(sra.2009.sp.ls, function(x) {
   depth.spline(x[, c("lyr_bot", "lyr_soc_cmtv")])
@@ -1043,12 +1104,16 @@ sra.2019.oc.sp <- lapply(sra.2019.sp.ls, function(df) {
     depth.spline(x[, c("lyr_bot", "lyr_soc_cmtv")])
   })
 })
+```
 
-# calculate stock weights for 2001
+```{r cwt-d14c-01, include = FALSE}
+## calculate stock weights
+## 2001 depths
+# order '01 data
 sra.2001.sum.ls <- lapply(sra.2001.sum.ls, function(df) df[order(df$lyr_bot), ])
 # 2009
-cwt.09 <- lapply(seq_along(sra.2009.oc.sp), function(i) {
-  d <- sra.2001.sum.ls[[i]][["lyr_bot"]]
+cwt.01.09 <- lapply(seq_along(sra.2009.oc.sp), function(i) {
+  d <- sra.2001.sum.ls[[i]][["lyr_bot"]] # map onto '01 depths
   c <- vector(mode = "list", length = length(d))
   for(j in seq_along(d)) {
     if(j == 1) {
@@ -1057,13 +1122,13 @@ cwt.09 <- lapply(seq_along(sra.2009.oc.sp), function(i) {
       c[[j]] <- sra.2009.oc.sp[[i]][(d[j-1]+1):d[j], "lyr_soc"] 
     }
   }
-  return(unlist(lapply(c, function(x) x/sum(x))))
+  return(unlist(lapply(c, function(x) x/sum(x)))) # return weights
 })
-names(cwt.09) <- names(sra.2009.oc.sp)
-# 2019
-cwt.19 <- lapply(seq_along(sra.2019.oc.sp), function(i) {
+names(cwt.01.09) <- names(sra.2009.oc.sp)
+# 2019 (second list level from profile reps)
+cwt.01.19 <- lapply(seq_along(sra.2019.oc.sp), function(i) {
   lapply(sra.2019.oc.sp[[i]], function(df) {
-    d <- sra.2001.sum.ls[[i]][["lyr_bot"]]
+    d <- sra.2001.sum.ls[[i]][["lyr_bot"]] # map onto '01 depths
     c <- vector(mode = "list", length = length(d))
     for(j in seq_along(d)) {
       if(j == 1) {
@@ -1072,59 +1137,61 @@ cwt.19 <- lapply(seq_along(sra.2019.oc.sp), function(i) {
         c[[j]] <- df[(d[j-1]+1):d[j], "lyr_soc"] 
       }
     }
-    return(unlist(lapply(c, function(x) x/sum(x))))
+    return(unlist(lapply(c, function(x) x/sum(x))))  # return weights
   })
 })
-names(cwt.19) <- names(sra.2019.oc.sp)
+names(cwt.01.19) <- names(sra.2019.oc.sp)
 
 
-## calculate fm_wts 
-# 2009
-fm.wt.09 <- lapply(seq_along(cwt.09), function(i) {
-  df <- data.frame(cwt = cwt.09[[i]])
-  df$fm <- sra.2009.fm.sp[[i]][["var.1cm"]][1:length(cwt.09[[i]])]
-  df$fm_wt <- df$fm * df$cwt
-  return(df)
-})
-names(fm.wt.09) <- names(cwt.09)
+## calculate fm_wts
+## '01 depths
 # 2019
-fm.wt.19 <- lapply(seq_along(cwt.19), function(i) {
-  lapply(seq_along(cwt.19[[i]]), function(j) {
-    df <- data.frame(cwt = cwt.19[[i]][[j]])
-    df$fm <- sra.2019.fm.sp[[i]][[j]][["var.1cm"]][1:length(cwt.19[[i]][[j]])]
+fm.wt.01.19 <- lapply(seq_along(cwt.01.19), function(i) {
+  lapply(seq_along(cwt.01.19[[i]]), function(j) {
+    df <- data.frame(cwt = cwt.01.19[[i]][[j]])
+    df$fm <- sra.2019.fm.sp[[i]][[j]][["var.1cm"]][1:length(cwt.01.19[[i]][[j]])]
     df$fm_wt <- df$fm * df$cwt
   return(df)
   })
 }) 
-names(fm.wt.19) <- names(cwt.19)
+names(fm.wt.01.19) <- names(cwt.01.19)
+# 2009
+fm.wt.01.09 <- lapply(seq_along(cwt.01.09), function(i) {
+  df <- data.frame(cwt = cwt.01.09[[i]])
+  df$fm <- sra.2009.fm.sp[[i]][["var.1cm"]][1:length(cwt.01.09[[i]])]
+  df$fm_wt <- df$fm * df$cwt
+  return(df)
+})
+names(fm.wt.01.09) <- names(cwt.01.09)
 
 
 ## calculate weighted average of fm for each interval
+## '01 depths
 # 2009
 sra.01.09.ls <- lapply(seq_along(sra.2001.sum.ls), function(i) {
   d <- sra.2001.sum.ls[[i]][["lyr_bot"]]
   f <- vector(mode = "list", length = length(d))
   for(j in seq_along(d)) {
     if(j == 1) {
-      f[[j]] <- sum(fm.wt.09[[i]][1:d[j], "fm_wt"])
+      f[[j]] <- sum(fm.wt.01.09[[i]][1:d[j], "fm_wt"])
     } else {
-      f[[j]] <- sum(fm.wt.09[[i]][(d[j-1]+1):d[j], "fm_wt"])
+      f[[j]] <- sum(fm.wt.01.09[[i]][(d[j-1]+1):d[j], "fm_wt"])
     }
   }
   return(cbind(sra.2001.sum.ls[[i]], fm_09 = unlist(f)))
 })
-names(sra.01.09.ls) <- names(fm.wt.09)
+names(sra.01.09.ls) <- names(fm.wt.01.09)
 # 2019
-sra.01.19.ls <- fm.wt.19
+sra.01.19.ls <- fm.wt.01.19 # initialize list with fm wt structure
 sra.01.19.ls <- lapply(seq_along(sra.2001.sum.ls), function(i) {
-  sra.01.19.ls[[i]] <- lapply(seq_along(fm.wt.19[[i]]), function(x) {
+  sra.01.19.ls[[i]] <- lapply(seq_along(fm.wt.01.19[[i]]), function(x) {
     d <- sra.2001.sum.ls[[i]][["lyr_bot"]]
     f <- vector(mode = "list", length = length(d))
     for(j in seq_along(d)) {
       if(j == 1) {
-        f[[j]] <- sum(fm.wt.19[[i]][[x]][1:d[j], "fm_wt"])
+        f[[j]] <- sum(fm.wt.01.19[[i]][[x]][1:d[j], "fm_wt"])
       } else {
-        f[[j]] <- sum(fm.wt.19[[i]][[x]][(d[j-1]+1):d[j], "fm_wt"])
+        f[[j]] <- sum(fm.wt.01.19[[i]][[x]][(d[j-1]+1):d[j], "fm_wt"])
       }
     }
     return(unlist(f)) 
@@ -1141,8 +1208,7 @@ sra.01.09.19.ls <- lapply(seq_along(sra.01.09.ls), function(i) {
 })
 names(sra.01.09.19.ls) <- names(sra.01.09.ls)
 
-
-# create tidy combined '01 and '09 data frame
+## create tidy combined '01, '09, '19 data frame
 nms <- c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot", "fm", "fm_sd")
 sra.01.09.19.df <- bind_rows(sra.01.09.19.ls)
 sra.01.09.19 <- sra.01.09.19.df[, nms]
@@ -1159,6 +1225,146 @@ sra.01.09.19 <- rbind(cbind(sra.01.09.19, Year = as.character(2001)),
 # calc d14c from fm
 sra.01.09.19$d14c <- calc_14c(sra.01.09.19$fm, as.numeric(as.character(sra.01.09.19$Year)))
 sra.01.09.19$d14c_sd <- abs(sra.01.09.19$d14c - calc_14c(sra.01.09.19$fm + sra.01.09.19$fm_sd, as.numeric(as.character(sra.01.09.19$Year))))
+```
+
+```{r cwt-d14c-19, include = FALSE}
+## calculate stock weights
+## 2019 depths
+# 2001
+cwt.19.01 <- lapply(seq_along(sra.2001.oc.sp), function(i) {
+  lapply(sra.2001.oc.sp[[i]], function(df) {
+    d <- sra.2019.sum.ls[[i]][["lyr_bot"]]
+    c <- vector(mode = "list", length = length(d))
+    for(j in seq_along(d)) {
+      if(j == 1) {
+        c[[j]] <- df[1:d[j], "lyr_soc"]
+      } else {
+        c[[j]] <- df[(d[j-1]+1):d[j], "lyr_soc"] 
+      }
+    }
+    return(unlist(lapply(c, function(x) x/sum(x))))
+  })
+})
+names(cwt.19.01) <- names(sra.2001.oc.sp)
+# 2009
+cwt.19.09 <- lapply(seq_along(sra.2009.oc.sp), function(i) {
+  d <- sra.2019.sum.ls[[i]][["lyr_bot"]]
+  c <- vector(mode = "list", length = length(d))
+  for(j in seq_along(d)) {
+    if(j == 1) {
+      c[[j]] <- sra.2009.oc.sp[[i]][1:d[j], "lyr_soc"]
+    } else {
+      c[[j]] <- sra.2009.oc.sp[[i]][(d[j-1]+1):d[j], "lyr_soc"] 
+    }
+  }
+  return(unlist(lapply(c, function(x) x/sum(x))))
+})
+names(cwt.19.09) <- names(sra.2009.oc.sp)
+
+## calculate fm_wts
+## '19 depths
+# 2001
+fm.wt.19.01 <- lapply(seq_along(cwt.19.01), function(i) {
+  lapply(seq_along(cwt.19.01[[i]]), function(j) {
+    df <- data.frame(cwt = cwt.19.01[[i]][[j]])
+    df$fm <- sra.2001.fm.sp[[i]][[j]][["var.1cm"]][1:length(cwt.19.01[[i]][[j]])]
+    # linear extrapolation for filling 20-30cm fm data
+    fm_1_30 <- df$fm[1:30] # 0-30cm fm
+    if(length(which(is.na(fm_1_30))) > 0) {
+     ix <- which(is.na(fm_1_30))
+     ix.min <- min(ix) # first is.na(fm)
+     m <- fm_1_30[ix.min-1]-fm_1_30[ix.min-2] # slope at last two measurement points
+     for(i in ix.min:30) {
+      fm_1_30[i] <- fm_1_30[i - 1] + m 
+     }
+     df$fm[1:30] <- fm_1_30 
+    }
+    df$fm_wt <- df$fm * df$cwt
+  return(df)
+  })
+})
+names(fm.wt.19.01) <- names(cwt.19.01)
+# 2009
+fm.wt.19.09 <- lapply(seq_along(cwt.19.09), function(i) {
+  df <- data.frame(cwt = cwt.19.09[[i]])
+  df$fm <- sra.2009.fm.sp[[i]][["var.1cm"]][1:length(cwt.19.09[[i]])]
+  df$fm_wt <- df$fm * df$cwt
+  return(df)
+})
+names(fm.wt.19.09) <- names(cwt.19.09)
+
+
+## calculate weighted average of fm for each interval
+## '19 depths
+# 2001
+# calculate weighted spline values for each profile rep
+sra.19.01.rep.ls <- fm.wt.19.01
+sra.19.01.rep.ls <- lapply(seq_along(sra.2019.sum.ls), function(i) {
+  sra.19.01.rep.ls[[i]] <- lapply(seq_along(fm.wt.19.01[[i]]), function(x) {
+    d <- sra.2019.sum.ls[[i]][["lyr_bot"]]
+    f <- vector(mode = "list", length = length(d))
+    for(j in seq_along(d)) {
+      if(j == 1) {
+        f[[j]] <- sum(fm.wt.19.01[[i]][[x]][1:d[j], "fm_wt"])
+      } else {
+        f[[j]] <- sum(fm.wt.19.01[[i]][[x]][(d[j-1]+1):d[j], "fm_wt"])
+      }
+    }
+    return(unlist(f)) 
+  })})
+sra.19.01.rep.ls <- lapply(seq_along(sra.19.01.rep.ls), function(i) {
+  names(sra.19.01.rep.ls[[i]]) <- names(cwt.19.01[[i]])
+  return(sra.19.01.rep.ls[[i]])
+})
+names(sra.19.01.rep.ls) <- names(fm.wt.19.01)
+
+# average reps
+sra.19.01.ls <- lapply(seq_along(sra.2019.sum.ls), function(i) {
+  fm <- lapply(seq_along(sra.19.01.rep.ls[[i]][[1]]), function(z) {
+    data.frame(fm_01_mean = mean(sapply(sra.19.01.rep.ls[[i]], "[", z), na.rm = TRUE),
+               fm_01_sd = sd(sapply(sra.19.01.rep.ls[[i]], "[", z), na.rm = TRUE))
+    })
+  return(bind_rows(fm))
+})
+names(sra.19.01.ls) <- names(fm.wt.19.01)
+
+# 2009
+sra.19.09.ls <- lapply(seq_along(sra.2019.sum.ls), function(i) {
+  d <- sra.2019.sum.ls[[i]][["lyr_bot"]]
+  f <- vector(mode = "list", length = length(d))
+  for(j in seq_along(d)) {
+    if(j == 1) {
+      f[[j]] <- sum(fm.wt.19.09[[i]][1:d[j], "fm_wt"])
+    } else {
+      f[[j]] <- sum(fm.wt.19.09[[i]][(d[j-1]+1):d[j], "fm_wt"])
+    }
+  }
+  return(cbind(sra.2019.sum.ls[[i]], fm_09 = unlist(f)))
+})
+names(sra.19.09.ls) <- names(sra.19.01.ls)
+
+# combine
+sra.19.01.09.ls <- lapply(seq_along(sra.19.01.ls), function(i) {
+  data.frame(sra.19.01.ls[[i]], sra.19.09.ls[[i]])
+})
+names(sra.19.01.09.ls) <- names(sra.19.01.ls)
+
+## create tidy combined '01, '09, '19 data frame
+sra.19.01.09.df <- bind_rows(sra.19.01.09.ls)
+sra.19.01.09 <- sra.19.01.09.df[, nms]
+sra.19.01.09 <- rbind(data.frame(sra.19.01.09[, nms[1:5]],
+                                 fm = sra.19.01.09.df$fm_01_mean,
+                                 fm_sd = sra.19.01.09.df$fm_01_sd,
+                                 Year = as.character(2001)),
+                     data.frame(sra.19.01.09[, nms[1:5]],
+                                fm = sra.19.01.09.df$fm_09,
+                                fm_sd = NA,
+                                Year = as.character(2009)),
+                     cbind(sra.19.01.09, Year = as.character(2019)))
+
+# calc d14c from fm
+sra.19.01.09$d14c <- calc_14c(sra.19.01.09$fm, as.numeric(as.character(sra.19.01.09$Year)))
+sra.19.01.09$d14c_sd <- abs(sra.19.01.09$d14c - calc_14c(sra.19.01.09$fm + sra.19.01.09$fm_sd, as.numeric(as.character(sra.19.01.09$Year))))
 ```
 
 ```{r plot-01-09-19-14c-profiles}
@@ -1204,3 +1410,645 @@ sra.01.09.19 %>%
 >**Fig. `r {fig.n}`. Time series of $\Delta$^14^C by depth (2001, 2009, 2019)**
 
 >*Caption:* Points for 2001 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2009 and 2019 samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2001. Error bars show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009). 
+
+```{r plot-19-01-09-14c-profiles}
+fig.n <- fig.n + 1
+sra.19.01.09 %>%
+  mutate(PMeco_year = paste0(PMeco, Year),
+         eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         d14c_u = d14c + d14c_sd,
+         d14c_l = d14c - d14c_sd,
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite"))) %>%
+  ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, linetype = Year, group = PMeco_year)) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_point(aes(alpha = Year), size = 3) +
+  geom_path(aes(linetype = Year)) +
+  geom_errorbarh(
+    aes(xmin = d14c_l, 
+        xmax = d14c_u,
+        color = pm), 
+    height = 1.5) +
+  scale_y_reverse(limits = c(30, 0)) +
+  scale_x_continuous() +    
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "Ecosystem",
+                     values = c("warm" = 15, 
+                                "cool" = 16, 
+                                "cold" = 17)) +
+  scale_alpha_manual(values = c("2001" = 1,
+                                "2009" = 0.6,
+                                "2019" = 0.3)) +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
+  xlab(expression(Delta*''^14*'C (‰)')) +
+  ylab("Depth (cm)") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+>**Fig. `r {fig.n}`. Time series of $\Delta$^14^C by depth (splined to 2019 depths)**
+
+>*Caption:* Points for 2019 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2001 and 2009 samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2019. Error bars show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009). 
+>*NB: Only two depth intervals were measured at the cool and cold andesite sites (max depth of 27 and 28 cm, respectively), so linear extrapolation (using the slope of the last 1cm spline-fitted depth increment) was used to extend the profiles to 30 cm.*
+
+## Initial modeling
+
+The goal of this modeling exercise is to see how parent material and climate/ecosystem affect estimates of soil carbon ages and transit times. Bulk soil ^14^C observations from 2001, 2009, and 2019 will be used to constrain the carbon models, as well as observations of ^14^C-CO~2~ from laboratory soil incubations of soils collected in 2001 and 2019. Previous work has indicated that the carbon stocks at these sites is likely at equilibrium, so we will apply the steady-state assumption to the modeling.
+
+### Two-pool parallel model
+
+One pool models have been shown repeatedly to be inadequate for describing soil carbon dynamics. However, as simple models are easier to constrain, we will start with a two-pool parallel model, as this is the simplest model system beyond the single pool approach. The two-pool parallel model requires the following parameters:
+* decomposition constants for each pool (*k*~1~, *k*~2~)
+* input partitioning coefficient ($\gamma$)
+* steady-state carbon stocks (C)
+* inputs (I)
+* initial values of ^14^C
+
+Decomposition rates (*k*) are related to the amount of ^14^C in a pre-bomb system (fraction modern, *F*) at steady-state by the following equations (cf. Schuur, Druffle, and Trumbore, 2016):
+>**Eq. 1**
+
+$$F = \frac{k}{k + \lambda}$$
+>**Eq. 2**
+
+$$k = \frac{\lambda \cdot F}{1 - F}$$
+>where $\lambda$ is the radioactive decay constant (1/8267).
+
+As the decomposition rates will vary, the initial ^14^C content can be determined dynamically with equation 1.
+
+Carbon stocks are known, while inputs will be estimated and are related to the steady-state conditions by the following equation: 
+>**Eq. 3**
+
+$$I = (k_{1} \cdot C_{1}) + (k_{2} \cdot C_{2})$$
+>where *C~1~* and *C~2~* are the carbon stocks of the two model pools.
+
+Both stocks and inputs can be scaled to the known value of the total carbon pool once the steady-state parameters (*k~1~*, *k~2~*, $\gamma$) have been determined. Pool sizes are a function of the inputs and input partitioning coefficient at steady-state.
+
+A Monte-Carlo Markov chain approach will be used for parameter estimation in combination with an initial optimization algorithm to determine the best set of initial parameters.
+
+```{r mod-utils}
+# note lambda defined earlier
+
+# k from fraction modern
+k <- function(Fm) {
+  (Fm*lambda)/(1-Fm)
+}
+
+# d14C from fraction modern 
+fm_14c <- function(fm, date) {
+  (fm*exp(lambda*(1950 - date)) - 1)*1000
+}
+
+# pre-bomb fraction modern from k (steady-state assumed)
+fm <- function(k){
+  k/(k+lambda)
+}
+```
+
+```{r mod-funs-2pp}
+# set vector of time and atm 14C inputs
+Year <- Datm$Date
+
+# index of years for which bulk/resp 14C are known
+year.ix <- c(which(Datm$Date == 2001.5),
+             which(Datm$Date == 2009.5),
+             which(Datm$Date == 2019.5))
+
+# function for saving constraint data in a dataframe for plotting in ggplot
+con.df.fx <- function(PMeco, lyr_bot) {
+  bulk.df <- sra.19.01.09[sra.19.01.09$PMeco == PMeco &
+                           sra.19.01.09$lyr_bot == lyr_bot, c("Year", "d14c", "d14c_sd")]
+  resp.df <- cbind(sra.2019.inc.df_1[sra.2019.inc.df_1$PMeco == PMeco &
+                                       sra.2019.inc.df_1$lyr_bot == lyr_bot, c("Year", "d14c")], d14c_sd = NA)
+  con.df <- cbind(pool = c(rep("bulk C", nrow(bulk.df)), rep("respiration", nrow(resp.df))), rbind(bulk.df, resp.df))
+  con.df$d14c_l <- con.df$d14c - con.df$d14c_sd
+  con.df$d14c_u <- con.df$d14c + con.df$d14c_sd
+  con.df$Year <- as.numeric(as.character(con.df$Year))
+  return(con.df)
+}
+
+# function for trial and error approach for parameter fitting
+par.fx <- function(In, gam, ks, verbose = TRUE) {
+  A <- -1*diag(ks)
+  if(verbose) {
+    cat(paste0(PMeco, "_", lyr_top, "-", lyr_bot), "\n")
+    cat(round(sum(-1*solve(A)%*%c(In*gam, In*(1-gam))), 1), " (modeled stocks)\n")
+    cat(csoc.19.0_30[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]][ , "lyr_soc"], " (measured stocks)\n") 
+  }
+  
+  # steady-state stocks
+  ss.cstock <- (-1*solve(A)%*%c(In*gam, In*(1-gam)))
+    
+  # F0_Delta14C
+  F0_Delta14C <- c(Delta14C_from_AbsoluteFractionModern(fm(ks[1])), Delta14C_from_AbsoluteFractionModern(fm(ks[2])))
+  
+  # 2pool parallel model
+  iniMod.2pp <- TwopParallelModel14(t = Year,
+                                    ks = ks,
+                                    C0 = c(ss.cstock[1], ss.cstock[2]),
+                                    F0_Delta14C = F0_Delta14C,
+                                    In = In,
+                                    gam = gam,
+                                    inputFc = Datm)
+  
+    # get C and 14C data
+    ini.2pp.C14 <- getF14(iniMod.2pp)
+    ini.2pp.C14m <- getF14C(iniMod.2pp) 
+    ini.2pp.HR <- getF14R(iniMod.2pp)
+    ini.2pp.Ctot <- getC(iniMod.2pp)
+    
+    # data frame for plotting
+    return(data.frame(
+      years = rep(Datm$Date, 5),
+      d14C = c(ini.2pp.C14[,1], 
+               ini.2pp.C14[,2], 
+               ini.2pp.C14m,
+               ini.2pp.HR,
+               Datm$NHc14),
+      pool = rep(c("fast", "slow", "bulk C", "respiration", "atm"), each = nrow(ini.2pp.C14))))
+}
+
+# plot function
+C14.2pp.plot.fx <- function(plot.df, con.df) {
+  plot.df %>%
+  filter(pool == "bulk C" | pool == "respiration" | pool == "atm") %>%
+  ggplot(., aes(years, d14C, color = pool)) +
+  geom_path() +
+  geom_point(data = con.df, aes(Year, d14c, color = pool), size = 3) +
+  geom_errorbar(data = con.df,
+    aes(x = Year,
+        ymin = d14c_l, 
+        ymax = d14c_u, 
+        color = pool), 
+    width = .1,
+    inherit.aes = FALSE) +
+  scale_color_manual(
+    name = "Model pool",
+    values = c("atm" = 8,
+               "bulk C" = "black",
+               "fast" = "#D81B60",
+               "slow" = "#1E88E5",
+               "respiration" = "#FFC107")) +
+  scale_x_continuous(limits = c(1950, 2022)) +
+  ggtitle(paste0(PMeco, "_", lyr_top, "-", lyr_bot, " 2pp")) +
+  xlab("Year") +
+  ylab(expression(''*Delta*''^14*'C (‰)')) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+}
+
+# set up model function for MCMC simulation for 2-pool parallel system
+modFun_2pp <- function(pars, pass){
+  F0_Delta14C <- unlist(lapply(pars[1:2], function(x) Delta14C_from_AbsoluteFractionModern(fm(x))))
+  A <- -1*diag(pars[1:2])
+  ss.cstock <- (-1*solve(A)%*%c(In*pars[3], In*(1-pars[3])))
+  mod <- TwopParallelModel14(
+    t = Year,
+    ks = pars[1:2],
+    C0 = c(ss.cstock[1], ss.cstock[2]),
+    F0_Delta14C = F0_Delta14C,
+    In = In,
+    gam = pars[3],
+    inputFc = Datm,
+    pass = pass)
+  C14m <- getF14C(mod)
+  C14p <- getF14(mod)
+  C14r <- getF14R(mod)
+  Ctot <- getC(mod)
+  return(data.frame(time = Year, 
+                    bulkC = C14m, 
+                    resp = C14r,
+                    socs = rowSums(Ctot)))
+}
+```
+
+```{r mod-constraints, include = FALSE}
+## Inputs
+# Inputs may vary among sites, and I could use respiration data from incubations to control that
+# For now, they will be kept constant across sites but be allowed to vary by depth
+In.10 <- .16 # this was fit to the BSwf 0-10 site
+In.20 <- .1 # totally made up
+In.30 <- .05 # totally made up
+
+## SOC stocks
+# use 2019 SOC stocks for steady-state estimates
+csoc.19.0_30 <- bind_rows(
+  lapply(sra.2019.sp.ls, function(df) {
+    df <- suppressMessages(
+      df %>% 
+        filter(lyr_bot < 31 & lyr_bot > 0) %>%
+        select(PMeco, lyr_top, lyr_bot, lyr_soc) %>%
+        group_by(PMeco, lyr_top, lyr_bot) %>%
+        summarize(lyr_soc = mean(lyr_soc)))
+    return(data.frame(df))
+  })
+)
+# convert to 27 element list
+csoc.19.0_30 <- split(csoc.19.0_30, paste0(csoc.19.0_30$PMeco, "_", csoc.19.0_30$lyr_top, "-", csoc.19.0_30$lyr_bot))
+
+## 14C constraints
+# bulk
+obs.bulk.14c <- unlist(
+  lapply(seq_along(sra.19.01.rep.ls), function(i) {
+  # index along depth intervals 0-10, 10-20, 20-30
+  depth.ls <- lapply(seq_along(1:3), function(j) {
+    c(unlist(lapply(sra.19.01.rep.ls[[i]], "[[", j)),
+      split(split(sra.19.01.09, sra.19.01.09$PMeco)[[i]],
+            split(sra.19.01.09, sra.19.01.09$PMeco)[[i]]["lyr_bot"])[[j]][ , "fm"][2],
+      unlist(split(sra.2019.ls[[i]], sra.2019.ls[[i]]["lyr_bot"])[[j]]["fm"]))
+  })
+  reps01 <- length(sra.19.01.rep.ls[[i]])
+  depth.dfs <- lapply(depth.ls, function(fm) {
+    data.frame(time = c(rep(2001.5, reps01), 2009.5, rep(2019.5, 3)),
+               bulkC = Delta14C_from_AbsoluteFractionModern(fm))
+  })
+  return(depth.dfs)
+}), recursive = FALSE)
+names(obs.bulk.14c) <- paste0(rep(c("AN", "BS", "GR"), each = 9),
+                              rep(c("pp", "rf", "wf"), each = 3, times = 3),
+                              rep(c("_0-10", "_10-20", "_20-30"), times = 9))
+
+# respiration
+obs.resp.14c <- split(sra.2019.inc.df_1, gsub("comp_", "", sra.2019.inc.df_1$lyr_name))
+obs.resp.14c <- lapply(obs.resp.14c, function(df) {
+  df$resp <- df$d14c
+  df$time <- df$Year + .5
+  return(df[ , c("time", "resp")])
+})
+
+## Initial parameters
+# initialize list (9 sites by 3 depths = 27 elements)
+pars.i <- lapply(seq_len(27), function(df) {
+  df <- data.frame(kfast = NA,
+                   kslow = NA,
+                   gam = NA)
+})
+names(pars.i) <- names(obs.bulk.14c)
+```
+
+```{r ini-mod-pars-BSpp-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "BSpp"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- In.10
+gam <- .7 # partitioning coef
+ks <- c(.05, .0065) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSwf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "BSwf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- In.10
+gam <- .9 # initial value
+ks <- c(.12, .004) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSrf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "BSrf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- In.10
+gam <- .9 # partitioning coef
+ks <- c(.10, .003) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANpp-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "ANpp"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- In.10
+gam <- .95 # partitioning coef
+ks <- c(.1, .005) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANwf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "ANwf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- In.10
+gam <- .9 # initial value
+ks <- c(.09, .0017) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANrf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "ANrf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- In.10
+gam <- .92 # partitioning coef
+ks <- c(.08, .0033) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-GRpp-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "GRpp"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- In.10
+gam <- .72 # partitioning coef
+ks <- c(.06, .01) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-GRwf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "GRwf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- In.10
+gam <- .8 # partitioning coef
+ks <- c(.075, .0075) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-GRrf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "GRrf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- In.10
+gam <- .9 # partitioning coef
+ks <- c(.08, .0031) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r opt-mod}
+## Optimize model pars
+# Cost function (evaluates error as model vs. obsv, per FME req)
+# note that we have to set "pass" to TRUE so SoilR model doesn't fail (neg. resp)
+mod.fits <- vector(mode = "list", length = length(pars.i))
+test.ix <- seq(1, 27, 3)
+mod.fits[test.ix] <- lapply(test.ix, function(i) {
+  start <- Sys.time()
+  cat(paste0(names(pars.i)[i], " parameter fitting\n"))
+  # define cost function for current iteration
+  mod.Cost <- function(pars){
+    modelOutput <- modFun_2pp(pars, pass = TRUE)
+    cost1 <- modCost(model = modelOutput, obs = obs.bulk.14c[[i]], scaleVar = TRUE)
+    return(modCost(model = modelOutput, obs = obs.resp.14c[[i]], cost = cost1))
+  }
+  # fit pars
+  fit <- modFit(f = mod.Cost,
+                p = pars.i[[i]],
+                method = 'Nelder-Mead',
+                upper = c(1, .1, 1), 
+                lower = c(0.01, 0, .5))
+  end <- Sys.time()
+  cat(paste0("time: ", end - start, "\n"))
+  return(fit)
+})
+```
+
+```{r report-par-fit}
+# look at estimates
+pars.fit <- mapply(rbind, 
+                   lapply(mod.fits[test.ix], "[[", 1), 
+                   pars.i[test.ix], 
+                   SIMPLIFY = FALSE)
+pars.fit <- lapply(pars.fit, function(df) {
+  df <- data.frame(df)
+  colnames(df) <- c("kfast", "kslow", "gam")
+  df$est <- c("fit", "init")
+  return(df)
+})
+names(pars.fit) <- names(pars.i)[test.ix]
+
+# save(pars.fit, file = paste0(getwd(), "/opt-0-10-par-fit", Sys.Date()))
+
+pars.fit.df <- bind_rows(pars.fit)
+pars.fit.df$PMeco_depth <- rep(names(pars.i[test.ix]), each = 2)
+pars.fit.df$PM <- substr(pars.fit.df$PMeco_depth, start = 1, stop = 2)
+pars.fit.df$eco <- substr(pars.fit.df$PMeco_depth, start = 3, stop = 4)
+
+# summarize by PM
+pars.fit.df.PM <- pars.fit.df %>%
+  filter(est == "fit") %>%
+  select(!c(PMeco_depth, eco, est)) %>%
+  group_by(PM) %>%
+  summarize_all(list(mean = mean, sd = sd)) %>%
+  mutate_if(is.numeric, format, digits = 2)
+# summarize by ECO
+pars.fit.df.eco <- pars.fit.df %>%
+  filter(est == "fit") %>%
+  select(!c(PMeco_depth, PM, est)) %>%
+  group_by(eco) %>%
+  summarize_all(list(mean = mean, sd = sd)) %>%
+  mutate_if(is.numeric, format, digits = 2)
+
+knitr::kable(pars.fit.df.PM,
+             caption = "Mean parameter estimates (0-10 cm) by parent material (PM)",
+             align = "c")
+knitr::kable(pars.fit.df.eco,
+             caption = "Mean parameter estimates (0-10 cm) by ecosystem (eco)",
+             align = "c")
+
+# plot pars
+pars.fit.df %>%
+  filter(est == "fit") %>%
+  pivot_longer(!(est:eco), names_to = "par", values_to = "value") %>%
+  mutate(PM = factor(PM),
+         eco = factor(eco, levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(par, value, color = PM, shape = eco)) +
+  geom_jitter(size = 4) +
+  scale_color_manual(name = "parent material",
+                    labels = c("AN" = "andesite",
+                               "BS" = "basalt",
+                               "GR" = "granite"),
+                    values = c("AN" = "blue", 
+                               "BS" = "red", 
+                               "GR" = "darkgray")) +
+  facet_wrap(. ~ par, scales = "free") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+
+```{r plot-opt-mods-0-10}
+# Rerun models and plot results with fitted parameters
+ks.ls <- lapply(lapply(pars.fit, "[", 1, ), function(df) unlist(df[ , c(1:2)]))
+gam.ls <- lapply(lapply(pars.fit, "[", 1, ), function(df) unlist(df[ , 3]))
+Twopp.fits <- lapply(seq_along(ks.ls), function(i) {
+  par.fx(In.10, gam.ls[[i]], ks.ls[[i]], verbose = FALSE)
+})
+
+# Calc modeled stocks
+mod.socs.ls <- lapply(seq_along(ks.ls), function(i) {
+  A <- -1*diag(ks.ls[[i]])
+  return(colSums(-1 * solve(A) %*% c(In.10 * gam.ls[[i]], In.10 * (1 - gam.ls[[i]]))))
+})
+socs.ls <- mapply(cbind, 
+                   csoc.19.0_30, 
+                   mod.socs.ls, 
+                   SIMPLIFY = FALSE)
+
+Twopp.fits.plots <- lapply(seq_along(Twopp.fits), function(i) {
+  pars.int <- pars.i[test.ix]
+  PMeco <- substr(names(pars.fit)[i], 1, 4)
+  lyr_bot <- substr(names(pars.fit)[i], nchar(names(pars.fit)[i])-1, nchar(names(pars.fit)[i]))
+  lyr_top <- 0
+  con.df <- con.df.fx(PMeco, lyr_bot)
+  plot.df <- rbind(Twopp.fits[[i]], 
+                   par.fx(In.10, pars.int[[i]][3], pars.int[[i]][1:2], verbose = FALSE))
+  plot.df$est <- factor(c(rep("fitted", nrow(Twopp.fits[[i]])), 
+                          rep("initial", nrow(Twopp.fits[[i]]))))
+  return(plot.df %>%
+           filter(pool == "bulk C" | pool == "respiration" | pool == "atm") %>%
+           ggplot(., aes(years, d14C, color = pool)) +
+           geom_path(aes(linetype = est)) +
+           geom_point(data = con.df, aes(Year, d14c, color = pool), size = 3) +
+           geom_errorbar(data = con.df,
+                         aes(x = Year,
+                             ymin = d14c_l, 
+                             ymax = d14c_u, 
+                             color = pool), 
+                         width = .1,
+                         inherit.aes = FALSE) +
+           scale_color_manual(
+             name = "Model pool",
+             values = c("atm" = 8,
+                        "bulk C" = "black",
+                        "fast" = "#D81B60",
+                        "slow" = "#1E88E5",
+                        "respiration" = "#FFC107")) +
+           scale_x_continuous(limits = c(1950, 2022)) +
+           ggtitle(paste0(PMeco, "_", lyr_top, "-", lyr_bot, " 2pp")) +
+           xlab("Year") +
+           ylab(expression(''*Delta*''^14*'C (‰)')) +
+           theme_bw() +
+           theme(panel.grid = element_blank()))
+})
+Twopp.fits.plots
+```

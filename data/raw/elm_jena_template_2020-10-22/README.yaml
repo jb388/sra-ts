@@ -1,9 +1,10 @@
-Files: "ams_jena_template.xlsx"
+Files: "elm_jena_template.xlsx"
 Source: A. Steinhof <steinhof@bgc-jena.mpg.de>
 Curator: J. Beem-Miller <jbeem@bgc-jena.mpg.de>
-Date: 22-Apr-2020
+Date: 09-Sep-2020
 Contents:
   - template for AMS results (14C) from Jena facility
 Notes:
   - used to check inputs for automated file reading script when ingesting Jena AMS data
+  - template column "Probenname" changed to "ID" 5-Nov-20 
 References:

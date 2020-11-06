@@ -8,4 +8,8 @@ Date: 29-Jul-2020
 Contents:
   - carbon and nitrogen content for 2019 Sierra Nevada bulk soil samples
 Notes:
+  - minor changes to source files made on 5-Nov-2020:
+    - yellow highlighted column on sheet1 of each file "ID" created to aggregate analytical reps
+    - pivot table updated to calculate averages by "ID" instead of "Probenname"
+    - ingest script updated accordingly
 References:

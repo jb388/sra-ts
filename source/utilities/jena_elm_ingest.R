@@ -20,7 +20,7 @@ read_jena_elm_results <- function(jena_elm_dir, template_file) {
   # remove open .xlsx files
   data_files <- grep(data_files, pattern='\\~\\$', inv=T, value=T)
   
-  # check that row 27 column names match the template
+  # check that row 2 column names match the template
   for(i in seq_along(data_files)) {
     for(j in seq_along(names(read_excel(data_files[i], sheet = "Pivot", skip = 1)))) {
       if(names(read_excel(data_files[i], sheet = "Pivot", skip = 1))[j] != names(template)[j])
