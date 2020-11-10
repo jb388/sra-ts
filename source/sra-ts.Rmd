@@ -1690,78 +1690,6 @@ pars.i <- lapply(seq_len(27), function(df) {
 names(pars.i) <- names(obs.bulk.14c)
 ```
 
-```{r ini-mod-pars-BSpp-0-10, include = FALSE}
-# Site/depth info
-PMeco <- "BSpp"
-lyr_bot <- 10
-lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
-
-# 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
-                
-# initial pars
-In <- In.10
-gam <- .7 # partitioning coef
-ks <- c(.05, .0065) # fast, slow
-
-# evaluate pars
-ini.2pp.C14.df <- par.fx(In, gam, ks)
-
-# plot
-C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
-
-# save pars
-pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
-```
-
-```{r ini-mod-pars-BSwf-0-10, include = FALSE}
-# Site/depth info
-PMeco <- "BSwf"
-lyr_bot <- 10
-lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
-
-# 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
-
-# initial parameters
-In <- In.10
-gam <- .9 # initial value
-ks <- c(.12, .004) # fast, slow
-
-# evaluate pars
-ini.2pp.C14.df <- par.fx(In, gam, ks)
-
-# plot
-C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
-
-# save pars
-pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
-```
-
-```{r ini-mod-pars-BSrf-0-10, include = FALSE}
-# Site/depth info
-PMeco <- "BSrf"
-lyr_bot <- 10
-lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
-
-# 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
-
-# initial pars
-In <- In.10
-gam <- .9 # partitioning coef
-ks <- c(.10, .003) # fast, slow
-
-# evaluate pars
-ini.2pp.C14.df <- par.fx(In, gam, ks)
-
-# plot
-C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
-
-# save pars
-pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
-```
-
 ```{r ini-mod-pars-ANpp-0-10, include = FALSE}
 # Site/depth info
 PMeco <- "ANpp"
@@ -1772,7 +1700,7 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 con.df <- con.df.fx(PMeco, lyr_bot)
                 
 # initial pars
-In <- In.10
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
 gam <- .95 # partitioning coef
 ks <- c(.1, .005) # fast, slow
 
@@ -1786,19 +1714,43 @@ C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
 pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
 ```
 
-```{r ini-mod-pars-ANwf-0-10, include = FALSE}
+```{r ini-mod-pars-ANpp-10-20, include = FALSE}
 # Site/depth info
-PMeco <- "ANwf"
-lyr_bot <- 10
+PMeco <- "ANpp"
+lyr_bot <- 20
 lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 
 # 14C constraints
 con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .95 # partitioning coef
+ks <- c(.1, .0017) # fast, slow
 
-# initial parameters
-In <- In.10
-gam <- .9 # initial value
-ks <- c(.09, .0017) # fast, slow
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANpp-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "ANpp"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .8 # partitioning coef
+ks <- c(.1, .0018) # fast, slow
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(In, gam, ks)
@@ -1820,9 +1772,345 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 con.df <- con.df.fx(PMeco, lyr_bot)
 
 # initial pars
-In <- In.10
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
 gam <- .92 # partitioning coef
 ks <- c(.08, .0033) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANrf-10-20, include = FALSE}
+# Site/depth info
+PMeco <- "ANrf"
+lyr_bot <- 20
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .78 # partitioning coef
+ks <- c(.1, .0022) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANrf-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "ANrf"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .85 # partitioning coef
+ks <- c(.08, .0015) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANwf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "ANwf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .9 # initial value
+ks <- c(.09, .0017) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANwf-10-20, include = FALSE}
+# Site/depth info
+PMeco <- "ANwf"
+lyr_bot <- 20
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .85 # initial value
+ks <- c(.055, .0013) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-ANwf-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "ANwf"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .9 # initial value
+ks <- c(.09, .001) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSpp-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "BSpp"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .7 # partitioning coef
+ks <- c(.05, .0065) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSpp-10-20, include = FALSE}
+# Site/depth info
+PMeco <- "BSpp"
+lyr_bot <- 20
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .75 # partitioning coef
+ks <- c(.07, .0042) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSpp-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "BSpp"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .55 # partitioning coef
+ks <- c(.3, .003) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSrf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "BSrf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .9 # partitioning coef
+ks <- c(.10, .003) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSrf-10-20, include = FALSE}
+# Site/depth info
+PMeco <- "BSrf"
+lyr_bot <- 20
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .9 # partitioning coef
+ks <- c(.085, .003) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSrf-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "BSrf"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .9 # partitioning coef
+ks <- c(.09, .002) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSwf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "BSwf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .9 # initial value
+ks <- c(.12, .004) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSwf-10-20, include = FALSE}
+# Site/depth info
+PMeco <- "BSwf"
+lyr_bot <- 20
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .6 # initial value
+ks <- c(.2, .0035) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-BSwf-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "BSwf"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .4 # initial value
+ks <- c(.12, .003) # fast, slow
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(In, gam, ks)
@@ -1844,7 +2132,7 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 con.df <- con.df.fx(PMeco, lyr_bot)
                 
 # initial pars
-In <- In.10
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
 gam <- .72 # partitioning coef
 ks <- c(.06, .01) # fast, slow
 
@@ -1858,19 +2146,43 @@ C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
 pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
 ```
 
-```{r ini-mod-pars-GRwf-0-10, include = FALSE}
+```{r ini-mod-pars-GRpp-10-20, include = FALSE}
 # Site/depth info
-PMeco <- "GRwf"
-lyr_bot <- 10
+PMeco <- "GRpp"
+lyr_bot <- 20
 lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 
 # 14C constraints
 con.df <- con.df.fx(PMeco, lyr_bot)
-
-# initial parameters
-In <- In.10
+                
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
 gam <- .8 # partitioning coef
-ks <- c(.075, .0075) # fast, slow
+ks <- c(.05, .006) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-GRpp-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "GRpp"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+                
+# initial pars
+In <- In.10
+gam <- .65 # partitioning coef
+ks <- c(.09, .0042) # fast, slow
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(In, gam, ks)
@@ -1892,6 +2204,30 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 con.df <- con.df.fx(PMeco, lyr_bot)
 
 # initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .9 # partitioning coef
+ks <- c(.08, .0031) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-GRrf-10-20, include = FALSE}
+# Site/depth info
+PMeco <- "GRrf"
+lyr_bot <- 20
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
 In <- In.10
 gam <- .9 # partitioning coef
 ks <- c(.08, .0031) # fast, slow
@@ -1906,13 +2242,108 @@ C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
 pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
 ```
 
-```{r opt-mod}
+```{r ini-mod-pars-GRrf-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "GRrf"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial pars
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .5 # partitioning coef
+ks <- c(.3, .0028) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-GRwf-0-10, include = FALSE}
+# Site/depth info
+PMeco <- "GRwf"
+lyr_bot <- 10
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .8 # partitioning coef
+ks <- c(.075, .0075) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-GRwf-10-20, include = FALSE}
+# Site/depth info
+PMeco <- "GRwf"
+lyr_bot <- 20
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .5 # partitioning coef
+ks <- c(.3, .0035) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r ini-mod-pars-GRwf-20-30, include = FALSE}
+# Site/depth info
+PMeco <- "GRwf"
+lyr_bot <- 30
+lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
+
+# 14C constraints
+con.df <- con.df.fx(PMeco, lyr_bot)
+
+# initial parameters
+In <- ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30))
+gam <- .7 # partitioning coef
+ks <- c(.15, .0025) # fast, slow
+
+# evaluate pars
+ini.2pp.C14.df <- par.fx(In, gam, ks)
+
+# plot
+C14.2pp.plot.fx(ini.2pp.C14.df, con.df)
+
+# save pars
+pars.i[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]] <- c(ks, gam) 
+```
+
+```{r opt-mod, eval = FALSE}
 ## Optimize model pars
 # Cost function (evaluates error as model vs. obsv, per FME req)
 # note that we have to set "pass" to TRUE so SoilR model doesn't fail (neg. resp)
 mod.fits <- vector(mode = "list", length = length(pars.i))
-test.ix <- seq(1, 27, 3)
-mod.fits[test.ix] <- lapply(test.ix, function(i) {
+mod.fits <- lapply(seq_along(pars.i), function(i) {
   start <- Sys.time()
   cat(paste0(names(pars.i)[i], " parameter fitting\n"))
   # define cost function for current iteration
@@ -1925,19 +2356,26 @@ mod.fits[test.ix] <- lapply(test.ix, function(i) {
   fit <- modFit(f = mod.Cost,
                 p = pars.i[[i]],
                 method = 'Nelder-Mead',
-                upper = c(1, .1, 1), 
-                lower = c(0.01, 0, .5))
+                upper = c(1, 1, 1), 
+                lower = c(0, 0, 0))
   end <- Sys.time()
   cat(paste0("time: ", end - start, "\n"))
   return(fit)
 })
+
+# save output
+names(mod.fits) <- names(pars.i)
+save(mod.fits, file = paste0("../data/derived/modFit_pars/modFit_pars_", Sys.Date(), ".Rdata"))
 ```
 
 ```{r report-par-fit}
+# load fits
+load(file = "../data/derived/modFit_pars/modFit_pars_2020-11-09.RData")
+
 # look at estimates
 pars.fit <- mapply(rbind, 
-                   lapply(mod.fits[test.ix], "[[", 1), 
-                   pars.i[test.ix], 
+                   lapply(mod.fits, "[[", 1), 
+                   pars.i, 
                    SIMPLIFY = FALSE)
 pars.fit <- lapply(pars.fit, function(df) {
   df <- data.frame(df)
@@ -1945,41 +2383,48 @@ pars.fit <- lapply(pars.fit, function(df) {
   df$est <- c("fit", "init")
   return(df)
 })
-names(pars.fit) <- names(pars.i)[test.ix]
+names(pars.fit) <- names(pars.i)
 
-# save(pars.fit, file = paste0(getwd(), "/opt-0-10-par-fit", Sys.Date()))
+# summary of fits
+pars.fit.sum <- lapply(mod.fits, function(x) summary(x))
+names(pars.fit.sum) <- names(pars.fit)
 
+# bind fitted parameters into data frame for plotting/summarizing
 pars.fit.df <- bind_rows(pars.fit)
-pars.fit.df$PMeco_depth <- rep(names(pars.i[test.ix]), each = 2)
+pars.fit.df$PMeco_depth <- rep(names(pars.i), each = 2)
 pars.fit.df$PM <- substr(pars.fit.df$PMeco_depth, start = 1, stop = 2)
 pars.fit.df$eco <- substr(pars.fit.df$PMeco_depth, start = 3, stop = 4)
+pars.fit.df$depth <- substr(pars.fit.df$PMeco_depth, 
+                            start = 6, 
+                            stop = length(pars.fit.df$PMeco_depth))
 
-# summarize by PM
-pars.fit.df.PM <- pars.fit.df %>%
+# summarize by PM, depth
+pars.fit.df.PM <- suppressMessages(pars.fit.df %>%
   filter(est == "fit") %>%
-  select(!c(PMeco_depth, eco, est)) %>%
-  group_by(PM) %>%
+  select(!c(est, PMeco_depth, eco)) %>%
+  group_by(PM, depth) %>%
   summarize_all(list(mean = mean, sd = sd)) %>%
-  mutate_if(is.numeric, format, digits = 2)
-# summarize by ECO
-pars.fit.df.eco <- pars.fit.df %>%
+  mutate_if(is.numeric, format, digits = 2))
+# summarize by ECO, depth
+pars.fit.df.eco <- suppressMessages(pars.fit.df %>%
   filter(est == "fit") %>%
-  select(!c(PMeco_depth, PM, est)) %>%
-  group_by(eco) %>%
+  select(!c(est, PMeco_depth, PM)) %>%
+  group_by(eco, depth) %>%
   summarize_all(list(mean = mean, sd = sd)) %>%
-  mutate_if(is.numeric, format, digits = 2)
+  mutate_if(is.numeric, format, digits = 2))
 
 knitr::kable(pars.fit.df.PM,
-             caption = "Mean parameter estimates (0-10 cm) by parent material (PM)",
+             caption = "Mean parameter estimates by parent material (PM)",
              align = "c")
 knitr::kable(pars.fit.df.eco,
-             caption = "Mean parameter estimates (0-10 cm) by ecosystem (eco)",
+             caption = "Mean parameter estimates by ecosystem (eco)",
              align = "c")
 
-# plot pars
+## plot pars
+# 0-10
 pars.fit.df %>%
-  filter(est == "fit") %>%
-  pivot_longer(!(est:eco), names_to = "par", values_to = "value") %>%
+  filter(est == "fit", depth == "0-10") %>%
+  pivot_longer(!(est:depth), names_to = "par", values_to = "value") %>%
   mutate(PM = factor(PM),
          eco = factor(eco, levels = c("pp", "wf", "rf"))) %>%
   ggplot(., aes(par, value, color = PM, shape = eco)) +
@@ -1992,43 +2437,128 @@ pars.fit.df %>%
                                "BS" = "red", 
                                "GR" = "darkgray")) +
   facet_wrap(. ~ par, scales = "free") +
+  ggtitle("modFit pars 0-10 cm") +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
+
+# 10-20
+pars.fit.df %>%
+  filter(est == "fit", depth == "10-20") %>%
+  pivot_longer(!(est:depth), names_to = "par", values_to = "value") %>%
+  mutate(PM = factor(PM),
+         eco = factor(eco, levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(par, value, color = PM, shape = eco)) +
+  geom_jitter(size = 4) +
+  scale_color_manual(name = "parent material",
+                    labels = c("AN" = "andesite",
+                               "BS" = "basalt",
+                               "GR" = "granite"),
+                    values = c("AN" = "blue", 
+                               "BS" = "red", 
+                               "GR" = "darkgray")) +
+  facet_wrap(. ~ par, scales = "free") +
+  ggtitle("modFit pars 10-20 cm") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# 20-30
+pars.fit.df %>%
+  filter(est == "fit", depth == "20-30") %>%
+  pivot_longer(!(est:depth), names_to = "par", values_to = "value") %>%
+  mutate(PM = factor(PM),
+         eco = factor(eco, levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(par, value, color = PM, shape = eco)) +
+  geom_jitter(size = 4) +
+  scale_color_manual(name = "parent material",
+                    labels = c("AN" = "andesite",
+                               "BS" = "basalt",
+                               "GR" = "granite"),
+                    values = c("AN" = "blue", 
+                               "BS" = "red", 
+                               "GR" = "darkgray")) +
+  facet_wrap(. ~ par, scales = "free") +
+  ggtitle("modFit pars 20-30 cm") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+
+```{r fit-soc-stoc}
+## adjust inputs to match modeled stocks
+# function for calculating fitted SOC stocks within larger function
+soc.fx <- function(ks, gam, In) {
+  colSums(-1 * solve(-1 * diag(ks)) %*% c(In * gam, In * (1 - gam)))
+}
+
+in.fit.fx <- function(ks, gam, initialIn, SOC) {
+  # sequence of possible input values
+  if  (SOC < soc.fx(ks, gam, initialIn)) {
+    ins <- seq(.01, 
+               initialIn, 
+               .01)
+    } else {
+      ins <- seq(initialIn, 
+                 SOC, 
+                 .01)
+    }
+  # modeled stocks
+  soc_mod <- lapply(seq_along(ins), function(j) {
+    soc.fx(ks, gam, ins[j])
+  })
+  ix <- which.min(abs(unlist(soc_mod) - SOC))
+  return(ins[ix])
+}
+
+# run function
+in.fit <- lapply(seq_along(ks.ls), function(i) {
+  PMeco_depth <- names(ks.ls)[i]
+  SOC <- csoc.19.0_30[[PMeco_depth]][ ,"lyr_soc"]
+  if (grepl("0-10", PMeco_depth)) {
+    return(in.fit.fx(ks.ls[[i]], gam.ls[[i]], In.10, SOC))
+  } else if (grepl("10-20", PMeco_depth)) {
+    return(in.fit.fx(ks.ls[[i]], gam.ls[[i]], In.20, SOC))
+  } else {
+    return(in.fit.fx(ks.ls[[i]], gam.ls[[i]], In.30, SOC))
+  }
+})
+
+# Calc modeled stocks and compare with measured stocks
+mod.socs.ls <- lapply(seq_along(ks.ls), function(i) {
+  A <- -1 * diag(ks.ls[[i]])
+  return(colSums(-1 * solve(A) %*% c(in.fit[[i]] * gam.ls[[i]], in.fit[[i]] * (1 - gam.ls[[i]]))))
+})
+socs.ls <- mapply(cbind,
+                  csoc.19.0_30, 
+                  mod.socs.ls, 
+                  SIMPLIFY = FALSE)
 ```
 
 ```{r plot-opt-mods-0-10}
 # Rerun models and plot results with fitted parameters
 ks.ls <- lapply(lapply(pars.fit, "[", 1, ), function(df) unlist(df[ , c(1:2)]))
 gam.ls <- lapply(lapply(pars.fit, "[", 1, ), function(df) unlist(df[ , 3]))
-Twopp.fits <- lapply(seq_along(ks.ls), function(i) {
-  par.fx(In.10, gam.ls[[i]], ks.ls[[i]], verbose = FALSE)
-})
 
-# Calc modeled stocks
-mod.socs.ls <- lapply(seq_along(ks.ls), function(i) {
-  A <- -1*diag(ks.ls[[i]])
-  return(colSums(-1 * solve(A) %*% c(In.10 * gam.ls[[i]], In.10 * (1 - gam.ls[[i]]))))
+# return data frames of model fits
+Twopp.fits <- lapply(seq_along(ks.ls), function(i) {
+  par.fx(in.fit[[i]], gam.ls[[i]], ks.ls[[i]], verbose = FALSE)
 })
-socs.ls <- mapply(cbind, 
-                   csoc.19.0_30, 
-                   mod.socs.ls, 
-                   SIMPLIFY = FALSE)
 
 Twopp.fits.plots <- lapply(seq_along(Twopp.fits), function(i) {
-  pars.int <- pars.i[test.ix]
   PMeco <- substr(names(pars.fit)[i], 1, 4)
-  lyr_bot <- substr(names(pars.fit)[i], nchar(names(pars.fit)[i])-1, nchar(names(pars.fit)[i]))
-  lyr_top <- 0
+  lyr_bot <- substr(names(pars.fit)[i], nchar(names(pars.fit)[i]) - 1, nchar(names(pars.fit)[i]))
+  lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
   con.df <- con.df.fx(PMeco, lyr_bot)
   plot.df <- rbind(Twopp.fits[[i]], 
-                   par.fx(In.10, pars.int[[i]][3], pars.int[[i]][1:2], verbose = FALSE))
+                   par.fx(ifelse(lyr_bot == 10, In.10, ifelse(lyr_bot == 20, In.20, In.30)),
+                          pars.i[[i]][3], 
+                          pars.i[[i]][1:2], 
+                          verbose = FALSE))
   plot.df$est <- factor(c(rep("fitted", nrow(Twopp.fits[[i]])), 
                           rep("initial", nrow(Twopp.fits[[i]]))))
   return(plot.df %>%
            filter(pool == "bulk C" | pool == "respiration" | pool == "atm") %>%
+           # filter(est == "fitted") %>%
            ggplot(., aes(years, d14C, color = pool)) +
            geom_path(aes(linetype = est)) +
-           geom_point(data = con.df, aes(Year, d14c, color = pool), size = 3) +
            geom_errorbar(data = con.df,
                          aes(x = Year,
                              ymin = d14c_l, 
@@ -2036,6 +2566,7 @@ Twopp.fits.plots <- lapply(seq_along(Twopp.fits), function(i) {
                              color = pool), 
                          width = .1,
                          inherit.aes = FALSE) +
+           geom_point(data = con.df, aes(Year, d14c, color = pool), size = 3) +
            scale_color_manual(
              name = "Model pool",
              values = c("atm" = 8,
@@ -2051,4 +2582,94 @@ Twopp.fits.plots <- lapply(seq_along(Twopp.fits), function(i) {
            theme(panel.grid = element_blank()))
 })
 Twopp.fits.plots
+```
+
+```{r MCMC-fits}
+# the following .RData file is generated by script "sra-ts/source/sra-ts-mcmc-bayes.R"
+# load(file = "../data/derived/bayes-par-fit-2020-11-06/bayes_fit_2pp-5000itr.RData")
+# plot parameter convergence
+plot(bayes_fit_2pp[[1]])
+
+## look at model performance
+pars.bayes.df <- bind_rows(lapply(seq_along(bayes_fit_2pp), function(i) {
+  df <- data.frame(k1 = unique(bayes_fit_2pp[[i]][["pars"]][, 1]),
+                   k2 = unique(bayes_fit_2pp[[i]][["pars"]][, 2]),
+                   gam = unique(bayes_fit_2pp[[i]][["pars"]][, 3]))
+  df <- cbind(PMeco_depth = rep(names(pars.fit)[i]), 
+              df)
+}))
+pars.bayes.df$PM <- factor(substr(pars.bayes.df$PMeco_depth, 1, 2))
+pars.bayes.df$eco <- factor(substr(pars.bayes.df$PMeco_depth, 3, 4), levels = c("pp", "wf", "rf"))
+# summary(lm(k2 ~ PM, pars.bayes.df))
+# summary(lm(k1 ~ eco, pars.bayes.df))
+
+# best par set
+bestPars.bayes.ls <- lapply(bayes_fit_2pp, function(x) {
+  round(data.frame(k1 = x$bestpar[1],
+                   k2 = x$bestpar[2],
+                   gam = x$bestpar[3]),
+        4)
+})
+bestPars.bayes.df <- cbind(PM = rep(c("AN", "BS", "GR"), each = 3),
+                           eco = rep(c("pp", "rf", "wf"), 3),
+                           depth = rep("0-10", 9),
+                           bind_rows(bestPars.bayes.ls))
+
+# summarize by PM
+pars.bayes.PM <- bestPars.bayes.df %>%
+  select(!c(eco, depth)) %>%
+  group_by(PM) %>%
+  summarize_all(list(mean = mean, sd = sd)) %>%
+  mutate_if(is.numeric, format, digits = 3)
+# summarize by ECO
+pars.bayes.eco <- bestPars.bayes.df %>%
+  select(!c(PM, depth)) %>%
+  group_by(eco) %>%
+  summarize_all(list(mean = mean, sd = sd)) %>%
+  mutate_if(is.numeric, format, digits = 3)
+
+# plot best pars
+bestPars.bayes.df %>%
+  pivot_longer(!(PM:depth), names_to = "par", values_to = "value") %>%
+  mutate(PM = factor(PM),
+         eco = factor(eco, levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(par, value, color = PM, shape = eco)) +
+  geom_jitter(size = 4) +
+  scale_color_manual(name = "parent material",
+                    labels = c("AN" = "andesite",
+                               "BS" = "basalt",
+                               "GR" = "granite"),
+                    values = c("AN" = "blue", 
+                               "BS" = "red", 
+                               "GR" = "darkgray")) +
+  facet_wrap(. ~ par, scales = "free") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# plot accepted pars by PM and then by eco
+pars.bayes.df %>%
+  pivot_longer(!c(PM, eco, PMeco_depth), names_to = "par", values_to = "value") %>%
+  mutate(PM = factor(PM),
+         eco = factor(eco, levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(par, value, fill = PM)) +
+  geom_boxplot() +
+  scale_fill_manual(name = "parent material",
+                    labels = c("AN" = "andesite",
+                               "BS" = "basalt",
+                               "GR" = "granite"),
+                    values = c("AN" = "blue", 
+                               "BS" = "red", 
+                               "GR" = "darkgray")) +
+  facet_wrap(. ~ par, scales = "free") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+pars.bayes.df %>%
+  pivot_longer(!c(PM, eco, PMeco_depth), names_to = "par", values_to = "value") %>%
+  mutate(PM = factor(PM),
+         eco = factor(eco, levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(par, value, fill = eco)) +
+  geom_boxplot() +
+  facet_wrap(. ~ par, scales = "free") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
 ```
