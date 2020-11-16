@@ -1,6 +1,6 @@
 # MCMC script for Bayesian parameter optimization
 # aut: J. Beem-Miller
-# date: 09-Nov-2020
+# date: 11-Nov-2020
 
 # script requires running all code chunks prior to "Bayesian parameter estimation" section of "sra-ts.Rmd"
 
@@ -38,18 +38,44 @@ bayes_fit_2pp <- lapply(test.ix, function(i) {
     jump <- pars.fit.sum[[i]][["cov.unscaled"]]
     
     # run MCMC
-    fit <- modMCMC(f = mod.Cost, 
-                   p = unlist(pars.fit[[i]][1, 1:3]), 
-                   var0 = var0,
-                   jump = jump,
-                   upper = c(1, 1, 1), 
-                   lower = c(0, 0, 0),
-                   niter = iter,
-                   ntrydr = 2)
+    fit <- tryCatch(
+      modMCMC(f = mod.Cost, 
+              p = unlist(pars.fit[[i]][1, 1:3]), 
+              var0 = var0,
+              jump = jump,
+              upper = c(1, 1, 1), 
+              lower = c(0, 0, 0),
+              niter = iter,
+              ntrydr = 2),
+      error = function (e) {cat("ERROR :", conditionMessage(e), "\n")})
     end <- Sys.time()
     cat(paste0("time: ", end - start, "\n"))
     return(fit)
 })
+names(bayes_fit_2pp_0_10) <- names(mod.fits[test.ix])
+bayes_fit_2pp_0_10$`ANpp_0-10`$naccepted
+
+pars.fit.mcmc <- mapply(rbind, 
+                        lapply(bayes_fit_2pp_0_10, "[[", "bestpar"),
+                        pars.fit[test.ix], 
+                        SIMPLIFY = FALSE)
+pars.fit.mcmc <- lapply(pars.fit.mcmc, function(df) {
+  df <- data.frame(round(df, 4))
+  df$est <- c("mcmc", "fit", "init")
+  return(df)
+})
+
+# tt/SA for bestpars
+tt.sa.bayes.best <- lapply(seq_along(bayes_fit_2pp_0_10), function(i) {
+  ks <- bayes_fit_2pp_0_10[[i]][["bestpar"]][1:2]
+  gam <- bayes_fit_2pp_0_10[[i]][["bestpar"]][3]
+  input <- in.fit[test.ix][[i]]
+  A <- -1 * diag(ks)
+  In <- c(input * gam, input * (1 - gam))
+  return(list(SA = systemAge(A, In), 
+              TT = transitTime(A, In)))
+}) 
+
 
 # 'ntrydr' can improve poor acceptance rate by adjusting the delayed rejection parameter
 # e.g. ntrydr = 2 means upon first rejection, the next parameter candidate is tried
@@ -65,10 +91,15 @@ save(bayes_fit_2pp, file = paste0(save.dir, "/bayes_fit_2pp-", save.iter))
 
 ## SA and TT uncertainty
 # Function to calculate system age, pool ages, and transit time for all bayesian parameter combinations
-sa.tt.fx <- function(ks, gam, In, iter) {
+sa.tt.fx <- function(pars, input, iter) {
+  
+  # define parameters
+  ks <- pars[1:2]
+  gam <- pars[3]
+  In <- c(input * gam, input * (1 - gam))
   
   # initialize list
-  ls.nms <- c("SA.ls", "TT.ls", "fast.age.ls", "slow.age.ls", "stock.ls")
+  ls.nms <- c("SA.ls", "TT.ls", "fast.age.ls", "slow.age.ls")
   SA.TT.ls <- lapply(ls.nms, function(ls) {
     ls <- vector(mode = "list", length = iter)
   })
@@ -80,18 +111,17 @@ sa.tt.fx <- function(ks, gam, In, iter) {
   for (i in 1:iter) {
     
     # model matrix
-    A <- -1 * diag(ks[[i]])
+    A <- -1 * diag(ks)
     
     # System ages and transit times
-    SA <- systemAge(A = A, u = In[[i]], a = ages)
-    TT <- transitTime(A = A, u = In[[i]], a = ages)
+    SA <- systemAge(A = A, u = In)
+    TT <- transitTime(A = A, u = In)
     
     # Append to list
     SA.TT.ls[["SA.ls"]][[i]] <- as.numeric(SA$meanSystemAge)
     SA.TT.ls[["TT.ls"]][[i]] <- as.numeric(TT$meanTransitTime)
     SA.TT.ls[["fast.age.ls"]][[i]] <- as.numeric(SA$meanPoolAge[1])
-    SA.TT.ls[["intm.age.ls"]][[i]] <- as.numeric(SA$meanPoolAge[2])
-    SA.TT.ls[["slow.age.ls"]][[i]] <- as.numeric(SA$meanPoolAge[3])
+    SA.TT.ls[["slow.age.ls"]][[i]] <- as.numeric(SA$meanPoolAge[2])
     
     # tracker
     setTxtProgressBar(pb, i)
@@ -100,12 +130,13 @@ sa.tt.fx <- function(ks, gam, In, iter) {
 }
 
 # note that the following function call is very time consuming...
-SA.TT.2pp.ls <- sa.tt.fx(pars = bayes_fit_2pp, iter = nrow(bayes_fit_2pp$pars), a31 = TRUE)
+SA.TT.2pp.ls <- lapply(seq_along(bayes_fit_2pp_0_10), function(j) {
+  sa.tt.fx(bayes_fit_2pp_0_10[[j]][["bestpar"]], in.fit[test.ix][[j]], iter)
+})
 
 # save output
 # *WARNING* will overwrite if files from current date exist!
 save(s.3p.SA.TT.ls, file = paste0(save.dir, "/bayes_fit_s_3p.SA.TT.", save.iter))
-save(z.3p.SA.TT.ls, file = paste0(save.dir, "/bayes_fit_z_3p.SA.TT.", save.iter))
 
 # test
 #####
