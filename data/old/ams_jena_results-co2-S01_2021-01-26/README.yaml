@@ -1,0 +1,32 @@
+Files:
+  - "14C_SierraNevada_Inc_2001_2_results.xlsx"
+  - "14C_SierraNevada_Inc_2001_5_results.xlsx"
+Source: M. Rost <mrost@bgc-jena.mpg.de>
+Curator: J. Beem-Miller
+Date: 26-Jan-2021
+Contents:
+  - Incubation 14C data from 2001 samples, second batch of files
+Notes:
+  - The files in this directory each have blank rows of data, i.e. rows with a sample name listed but no data reported. Not sure what's up with that.
+  - Also, some samples have extremely old 14C values...e.g. GRrf_comp_8-27_2001_b_6 (-468), GRrf_comp_8-27_2001_a_6 (-124
+  - The samples in "14C_SierraNevada_Inc_2001_2_results.xlsx" are repeated measurements of samples that were extracted directly on the vacuum line by myself 12-Oct-2020 (reported in the file data/raw/"ams_jena_results-co2-S01_2020-12-11/Beem-Miller_23.xlsx"). This explains why the duplicated samples have very different values.
+  - Lab notes for samples in file "ams_jena_results-co2-S01_2020-12-11/Beem-Miller_23.xlsx"
+    - [GRrf_comp_8-27_2001_b_6] 25683 yield good
+    - [GRwf_comp_13-28_2001_a_11] 25684 low yield on vacuum line; exluding data as reanalysis 14C data is closer to that of rep
+    - [GRwf_comp_13-28_2001_b_12; no data reported in Beem-Miller_23.xslx] 25685	forgot to evacuate N2, so blew off most of the sample...Starting pressure was ~840 mbar, reduced to 169 mbar
+    - [GRpp_comp_15-27_2001_a_17] 25686	yield good
+    - [GRpp_comp_15-27_2001_b_18] 25687 No yield on vacuum line
+  - At this point I will exclude data from the following samples in file "14C_SierraNevada_Inc_2001_2_results.xlsx"
+      - GRrf_comp_8-27_2001_a_5 [data questionable; sample had no yield in initial extraction]
+      - GRrf_comp_8-27_2001_b_6 [data questionable; original data looks good]
+      - GRpp_comp_15-27_2001_b_18 [data questionable; rep from original data 100 per mille more enriched...]
+  - samples analyzed:
+    - 14C_SierraNevada_Inc_2001_2_results.xlsx:
+      - GRrf_comp_8-27_2001_a_5
+      - GRrf_comp_8-27_2001_b_6
+      - GRwf_comp_13-28_2001_a_11
+      - GRwf_comp_13-28_2001_b_12
+      - GRpp_comp_15-27_2001_b_18
+    - 14C_SierraNevada_Inc_2001_5_results.xlsx:
+      - BSpp_comp_18-28_2001_a_47-27
+References:

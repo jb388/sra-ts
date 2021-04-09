@@ -1,0 +1,13 @@
+Files: "wang_2000_flx.csv"
+Source: J. Beem-Miller
+Curator: J. Beem-Miller
+Date: 01-Dec-2020
+Contents:
+  - Flux data for Fallbrook, Musick, and Chiquito sites from Wang et al. 2000
+Notes:
+  - Music site is analog for GRpp (~1300m)
+  - Chiquito site is analog for GRrf (~2300m)
+  - fluxes are reported for CO2 in the paper (Table 2) in units of mmol CO2 m-2 hr-1, but I converted them to µmol CO2 m-2 s-1 to enter the data in an accepted ISRaD format
+  - I also have data given to me directly from the author, which I used to add the 14C data in this document
+References:
+  - Wang, Y., R. Amundson, and X. Niu. 2000. Seasonal and altitudinal variation in decomposition of soil organic matter inferred from radiocarbon measurements of soil C02 flux. GLOBAL BIOGEOCHEMICAL CYCLES 14:1:199-211.

@@ -3,6 +3,13 @@
 # Requires the following input: obs.bulk.14c, obs.resp.14c
 # These functions and inputs are in Rmd file "sra-ts.RMD" (this directory)
 
+# Notes:
+# 1) a21 parameter affects both shape of the bulk 14C curve and carbon stocks
+# 2) k1 parameter fits the respiration
+# 3) k2 fits the bulk 14C
+
+# changed to constant inputs by eco/depth on 10-Dec-2020
+
 # Initialize list (9 sites by 3 depths = 27 elements)
 pars.i.2ps <- lapply(seq_len(27), function(df) {
   df <- data.frame(kfast = NA,
@@ -20,21 +27,23 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.2, .02) # fast, slow
-a21 <- .0009 # transfer coef
+soc <- csoc.19.0_30[[PMeco_depth]][ , "lyr_soc"]
+In <- in.est[[PMeco_depth]]
+ks <- c(.18, .008)
+tc <- .1 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21)
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # ANpp-10-20
@@ -46,21 +55,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.15, .009) # fast, slow
-a21 <- .001 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.01, .0005) # fast, slow
+tc <- .02 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # ANpp-20-30
@@ -72,21 +82,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.2, .002) # fast, slow
-a21 <- .01 
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .003) # fast, slow
+tc <- .6 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # ANrf-0-10
@@ -98,21 +109,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.14, .012) # fast, slow
-a21 <- .01 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.15, .005) # fast, slow
+tc <- .3 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # ANrf-10-20
@@ -124,21 +136,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.15, .006) # fast, slow
-a21 <- .01 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .003) # fast, slow
+tc <- .5 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # ANrf-20-30
@@ -150,21 +163,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.08, .0026) # fast, slow
-a21 <- .01 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .0015) # fast, slow
+tc <- .4 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # ANwf-0-10
@@ -176,21 +190,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.08, .004) # fast, slow
-a21 <- .01 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .001) # fast, slow
+tc <- .1 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # ANwf-10-20
@@ -202,21 +217,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.08, .002) # fast, slow
-a21 <- .001 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .001) # fast, slow
+tc <- .2 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # ANwf-20-30
@@ -228,21 +244,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.07, .002) # fast, slow
-a21 <- .008 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .001) # fast, slow
+tc <- .25 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # BSpp-0-10
@@ -254,21 +271,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.07, .011) # fast, slow
-a21 <- .01 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.1, .008) # fast, slow
+tc <- .55 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # BSpp-10-20
@@ -280,21 +298,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.1, .01) # fast, slow
-a21 <- .01 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .006) # fast, slow
+tc <- .5 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # BSpp-20-30
@@ -306,21 +325,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.3, .0025) # fast, slow
-a21 <- .7 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .003) # fast, slow
+tc <- .7 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # BSrf-0-10
@@ -332,21 +352,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.12, .0065) # fast, slow
-a21 <- .03 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.24, .0045) # fast, slow
+tc <- .2 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # BSrf-10-20
@@ -358,21 +379,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.16, .004) # fast, slow
-a21 <- .85 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.2, .0045) # fast, slow
+tc <- .2 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # BSrf-20-30
@@ -384,21 +406,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.14, .002) # fast, slow
-a21 <- .85 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.24, .0034) # fast, slow
+tc <- .2 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # BSwf-0-10
@@ -410,21 +433,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.18, .013) # fast, slow
-a21 <- .002 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.3, .0045) # fast, slow
+tc <- .2 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # BSwf-10-20
@@ -436,21 +460,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.3, .0023) # fast, slow
-a21 <- .95 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.4, .004) # fast, slow
+tc <- .15 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # BSwf-20-30
@@ -462,21 +487,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.3, .001) # fast, slow
-a21 <- .95 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.4, .004) # fast, slow
+tc <- .1 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # GRpp-0-10
@@ -488,21 +514,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.11, .019) # fast, slow
-a21 <- .002 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.1, .01) # fast, slow
+tc <- .18 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # GRpp-10-20
@@ -514,21 +541,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.08, .006) # fast, slow
-a21 <- .7 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.03, .01) # fast, slow
+tc <- .8 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # GRpp-20-30
@@ -540,21 +568,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.2, .0044) # fast, slow
-a21 <- .8 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .0035) # fast, slow
+tc <- .6 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # GRrf-0-10
@@ -566,21 +595,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.11, .009) # fast, slow
-a21 <- .01 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .005) # fast, slow
+tc <- .7 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars 
 #####
 
 # GRrf-10-20
@@ -592,21 +622,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.12, .0042) # fast, slow
-a21 <- .8 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.008, .002) # fast, slow
+tc <- .2 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21) 
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # GRrf-20-30
@@ -618,21 +649,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.3, .0022) # fast, slow
-a21 <- .7 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.02, .002) # fast, slow
+tc <- .3 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21)
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # GRwf-0-10
@@ -644,21 +676,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.11, .015) # fast, slow
-a21 <- .002 # transfer coef
+In <- in.est[[PMeco_depth]]
+ks <- c(.15, .008) # fast, slow
+tc <- .1 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21)
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # GRwf-10-20
@@ -670,21 +703,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.2, .003) # fast, slow
-a21 <- .95 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.5, .004) # fast, slow
+tc <- .02 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21)
+pars.i.2ps[[PMeco_depth]] <- pars
 #####
 
 # GRwf-20-30
@@ -696,21 +730,22 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
-In <- in.i[[PMeco_depth]]
-ks <- c(.3, .0025) # fast, slow
-a21 <- .95 # transfer coef, fast to slow
+In <- in.est[[PMeco_depth]]
+ks <- c(.4, .004) # fast, slow
+tc <- .9 # transfer coef 
+pars <- c(ks, tc)
 
 # evaluate pars
-ini.2pp.C14.df <- par.fx(pars = c(ks, a21), In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2ps")
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
-pars.i.2ps[[PMeco_depth]] <- c(ks, a21)
+pars.i.2ps[[PMeco_depth]] <- pars
 
 
 #####

@@ -1,0 +1,31 @@
+Files:
+  - "Beem-Miller_22.xlsx"
+  - "Beem-Miller_23.xlsx"
+Source: A. Steinhof <steinhof@bgc-jena.mpg.de>
+Curator: J. Beem-Miller
+Date: 12-Dec-2020
+Contents:
+  - AMS results (14C) for CO2 from 2001 composite soil incubations
+Notes:
+  - Due to limited sample quantity and subsequent low CO2 concentrations, samples in file "Beem-Miller_23.xlsx" were extracted online
+  - The following samples did not have adequate CO2 to make the 14C measurement:
+    - GRrf_comp_8-27_2001_a_5
+    - GRwf_comp_13-28_2001_b_12
+    - GRpp_comp_15-27_2001_b_18
+  - All of the samples analyzed in file 'Beem-Miller_23.xlsx' were subsequently flushed and allowed to continue incubating to make a second measurement, including those that had enough of CO2 to measure 14C, so it should be possible to assess the impact of the additional incubation time on the values measured
+  - radiocarbon values seem quite low for the GR samples, especially compared to the bulk data (both GRrf_8-27, and GRwf_13-28)
+  - Additionally, sample ANrf_comp_11-32_2001_a_21_11 has an extremely low 14C value compared to the rep (likely some kind of issue there...)
+  - samples analyzed:
+    - Beem-Miller_22.xlsx:
+      - GRpp_comp_7-15_2001_a_15_8
+      - GRpp_comp_7-15_2001_b_16_8
+      - ANrf_comp_11-32_2001_a_21_11
+      - ANrf_comp_11-32_2001_b_22_11
+    - Beem-Miller_23.xlsx:
+      - GRrf_comp_8-27_2001_a_5
+      - GRrf_comp_8-27_2001_b_6
+      - GRwf_comp_13-28_2001_a_11
+      - GRwf_comp_13-28_2001_b_12
+      - GRpp_comp_15-27_2001_a_17
+      - GRpp_comp_15-27_2001_b_18
+References:

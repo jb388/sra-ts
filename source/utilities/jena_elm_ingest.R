@@ -22,16 +22,15 @@ read_jena_elm_results <- function(jena_elm_dir, template_file) {
   
   # check that row 2 column names match the template
   for(i in seq_along(data_files)) {
-    for(j in seq_along(names(read_excel(data_files[i], sheet = "Pivot", skip = 1)))) {
-      if(names(read_excel(data_files[i], sheet = "Pivot", skip = 1))[j] != names(template)[j])
-        cat("Row 2 of ", data_files[i], " does not contain proper column names")
+    if(any(is.na(match(names(read_excel(data_files[i], sheet = "Pivot", skip = 1))[1:3], names(template)[1:3])))) {
+      cat("Row 2 of ", data_files[i], " does not contain proper column names")
     }
   }
   
   # read in files
   data_ls <- lapply(seq_along(data_files), function(i) {
     df <- data.frame(read_excel(data_files[i], sheet = "Pivot", skip = 1))
-    df <- df[c(1:nrow(df)-1), ] # remove summary row at bottom
+    df <- df[c(1:nrow(df)-1), 1:3] # remove summary row at bottom and only take ID, C, N
     return(df)
   })
   

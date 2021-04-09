@@ -3,6 +3,13 @@
 # Requires the following input: obs.bulk.14c, obs.resp.14c
 # These functions and inputs are in Rmd file "sra-ts.RMD" (this directory)
 
+# Notes:
+# 1) gam parameter affects both shape of the bulk 14C curve and carbon stocks
+# 2) k1 parameter fits the respiration
+# 3) k2 fits the bulk 14C
+
+# changed to constant inputs by eco/depth on 10-Dec-2020
+
 # Initialize list (9 sites by 3 depths = 27 elements)
 pars.i.2pp <- lapply(seq_len(27), function(df) {
   df <- data.frame(kfast = NA,
@@ -20,11 +27,11 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.18, .0045) # fast, slow
+ks <- c(.18, .007) # fast, slow
 gam <- .95 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
@@ -46,12 +53,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.18, .0025) # fast, slow
-gam <- .9 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.35, .0025) # fast, slow
+gam <- .7 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -72,12 +79,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.2, .002) # fast, slow
-gam <- .8 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.01, .002) # fast, slow
+gam <- .5 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -98,12 +105,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.14, .004) # fast, slow
-gam <- .95 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.32, .0065) # fast, slow
+gam <- .92 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -124,12 +131,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.25, .0025) # fast, slow
-gam <- .85 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.1, .003) # fast, slow
+gam <- .4 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -150,12 +157,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.11, .0017) # fast, slow
-gam <- .75 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.015, .0017) # fast, slow
+gam <- .4 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -176,12 +183,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.13, .0021) # fast, slow
-gam <- .8 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.04, .0021) # fast, slow
+gam <- .5 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -202,11 +209,11 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.06, .0015) # fast, slow
+ks <- c(.02, .0015) # fast, slow
 gam <- .7 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
@@ -228,11 +235,11 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.075, .0011) # fast, slow
+ks <- c(.02, .0011) # fast, slow
 gam <- .7 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
@@ -254,12 +261,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.08, .0045) # fast, slow
-gam <- .9 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.025, .005) # fast, slow
+gam <- .6 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -280,12 +287,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.12, .0044) # fast, slow
-gam <- .8 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.015, .0044) # fast, slow
+gam <- .5 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -306,12 +313,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.3, .0025) # fast, slow
-gam <- .7 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.008, .0025) # fast, slow
+gam <- .5 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -332,11 +339,11 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.25, .0044) # fast, slow
+ks <- c(.25, .005) # fast, slow
 gam <- .7 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
@@ -358,12 +365,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.16, .004) # fast, slow
-gam <- .85 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.18, .004) # fast, slow
+gam <- .75 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -384,12 +391,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.14, .002) # fast, slow
-gam <- .85 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.15, .003) # fast, slow
+gam <- .7 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -410,12 +417,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.26, .0036) # fast, slow
-gam <- .95 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.3, .005) # fast, slow
+gam <- .8 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -436,12 +443,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.3, .0023) # fast, slow
-gam <- .95 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.35, .004) # fast, slow
+gam <- .7 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -462,12 +469,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.3, .001) # fast, slow
-gam <- .95 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.4, .002) # fast, slow
+gam <- .8 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -488,12 +495,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.09, .007) # fast, slow
-gam <- .9 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.09, .009) # fast, slow
+gam <- .75 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -514,12 +521,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.08, .006) # fast, slow
-gam <- .7 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.01, .008) # fast, slow
+gam <- .5 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -540,12 +547,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.2, .0044) # fast, slow
-gam <- .8 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.01, .0044) # fast, slow
+gam <- .5 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -566,11 +573,11 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.12, .0042) # fast, slow
+ks <- c(.008, .0042) # fast, slow
 gam <- .8 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
@@ -592,7 +599,7 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
@@ -618,7 +625,7 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
@@ -644,12 +651,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.11, .0045) # fast, slow
-gam <- .95 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.02, .003) # fast, slow
+gam <- .9 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -670,12 +677,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.2, .003) # fast, slow
-gam <- .95 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.01, .003) # fast, slow
+gam <- .8 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
@@ -696,12 +703,12 @@ lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
 PMeco_depth <- paste0(PMeco, "_", lyr_top, "-", lyr_bot)
 
 # 14C constraints
-con.df <- con.df.fx(PMeco, lyr_bot)
+con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.3, .0025) # fast, slow
-gam <- .95 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.01, .003) # fast, slow
+gam <- .5 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")

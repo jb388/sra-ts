@@ -1,0 +1,20 @@
+Files:
+  - "14C_SierraNevada_Inc_2001_3_results.xlsx"
+Source: M. Rost <mrost@bgc-jena.mpg.de>
+Curator: J. Beem-Miller
+Date: 16-Dec-2020
+Contents:
+  - Incubation 14C data from 2001 samples, third batch of files (NB not received in order)
+Notes:
+  - data from sample "ANrf_comp_11-32_2001_a_rep_21" should be disregarded (sample had been vented and thus contained ambient lab air, but was then reanalyzed accidentally)
+  - samples analyzed:
+    - 14C_SierraNevada_Inc_2001_3_results.xlsx:
+      - GRwf_comp_4-13_2001_a_9
+      - ANrf_comp_11-32_2001_a_rep_21
+      - ANwf_comp_0-11_2001_a_23
+      - GRrf_comp_0-8_2001_a_3
+      - GRrf_comp_0-8_2001_b_4
+      - GRwf_comp_0-4_2001_a_7
+      - GRwf_comp_0-4_2001_b_8
+      - GRpp_comp_0-7_2001_a_13
+References:

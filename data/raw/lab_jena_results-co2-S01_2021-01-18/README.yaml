@@ -1,0 +1,67 @@
+Files:
+  - "Sierra_Nevada_Inc_2001_part1.xlsx"
+  - "Sierra_Nevada_Inc_2001_part2.xlsx"
+Source: M. Rost <mrost@bgc-jena.mpg.de>
+Curator: J. Beem-Miller
+Date: 18-Jan-21
+Contents:
+  - CO2 release data for batches 1 ("Sierra_Nevada_Inc_2001_part1.xlsx") and 2 ("Sierra_Nevada_Inc_2001_part2.xlsx") of the 2001 archived Sierra Nevada soil incubations
+Notes:
+  - samples are composites of depth increments collected from 3 spatially replicated soil pits/profiles
+  - samples collected by C. Rasmussen in 2001
+  - archived sample splits acquired by J. Beem-Miller in October 2019
+  - added sheets 'S01_1_flux' and 'S01_2_flux' to "Sierra_Nevada_Inc_2001_part1.xlsx" and "Sierra_Nevada_Inc_2001_part2.xlsx", respectively, to compile time series of CO2 fluxes
+  - .csv files made from the flux tabs and moved to derived data folder
+  - all samples rewetted to 60% WHC (as determined on the paired 2019 sample), allowed to pre-incubate for 7 d, and subsequently incubated at lab temp (ca. 20 C) until a similar amount of C respired as in the corresponding 2019 sample
+  - 8 g (dry weight equivalent) soil used; NB the relatively small mass of soil used was due to limited sample quantity
+  - Files updated on 27-Jan-2021 with exact soil weights (previously only the target values were entered)
+  - samples analyzed:
+    - "Sierra_Nevada_Inc_2001_part1.xlsx"
+      - GRrf_0-8_2001_a
+      - GRrf_0-8_2001_b
+      - GRrf_8-27_2001_a
+      - GRrf_8-27_2001_b
+      - GRwf_0-4_2001_a
+      - GRwf_0-4_2001_b
+      - GRwf_4-13_2001_a
+      - GRwf_4-13_2001_b
+      - GRwf_13-28_2001_a
+      - GRwf_13-28_2001_b
+      - GRpp_0-7_2001_a
+      - GRpp_0-7_2001_b
+      - GRpp_7-15_2001_a
+      - GRpp_7-15_2001_b
+      - GRpp_15-27_2001_a
+      - GRpp_15-27_2001_b
+      - ANrf_0-11_2001_a
+      - ANrf_0-11_2001_b
+      - ANrf_11-32_2001_a
+      - ANrf_11-32_2001_b
+      - ANwf_0-11_2001_a
+      - ANwf_0-11_2001_b
+      - ANwf_11-35_2001_a
+      - ANwf_11-35_2001_b
+    - "Sierra_Nevada_Inc_2001_part2.xlsx"
+      - ANpp_0-6_2001_a
+      - ANpp_0-6_2001_b
+      - ANpp_6-13_2001_a
+      - ANpp_6-13_2001_b
+      - ANpp_13-33_2001_a
+      - ANpp_13-33_2001_b
+      - BSrf_0-8_2001_a
+      - BSrf_0-8_2001_b
+      - BSrf_8-15_2001_a
+      - BSrf_8-15_2001_b
+      - BSrf_15-30_2001_a
+      - BSrf_15-30_2001_b
+      - BSwf_0-10_2001_a
+      - BSwf_0-10_2001_b
+      - BSwf_10-19_2001_a
+      - BSwf_10-19_2001_b
+      - BSpp_0-7_2001_a
+      - BSpp_0-7_2001_b
+      - BSpp_7-18_2001_a
+      - BSpp_7-18_2001_b
+      - BSpp_18-28_2001_a
+      - BSpp_18-28_2001_b
+References:

@@ -29,6 +29,7 @@ library(aqp)
 library(SoilR)
 library(FME)
 library(tidyr)
+library(readxl)
 ```
 
 # Data preparation script for Sierra Nevada time series analysis
@@ -82,14 +83,38 @@ template19.fx <- function(pm, eco, ndepth) {
 }
 
 # Create template for composite soil data (incubations, density fractions, etc.)
-template19.comp.fx <- function(pm, eco, ndepth) {
-  df <- data.frame(Year = rep(2019, 3),
-                   PM = rep(pm, 3),
-                   ECO = rep(eco, 3),
-                   lyr_top = rep(seq(0, (ndepth-1) * 10, by = 10)),
-                   lyr_bot = rep(seq(10, (ndepth) * 10, by = 10)))
+template.comp.fx <- function(year, pm, eco, depth_bot = c(10, 20, 30), dat) {
+  ndepth <- length(depth_bot)
+  df <- data.frame(Year = rep(year, ndepth * length(pm)),
+                   PM = rep(pm, each = ndepth * length(eco)),
+                   ECO = rep(eco, each = ndepth))
+  df$lyr_bot <- depth_bot
+  df$lyr_top <- sapply(seq_along(depth_bot), function(i) {
+    if (i == 1) {
+      depth_top <- 0
+      } else {
+        depth_top <- depth_bot[i - 1]
+      }
+  })
   df$pro_name <- paste0(df$PM, df$ECO, "_comp")
-  df$lyr_name <- paste0(df$pro_name, "_", df$lyr_top, "-", df$lyr_bot)
+  n <- nrow(df)
+  if (dat == "inc") {
+    df <- rbind(df, df)
+    df$rep <- rep(c("a", "b"), each = n)
+    df$lyr_name <- paste0(df$pro_name, "_", 
+                          df$lyr_top, "-", 
+                          df$lyr_bot, "_", 
+                          df$Year, "_",
+                          df$rep)
+  } else if (dat == "density") {
+    df <- rbind(df, df, df)
+    df$frc <- rep(c("fLF", "oLF", "mnC"), each = n)
+    df$lyr_name <- paste0(df$pro_name, "_", 
+                          df$lyr_top, "-", 
+                          df$lyr_bot, "_", 
+                          df$Year, "_",
+                          df$frc)
+  }
   return(df)
 }
 
@@ -131,39 +156,303 @@ sra.2019.df <- rbind(GRrf, GRwf, GRpp,
                      BSrf, BSwf, BSpp)
 
 # template for 2019 incubation data
-GRrf_inc <- template19.comp.fx("GR", "rf", 3)
-GRwf_inc <- template19.comp.fx("GR", "wf", 3)
-GRpp_inc <- template19.comp.fx("GR", "pp", 3)
+sra.2019.inc.df <- template.comp.fx(2019, 
+                                    pm = c("AN", "BS", "GR"),
+                                    eco = c("pp", "wf", "rf"),
+                                    dat = "inc")
 
-ANrf_inc <- template19.comp.fx("AN", "rf", 3)
-ANwf_inc <- template19.comp.fx("AN", "wf", 3)
-ANpp_inc <- template19.comp.fx("AN", "pp", 3)
-
-BSrf_inc <- template19.comp.fx("BS", "rf", 3)
-BSwf_inc <- template19.comp.fx("BS", "wf", 3)
-BSpp_inc <- template19.comp.fx("BS", "pp", 3)
-
-sra.2019.inc.df <- rbind(GRrf_inc, GRwf_inc, GRpp_inc,
-                         ANrf_inc, ANwf_inc, ANpp_inc,
-                         BSrf_inc, BSwf_inc, BSpp_inc)
+## template for 2001 incubation data
+# list of depths for 2001 inc samples
+depth_bot_2001.ls <- list(ANpp = c(6, 13, 33),
+                          ANwf = c(11, 35),
+                          ANrf = c(11, 32),
+                          BSpp = c(7, 18, 28),
+                          BSwf = c(10, 19),
+                          BSrf = c(8, 15, 30),
+                          GRpp = c(7, 15, 27),
+                          GRwf = c(4, 13, 28),
+                          GRrf = c(8, 27)) 
+# template for inputs to template.comp.fx (year, pm, eco)
+inc.2001.template <- lapply(seq_along(depth_bot_2001.ls), function(i) {
+  nms <- names(depth_bot_2001.ls)
+  ls <- list(year = 2001, 
+             pm = substr(nms[i], 1, 2), 
+             eco = substr(nms[i], 3, 4))
+  ls$depth_bot <- depth_bot_2001.ls[[i]]
+  return(ls)
+})
+# create template data frame by iteratively calling template.comp.fx
+sra.2001.inc.df <- bind_rows(
+  lapply(seq_along(inc.2001.template), function(i) {
+    template.comp.fx(year = inc.2001.template[[i]][[1]],
+                     pm = inc.2001.template[[i]][[2]],
+                     eco = inc.2001.template[[i]][[3]],
+                     depth_bot = inc.2001.template[[i]][[4]],
+                     dat = "inc")
+  })
+)
 
 # 2001 bulk soil template
 sra.2001 <- vector(mode = "list", length = length(unique(sra.2019.df$pro_name)))
 names(sra.2001) <- unique(sra.2019.df$pro_name)
 
-# 2009 data (from C. Rasmussen)
-ras18.lyr <- read.csv("/Users/jeff/R/14Constraint/ras_2018.csv")
-ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
-
 # 2019 bulk soil template
 sra.2019 <- sra.2001
 
-# 2019 inc template
+# inc templates for merging 14C data
 sra.2019.inc <- vector(mode = "list", length = length(unique(sra.2019.inc.df$pro_name)))
 names(sra.2019.inc) <- unique(sra.2019.inc.df$pro_name)
+sra.2001.inc <- sra.2019.inc
 # copies for reps of incubations
-sra.2019.inc_1 <- sra.2019.inc
-sra.2019.inc_2 <- sra.2019.inc
+sra.2019.inc_L <- sra.2019.inc
+names(sra.2019.inc_L) <- substr(names(sra.2019.inc_L), 1, 4)
+```
+
+```{r average-cn-data}
+# complete cases, convert type for calculating stocks later
+# could calculate stocks now and then remove for the following steps where not needed
+
+## 2001 summary data
+soc.2001 <- data.frame(read_excel("../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
+                                  sheet = "2001_bulk_data"))
+
+# create list; remove BS samples deeper than 30 cm
+soc.2001.ls <- lapply(split(soc.2001, soc.2001$PMeco), function(df) {
+  df <- type.convert(df[complete.cases(df), c("ID", "C.", "bd.g.cm3", "PMeco", "pro_rep", "lyr_top", "lyr_bot")])
+ return(df[which(df$lyr_bot < 36), ])
+})
+
+# Incubation samples combined 0-3 and 3-8 depth increments for BSrf and GRrf
+# combine BSrf and GRrf initial depths
+# function for calculating weighted average of first two depth increment C content
+d1d2.fx <- function(df) {
+  d1d2 <- data.frame(ID = paste(df$PMeco[1], df$pro_rep[1], df$lyr_top[1], df$lyr_bot[2], sep = "_"),
+                     C. = sum(df$C.[1] * ((df$lyr_bot[1] - df$lyr_top[1]) / df$lyr_bot[2]), df$C.[2] * ((df$lyr_bot[2] - df$lyr_top[2]) / df$lyr_bot[2])),
+                     bd.g.cm3 = df$bd.g.cm3[1],
+                     PMeco = df$PMeco[1],
+                     pro_rep = df$pro_rep[1],
+                     lyr_top = df$lyr_top[1],
+                     lyr_bot = df$lyr_bot[2])
+  return(rbind(d1d2,
+               df[3:nrow(df), ]))
+}
+# Run d1d2.fx for BSrf, GRrf
+soc.2001.ls.inc <- soc.2001.ls 
+soc.2001.ls.inc$GRrf <- bind_rows(lapply(split(soc.2001.ls$GRrf, soc.2001.ls$GRrf$pro_rep), d1d2.fx))
+soc.2001.ls.inc$BSrf <- bind_rows(lapply(split(soc.2001.ls$BSrf, soc.2001.ls$BSrf$pro_rep), d1d2.fx))
+
+# calculate SOC stocks
+soc.2001.ls <- lapply(soc.2001.ls, function(df) {
+  df$lyr_soc_kgm2 <- df$C. * df$bd.g.cm3 * (df$lyr_bot - df$lyr_top) * 10^-1
+  return(df)
+})
+
+# summarize [note that soc stocks are dropped]
+soc.2001.sum <- data.frame(bind_rows(lapply(soc.2001.ls, function(df) {
+  df %>%
+    mutate(ID2 = paste0(PMeco, "_", lyr_top, "-", lyr_bot)) %>%
+    group_by(ID2, bd.g.cm3, PMeco, lyr_top, lyr_bot) %>%
+    summarize(c_pct_avg = mean(C.))
+})))
+
+# 2019 data
+sra.2019.cn.sum <- data.frame(
+  bind_rows(unlist(elm_results_ls, recursive = FALSE)) %>%
+  mutate(PMeco = sapply(strsplit(ID, "_"), "[", 2),
+         depth = sapply(strsplit(ID, "_"), "[", 4)) %>%
+  group_by(PMeco, depth) %>%
+  summarize(c_pct_avg = mean(C)))
+sra.2019.cn.sum$ID2 <- paste(sra.2019.cn.sum$PMeco, sra.2019.cn.sum$depth, sep = "_")
+```
+
+```{r read-resp-ts}
+## read in timeseries of CO2 release from incubations
+# 2019
+sra.19a.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19a_CO2_flux_2021-01-19.csv")
+sra.19b.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19b_CO2_flux_2021-01-19.csv")
+
+# 2001
+sra.01.1.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_1_CO2_flux_2021-01-27.csv")
+sra.01.2.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_2_CO2_flux_2021-01-27.csv")
+
+## Test that required names are present
+nms <- c("PMeco", "ID", "dw_g", "timepoint_cmtv",  "time_d", "mgCO2_jar")
+invisible(lapply(list(sra.19a.co2.ts,
+                      sra.19b.co2.ts,
+                      sra.01.1.co2.ts,
+                      sra.01.2.co2.ts),
+       function(x) {
+         ifelse(!is.na(match(nms, names(x))), "yes", "no")
+       }
+       ))
+
+# combine all data, remove time points without CO2 measurements, and add year and rep 
+ts <- bind_rows(sra.19a.co2.ts[ , nms], 
+                sra.19b.co2.ts[ , nms], 
+                sra.01.1.co2.ts[ , nms],
+                sra.01.2.co2.ts[ , nms])
+if(length(which(is.na(ts$mgCO2_jar))) > 0) {
+  ts <- ts[-which(is.na(ts$mgCO2_jar)), ]
+}
+ts$year <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 3)
+ts$rep <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 4)
+ts$depth <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 2)
+ts$ID2 <- paste(ts$PMeco, ts$depth, sep = "_")
+
+# add C content
+ts[which(ts$year == 2001), "gC_gS"] <- soc.2001.sum[match(ts[which(ts$year == 2001), "ID2"], soc.2001.sum$ID2), "c_pct_avg"] * 10^-2
+ts[which(ts$year == 2019), "gC_gS"] <- sra.2019.cn.sum[match(ts[which(ts$year == 2019), "ID2"], sra.2019.cn.sum$ID2), "c_pct_avg"] * 10^-2
+
+# calculate per unit carbon fluxes
+ts$mgCO2_gC <- ts$gC_gS * ts$dw_g * ts$mgCO2_jar * (12/44)
+ts$mgCO2_gC_d <- ts$mgCO2_gC / ts$time_d
+
+# average reps
+ts.avg <- ts %>%
+  group_by(PMeco, year, depth, timepoint_cmtv) %>%
+  summarize(time_d = mean(time_d),
+            mgCO2_gC_d_avg = mean(mgCO2_gC_d),
+            mgCO2_gC_d_max = max(mgCO2_gC_d),
+            mgCO2_gC_d_min = min(mgCO2_gC_d),
+            mgCO2_gC_avg = mean(mgCO2_gC),
+            mgCO2_gC_max = max(mgCO2_gC),
+            mgCO2_gC_min = min(mgCO2_gC)) %>%
+  mutate(PMeco_depth_year = paste(PMeco, depth, year, sep = "_"))
+
+# add depth index
+t1 <- ts.avg[ts.avg$timepoint_cmtv == 1, ]
+t1 <- data.frame(
+  bind_rows(
+    lapply(split(t1, t1$year), function(df) {
+      bind_rows(lapply(split(df, df$PMeco), function(x) {
+        x$lyr_top <- as.numeric(sapply(strsplit(x$depth, "-"), "[", 1))
+        x <- x[order(x$lyr_top), ]
+        x$depth_index <- seq(1, nrow(x))
+        return(x)
+      }))
+    })))
+ts.avg$depth_index <- t1[match(ts.avg$PMeco_depth_year, t1$PMeco_depth_year), "depth_index"]
+```
+
+```{r plot-resp-rates}
+# function for plotting
+ts.plot.fx <- function(df, yr, increment, cumulative = TRUE) {
+      if (cumulative) {
+        df %>%
+          filter(year == yr & depth_index == increment) %>%
+          mutate(PM = ifelse(grepl("AN", PMeco), "AN",
+                             ifelse(grepl("BS", PMeco), "BS", "GR")),
+                 eco = factor(ifelse(grepl("rf", PMeco), "rf", 
+                                     ifelse(grepl("wf", PMeco), "wf", "pp")),
+                              levels = c("pp", "wf", "rf"))) %>%
+          ggplot(., aes(time_d, mgCO2_gC_avg, color = PM, shape = eco)) +
+          geom_ribbon(aes(ymin = mgCO2_gC_max, ymax = mgCO2_gC_min, fill = PM, linetype = eco, alpha = 0.2), show.legend = FALSE) +
+          geom_point(aes(time_d, mgCO2_gC_max, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
+          geom_point(aes(time_d, mgCO2_gC_min, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
+          geom_line(aes(color = PM, linetype = eco), size = 1.2) +
+          facet_grid(rows = vars(eco),
+                     labeller = labeller(eco = c("rf" = "cold", "wf" = "cool", "pp" = "warm"))) +
+          scale_x_continuous(limits = c(0,30)) +
+          scale_color_manual(name = "Parent material",
+                             labels = c("AN" = "andesite",
+                                        "BS" = "basalt",
+                                        "GR" = "granite"),
+                             values = c("AN" = "blue", 
+                                        "BS" = "red", 
+                                        "GR" = "darkgray")) +
+          scale_shape_manual(name = "Climate",
+                             labels = c("rf" = "cold",
+                                        "wf" = "cool",
+                                        "pp" = "warm"),
+                             values = c("pp" = 21, 
+                                        "rf" = 22, 
+                                        "wf" = 24)) +
+          scale_fill_manual(values =c("AN" = "blue",
+                                      "BS" = "red",
+                                      "GR" = "darkgray")) +
+          scale_linetype_manual(name = "Climate",
+                                values = c("rf" = "dotted",
+                                           "wf" = "dashed",
+                                           "pp" = "solid"),
+                                labels = c("rf" = "cold",
+                                        "wf" = "cool",
+                                        "pp" = "warm")) +
+          ylab(expression('Respiration Rate (mgCO'[2]*'-C gC'^-1*')')) +
+          xlab("Time (days)") +
+          guides(color = guide_legend(order = 1),
+                 shape = guide_legend(order = 3)) +
+          ggtitle(paste("Cumulative flux, ", yr, "depth ", increment)) +
+          theme_bw() +
+          theme(panel.grid = element_blank())
+    } else {
+       df %>%
+        filter(year == yr & depth_index == increment) %>%
+        mutate(PM = ifelse(grepl("AN", PMeco), "AN",
+                           ifelse(grepl("BS", PMeco), "BS", "GR")),
+              eco = factor(ifelse(grepl("rf", PMeco), "rf",
+                                  ifelse(grepl("wf", PMeco), "wf", "pp")),
+                           levels = c("pp", "wf", "rf"))) %>%
+        ggplot(., aes(time_d, mgCO2_gC_d_avg, color = PM, shape = eco)) +
+        geom_ribbon(aes(ymin = mgCO2_gC_d_max, ymax = mgCO2_gC_d_min, fill = PM, linetype = eco, alpha = 0.2), show.legend = FALSE) +
+          geom_point(aes(time_d, mgCO2_gC_d_max, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
+          geom_point(aes(time_d, mgCO2_gC_d_min, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
+        geom_line(aes(color = PM, linetype = eco), size = 1.2) +
+        facet_grid(rows = vars(eco),
+                   labeller = labeller(eco = c("rf" = "cold", "wf" = "cool", "pp" = "warm"))) +
+        scale_x_continuous(limits = c(0,30)) +
+        scale_color_manual(name = "Parent material",
+                           labels = c("AN" = "andesite",
+                                      "BS" = "basalt",
+                                      "GR" = "granite"),
+                           values = c("AN" = "blue", 
+                                      "BS" = "red", 
+                                      "GR" = "darkgray")) +
+        scale_shape_manual(name = "Climate",
+                           labels = c("rf" = "cold",
+                                      "wf" = "cool",
+                                      "pp" = "warm"),
+                           values = c("pp" = 21, 
+                                      "rf" = 22, 
+                                      "wf" = 24)) +
+        scale_fill_manual(values =c("AN" = "blue",
+                                    "BS" = "red",
+                                    "GR" = "darkgray")) +
+        scale_linetype_manual(name = "Climate",
+                              values = c("rf" = "dotted",
+                                         "wf" = "dashed",
+                                         "pp" = "solid"),
+                              labels = c("rf" = "cold",
+                                      "wf" = "cool",
+                                      "pp" = "warm")) +
+        ylab(expression('Respiration Rate (mgCO'[2]*'-C gC'^-1*'d'^-1*')')) +
+        xlab("Time (days)") +
+        guides(color = guide_legend(order = 1),
+               shape = guide_legend(order = 3)) +
+        ggtitle(paste("Flux rate", yr, "depth ", increment)) +
+        theme_bw() +
+        theme(panel.grid = element_blank())
+    }
+}
+
+## cumulative flux
+# 2019
+ts.plot.fx(ts.avg, yr = "2019", increment = "1")
+ts.plot.fx(ts.avg, yr = "2019", increment = "2")
+ts.plot.fx(ts.avg, yr = "2019", increment = "3")
+# 2001
+ts.plot.fx(ts.avg, yr = "2001", increment = "1")
+ts.plot.fx(ts.avg, yr = "2001", increment = "2")
+ts.plot.fx(ts.avg, yr = "2001", increment = "3")
+
+## flux rates
+# 2019
+ts.plot.fx(ts.avg, yr = "2019", increment = "1", cumulative = FALSE)
+ts.plot.fx(ts.avg, yr = "2019", increment = "2", cumulative = FALSE)
+ts.plot.fx(ts.avg, yr = "2019", increment = "3", cumulative = FALSE)
+# 2001
+ts.plot.fx(ts.avg, yr = "2001", increment = "1", cumulative = FALSE)
+ts.plot.fx(ts.avg, yr = "2001", increment = "2", cumulative = FALSE)
+ts.plot.fx(ts.avg, yr = "2001", increment = "3", cumulative = FALSE)
 ```
 
 *Merge templates with 14C, C, and N data*
@@ -239,39 +528,212 @@ sra.2019.ls <- lapply(split(sra.2019.df, sra.2019.df$lyr_name), function(df) {
 sra.2019.ls <- split(bind_rows(sra.2019.ls), bind_rows(sra.2019.ls)[["PMeco"]])
 ```
 
-```{r merge-iso-data-co2-S19}
-# Extract 14C data for 2019 samples
-# rep 1 data
-ams_results_ls_co2_S19_1 <- ams_results_ls[grep("co2-S19-1", names(ams_results_ls))]
-for(i in seq_along(sra.2019.inc)) {
-  sra.2019.inc_1[[i]] <- lapply(ams_results_ls_co2_S19_1, function(ls) {
+```{r merge-iso-data-co2}
+### Extract 14C data for incubation samples
+## respired CO2, soil
+# 2019
+ams_results_ls_co2_S19 <- ams_results_ls[grep("co2-S19", names(ams_results_ls))]
+for (i in seq_along(sra.2019.inc)) {
+  sra.2019.inc[[i]] <- lapply(ams_results_ls_co2_S19, function(ls) {
     lapply(ls, function(df) {
-      if(any(grepl(names(sra.2019.inc)[i], df$Probe))) {
-       df[grep(names(sra.2019.inc)[i], df$Probe), ] 
+      if (any(grepl(names(sra.2019.inc)[i], df$Probe))) {
+        df[grep(names(sra.2019.inc)[i], df$Probe), ] 
       }
     })
   })
-  sra.2019.inc_1[[i]] <- Filter(Negate(is.null), unlist(sra.2019.inc_1[[i]], recursive = FALSE))
+  sra.2019.inc[[i]] <- Filter(Negate(is.null), unlist(sra.2019.inc[[i]], recursive = FALSE))
 }
-sra.2019.inc_1 <- bind_rows(unlist(sra.2019.inc_1, recursive = FALSE))
+sra.2019.inc <- type.convert(
+  bind_rows(
+    lapply(unlist(sra.2019.inc, recursive = FALSE), 
+           function(x) x %>% mutate_all(as.character))),
+  as.is = TRUE)
+sra.2019.inc <- sra.2019.inc[-which(is.na(sra.2019.inc$F14C)), ]
 
-## merge w/ 2019 template
+# 2001
+ams_results_ls_co2_S01 <- ams_results_ls[grep("co2-S01", names(ams_results_ls))]
+# remove questionable/duplicate samples
+# ANrf_comp_11-32_2001_a (analyzed twice; both anomously low compared to rep and rest of data)
+ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_22.xlsx` <- ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_22.xlsx`[-grep("ANrf_comp_11-32_2001_a", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_22.xlsx`$Probe), ]
+ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-16`$`14C_SierraNevada_Inc_2001_3_results.xlsx` <- ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-16`$`14C_SierraNevada_Inc_2001_3_results.xlsx`[-grep("ANrf_comp_11-32_2001_a", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-16`$`14C_SierraNevada_Inc_2001_3_results.xlsx`$Probe), ]
+# from original analysis of samples extracted online 11-Dec-2020 (see readme for notes)
+ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_23.xlsx` <- ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_23.xlsx`[-grep("GRwf_comp_13-28_2001_a_11", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx`$Probe), ]
+# from reanalysis of samples extracted online 11-Dec-2020 (see readme for notes)
+# GRrf_comp_8-27_2001_a_5, GRrf_comp_8-27_2001_b_6, GRpp_comp_15-27_2001_b_18 
+ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx` <- ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx`[c(
+  grep("GRrf_comp_8-27_2001_a_5", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx`$Probe),
+  grep("GRwf_comp_13-28_2001_b_12", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx`$Probe)), ]
+
+# create template for extracting data
+sra.2001.inc <- vector(mode = "list", length = length(unique(sra.2019.inc.df$pro_name)))
+names(sra.2001.inc) <- unique(sra.2019.inc.df$pro_name)
+# merge with 14C data
+for (i in seq_along(sra.2001.inc)) {
+  sra.2001.inc[[i]] <- lapply(ams_results_ls_co2_S01, function(ls) {
+    lapply(ls, function(df) {
+      if (any(grepl(names(sra.2001.inc)[i], df$Probe))) {
+        df[grep(names(sra.2001.inc)[i], df$Probe), ] 
+      }
+    })
+  })
+  sra.2001.inc[[i]] <- Filter(Negate(is.null), unlist(sra.2001.inc[[i]], recursive = FALSE))
+}
+sra.2001.inc <- type.convert(
+  bind_rows(
+    lapply(unlist(sra.2001.inc, recursive = FALSE), 
+           function(x) x %>% mutate_all(as.character))),
+  as.is = TRUE)
+sra.2001.inc <- sra.2001.inc[-which(is.na(sra.2001.inc$F14C)), ]
+
+# respired CO2, litter
+ams_results_ls_co2_L19 <- ams_results_ls[grep("co2-L19", names(ams_results_ls))]
+for(i in seq_along(sra.2019.inc_L)) {
+  sra.2019.inc_L[[i]] <- lapply(ams_results_ls_co2_L19, function(ls) {
+    lapply(ls, function(df) {
+      if(any(grepl(names(sra.2019.inc_L)[i], df$Probe))) {
+       df[grep(names(sra.2019.inc_L)[i], df$Probe), ] 
+      }
+    })
+  })
+  sra.2019.inc_L[[i]] <- Filter(Negate(is.null), unlist(sra.2019.inc_L[[i]], recursive = FALSE))
+}
+sra.2019.inc_L <- bind_rows(unlist(sra.2019.inc_L, recursive = FALSE))
+
+## merge w/ templates [why do I do this twice?]
 # rename cols in AMS tables
-sra.2019.inc_1 <- sra.2019.inc_1[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
-names(sra.2019.inc_1) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+# soil CO2
+sra.2019.inc <- sra.2019.inc[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
+names(sra.2019.inc) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+sra.2001.inc <- sra.2001.inc[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
+names(sra.2001.inc) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
 # merge
-sra.2019.inc.ls_1 <- lapply(split(sra.2019.inc.df, sra.2019.inc.df$lyr_name), function(df) {
-  df <- merge(df, sra.2019.inc_1[grep(df$lyr_name, sra.2019.inc_1$ID), ])
-  df$ID <- NULL
-  df$PMeco <- paste0(df$PM, df$ECO)
-  return(df)
-})
+# 2019
+sra.2019.inc.ls <- bind_rows(
+  lapply(split(sra.2019.inc.df, sra.2019.inc.df$lyr_name), function(df) {
+    df <- merge(df, sra.2019.inc[grep(df$lyr_name, sra.2019.inc$ID), ])
+    df$ID <- NULL
+    df$PMeco <- paste0(df$PM, df$ECO)
+    return(df)
+  })
+)
+sra.2019.inc.ls <- split(sra.2019.inc.ls, sra.2019.inc.ls$PMeco)
+# 2001
+sra.2001.inc.ls <- bind_rows(
+  lapply(split(sra.2001.inc.df, sra.2001.inc.df$lyr_name), function(df) {
+    df <- merge(df, sra.2001.inc[grep(df$lyr_name, sra.2001.inc$ID), ])
+    df$ID <- NULL
+    df$PMeco <- paste0(df$PM, df$ECO)
+    return(df)
+  })
+)
+sra.2001.inc.ls <- split(sra.2001.inc.ls, sra.2001.inc.ls$PMeco)
 
-# reshape list by PMeco
-sra.2019.inc.ls_1 <- split(bind_rows(sra.2019.inc.ls_1), bind_rows(sra.2019.inc.ls_1)[["PMeco"]])
+
+# litter CO2
+sra.2019.inc_L <- sra.2019.inc_L[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
+names(sra.2019.inc_L) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+sra.2019.inc_L$ID <- substr(substring(sra.2019.inc_L$ID, 
+                                      regexpr("_", sra.2019.inc_L$ID) + 1, 
+                                      nchar(sra.2019.inc_L$ID)),
+                            1, 8)
+sra.2019.inc.df_L <- data.frame(Year = rep(2019, 18),
+                                rep = rep(c(1, 2), 9),
+                                PM = rep(c("AN", "BS", "GR"), each = 6),
+                                eco = rep(c("pp", "wf", "rf"), each = 2, times = 3))
+sra.2019.inc.df_L$PMeco <- paste0(sra.2019.inc.df_L$PM, sra.2019.inc.df_L$eco)
+sra.2019.inc.df_L$ID <- paste0(sra.2019.inc.df_L$PM, sra.2019.inc.df_L$eco, "-L_", sra.2019.inc.df_L$rep)
+# add dry wts and litter depth
+sra.2019.L <- read.csv("../data/derived/lab_jena_litter/Litter_2019_2021-01-27.csv")
+sra.2019.inc.df_L <- merge(sra.2019.inc.df_L, sra.2019.L[ , c("PMeco", "lyr_top", "lyr_bot")], all.x = TRUE)
+# merge
+sra.2019.inc_L.df <- bind_rows(
+  lapply(split(sra.2019.inc_L, sra.2019.inc_L$ID), function(df) {
+    df <- merge(df, sra.2019.inc.df_L, by = "ID")
+    df$ID <- NULL
+    return(df)
+  })
+)
+sra.2019.inc_L.ls <- split(sra.2019.inc_L.df, sra.2019.inc_L.df$PMeco)
 ```
 
-```{r plot-2001-profiles, include = FALSE}
+```{r plot-utils}
+# fm and d14c conversion functions
+lambda <- 1/8267 # = 1/(true mean life of 14C)
+calc_fm <- function(d14c, obs_date_y) {
+  ((d14c/1000) + 1)/exp(lambda * (1950 - obs_date_y))
+}
+calc_14c <- function(fm, obs_date_y) {
+  (fm * exp(lambda * (1950 - obs_date_y)) - 1) * 1000
+}
+
+# calc atm in 2001, 2009, 2019
+Datm <- rbind(graven, future14C)
+atm.d14.2001 <- Datm[Datm$Date == 2001.5, "NHc14"]
+atm.fm.2001 <- calc_fm(atm.d14.2001, 2001)
+atm.d14.2009 <- Datm[Datm$Date == 2009.5, "NHc14"]
+atm.fm.2009 <- calc_fm(atm.d14.2009, 2009)
+atm.d14.2019 <- Datm[Datm$Date == 2019.5, "NHc14"]
+atm.fm.2019 <- calc_fm(atm.d14.2019, 2019)
+```
+
+```{r plot-litter-14c}
+# summarize litter inc data
+sra.2019.inc_L.sum <- sra.2019.inc_L.df %>%
+  mutate(eco = factor(ifelse(eco == "pp", "warm",
+                             ifelse(eco == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         pm = factor(ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite"))),
+         Year = factor("2019")) %>%
+  group_by(Year, pm, eco, lyr_top, lyr_bot) %>%
+  summarize(d14c_mean = mean(d14c),
+            d14c_u = max(d14c),
+            d14c_l = min(d14c))
+
+# plot as cols by climate
+sra.2019.inc_L.sum %>%
+  mutate(MAT = factor(eco, levels = c("warm", "cool", "cold"), labels = c("10-13", "8-10", "5-6"))) %>%
+  ggplot(., aes(MAT, d14c_mean, fill = pm)) +
+  geom_hline(yintercept = 0) +
+  geom_hline(yintercept = atm.d14.2019, linetype = "dashed") +
+  geom_col(position = "dodge2") +
+  geom_errorbar(aes(ymax = d14c_u, ymin = d14c_l, color = pm), 
+                position = position_dodge2(width = .5, padding = .5)) +
+  scale_fill_manual(name = "Parent material",
+                    values = c("andesite" = "blue", 
+                               "basalt" = "red", 
+                               "granite" = "darkgray")) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  coord_flip() +
+  ylab(expression(Delta*''^14*'C (‰)')) +
+  xlab(expression("MAT ("*~degree*C*")")) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+# plot as points with depth
+sra.2019.inc_L.sum %>%
+  ggplot(., aes(d14c_mean, lyr_top, color = pm)) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmax = d14c_u, xmin = d14c_l), height = 1) +
+  scale_y_reverse() +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  facet_grid(rows = vars(eco)) +
+  xlab(expression(Delta*''^14*'C (‰)')) +
+  ylab("Depth (cm)") +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+```
+
+```{r plot-14c-profile-fx}
 pro.plot <- function(df, maxDepth, min14C, rep) {
   ggplot(df, aes(d14c, lyr_bot, color = PM, shape = ECO, group = rep)) +
     geom_vline(xintercept = 0) +
@@ -299,38 +761,22 @@ pro.plot <- function(df, maxDepth, min14C, rep) {
     theme_bw() +
     theme(panel.grid.minor = element_blank())
 }
+```
 
+```{r plot-2001-profiles}
 # lapply(sra.2001.ls, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), df$pro_rep))
 ```
 
-```{r plot-2019-profiles, include = FALSE}
+```{r plot-2019-profiles}
 # lapply(sra.2019.ls, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), df$pro_rep))
 ```
 
-```{r plot-2019-co2-profiles, include = FALSE}
-# lapply(sra.2019.inc.ls_1, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), NA))
+```{r plot-2019-co2-profiles}
+# lapply(sra.2019.inc.ls, function(df) pro.plot(df, max(df$lyr_bot), min(df$d14c), NA))
 ```
 
 ## 2001 mean radiocarbon profiles
 ```{r plot-2001-avg-profiles}
-# fm and d14c conversion functions
-lambda <- 1/8267 # = 1/(true mean life of 14C)
-calc_fm <- function(d14c, obs_date_y) {
-  ((d14c/1000) + 1)/exp(lambda * (1950 - obs_date_y))
-}
-calc_14c <- function(fm, obs_date_y) {
-  (fm * exp(lambda * (1950 - obs_date_y)) - 1) * 1000
-}
-
-# calc atm in 2001, 2009, 2019
-Datm <- rbind(graven, future14C)
-atm.d14.2001 <- Datm[Datm$Date == 2001.5, "NHc14"]
-atm.fm.2001 <- calc_fm(atm.d14.2001, 2001)
-atm.d14.2009 <- Datm[Datm$Date == 2009.5, "NHc14"]
-atm.fm.2009 <- calc_fm(atm.d14.2009, 2009)
-atm.d14.2019 <- Datm[Datm$Date == 2019.5, "NHc14"]
-atm.fm.2019 <- calc_fm(atm.d14.2019, 2019)
-
 # combine reps
 sra.2001.sum.ls  <- lapply(sra.2001.ls, function(df) {
   df <- data.frame(df %>%
@@ -343,15 +789,12 @@ sra.2001.sum.ls  <- lapply(sra.2001.ls, function(df) {
   names(df) <- c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot", "fm", "d14c", "fm_sd", "d14c_sd")
   df$lyr_top <- as.numeric(df$lyr_top)
   df$lyr_bot <- as.numeric(df$lyr_bot)
-  return(df)
+  df$d14c_u <- df$d14c + df$d14c_sd
+  df$d14c_l <- df$d14c - df$d14c_sd
+  return(df[order(df$lyr_bot), ])
 })
-sra.01.sum <- bind_rows(sra.2001.sum.ls)
-sra.01.sum <- sra.01.sum[order(sra.01.sum$lyr_bot), ]
-
-sra.01.sum <- sra.01.sum %>%
-  mutate(d14c_u = d14c + d14c_sd,
-         d14c_l = d14c - d14c_sd,
-         eco = factor(ifelse(ECO == "pp", "warm",
+sra.01.sum <- bind_rows(sra.2001.sum.ls) %>%
+  mutate(eco = factor(ifelse(ECO == "pp", "warm",
                       ifelse(ECO == "wf", "cool", "cold")),
                       levels = c("warm", "cool", "cold")),
          pm = ifelse(PM == "AN", "andesite",
@@ -392,10 +835,14 @@ sra.01.sum %>%
 
 ## 2009 radiocarbon profiles
 ```{r plot-2009-profiles}
+# 2009 data (from C. Rasmussen)
+ras18.lyr <- read.csv("/Users/jeff/R/14Constraint/ras_2018.csv")
+ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
 # add PMeco col
 ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
 ras18.lyr$PMeco <- paste0(ras18.lyr$PM, ras18.lyr$ECO)
 
+# summarize 09 data
 sra.09.sum <- ras18.lyr %>%
   mutate(eco = factor(ifelse(ECO == "pp", "warm",
                       ifelse(ECO == "wf", "cool", "cold")),
@@ -443,14 +890,12 @@ sra.2019.sum.ls  <- lapply(sra.2019.ls, function(df) {
   names(df) <- c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot", "fm", "d14c", "fm_sd", "d14c_sd")
   df$lyr_top <- as.numeric(df$lyr_top)
   df$lyr_bot <- as.numeric(df$lyr_bot)
+  df$d14c_u <- df$d14c + df$d14c_sd
+  df$d14c_l <- df$d14c - df$d14c_sd
   return(df)
 })
-sra.19.sum <- bind_rows(sra.2019.sum.ls)
-
-sra.19.sum <- sra.19.sum %>%
-  mutate(d14c_u = d14c + d14c_sd,
-         d14c_l = d14c - d14c_sd,
-         eco = factor(ifelse(ECO == "pp", "warm",
+sra.19.sum <- bind_rows(sra.2019.sum.ls) %>%
+  mutate(eco = factor(ifelse(ECO == "pp", "warm",
                       ifelse(ECO == "wf", "cool", "cold")),
                       levels = c("warm", "cool", "cold")),
          pm = ifelse(PM == "AN", "andesite",
@@ -541,28 +986,64 @@ sra.all %>%
 
 >*Caption:* Mean $\Delta$^14^C by depth for each site in 2001 and 2019. Error bars show ±1 standard deviation. Vertical lines show $\Delta$^14^C of the atmosphere in 2001 (solid) and 2019 (dashed).
 
-## Incubation $\Delta$^14^C-CO~2~ for 2019 bulk soils
+## Incubation $\Delta$^14^C-CO~2~
 
-```{r plot-inc-d14c}
-sra.2019.inc.df_1 <- bind_rows(sra.2019.inc.ls_1)
-
-fig.n <- fig.n + 1
-sra.2019.inc.df_1 %>%
-  mutate(d14c = replace(d14c, which(d14c < -300), NA), # remove GRrf 10-20 point
-         eco = factor(ifelse(ECO == "pp", "warm",
+```{r inc-d14c-plot-setup}
+## 2019
+sra.2019.inc.df <- bind_rows(sra.2019.inc.ls)
+# add litter inc data and summarize
+sra.2019.inc.sum.df <- data.frame(rbind(
+  sra.2019.inc_L.sum[ , which(names(sra.2019.inc_L.sum) != "lyr_top")],
+  sra.2019.inc.df %>%
+    mutate(eco = factor(ifelse(ECO == "pp", "warm",
                              ifelse(ECO == "wf", "cool", "cold")),
                       levels = c("warm", "cool", "cold")),
-         pm = ifelse(PM == "AN", "andesite",
-                     ifelse(PM == "BS", "basalt", "granite"))) %>%
-  ggplot(., aes(d14c, lyr_bot, color = pm, shape = ECO)) +
-  geom_vline(xintercept = 0) +
+           pm = factor(ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite"))),
+           # remove GRrf 10-20 "a" point
+           d14c = replace(d14c, which(d14c < -300), NA),
+           Year = factor(Year)) %>%
+  group_by(Year, pm, eco, lyr_bot, lyr_top) %>%
+  summarize(d14c_mean = mean(d14c, na.rm = TRUE),
+            d14c_l = min(d14c, na.rm = TRUE),
+            d14c_u = max(d14c, na.rm = TRUE)) %>%
+    select(-lyr_top)))
+
+# 2001
+sra.2001.inc.df <- bind_rows(sra.2001.inc.ls)
+sra.2001.inc.sum.df <- data.frame(
+  sra.2001.inc.df %>%
+    mutate(eco = factor(ifelse(ECO == "pp", "warm",
+                               ifelse(ECO == "wf", "cool", "cold")),
+                        levels = c("warm", "cool", "cold")),
+           pm = factor(ifelse(PM == "AN", "andesite",
+                       ifelse(PM == "BS", "basalt", "granite"))),
+           Year = factor(Year)) %>%
+    group_by(Year, PMeco, pm, eco, lyr_bot, lyr_top) %>%
+    summarize(d14c_mean = mean(d14c),
+              d14c_l = min(d14c),
+              d14c_u = max(d14c),
+              fm_mean = mean(fm),
+              fm_l = min(fm),
+              fm_u = max(fm))
+)
+sra.2001.inc.sum.ls <- split(sra.2001.inc.sum.df, sra.2001.inc.sum.df$PMeco)
+sra.2001.inc.sum.df <- sra.2001.inc.sum.df[ , !(names(sra.2001.inc.sum.df) %in% c("fm_mean", "fm_l", "fm_u", "lyr_top", "PMeco"))]
+```
+
+```{r plot-inc-d14c-2019}
+# 2019
+fig.n <- fig.n + 1
+sra.2019.inc.sum.df[order(sra.2019.inc.sum.df$lyr_bot), ] %>%
+  ggplot(., aes(d14c_mean, lyr_bot, color = pm, shape = eco)) +
+  geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
   geom_hline(yintercept = 0) +
   geom_point(size = 3) +
-  # geom_errorbarh(
-  #   aes(xmin = d14c_l, 
-  #       xmax = d14c_u,
-  #       color = pm), 
-  #   height = 1.5) +
+  geom_errorbarh(
+    aes(xmin = d14c_l,
+        xmax = d14c_u,
+        color = pm),
+    height = 1.5) +
   geom_path(linetype = "dashed") +
   scale_y_reverse() +
   scale_color_manual(name = "Parent material",
@@ -570,47 +1051,223 @@ sra.2019.inc.df_1 %>%
                                 "basalt" = "red", 
                                 "granite" = "darkgray")) +
   scale_shape_manual(name = "Ecosystem",
-                     values = c("pp" = 0, 
-                                "wf" = 1, 
-                                "rf" = 2),
-                     labels = c("pp" = "warm", 
-                                "wf" = "cool", 
-                                "rf" = "cold")) +
+                     values = c("warm" = 0, 
+                                "cool" = 1, 
+                                "cold" = 2)) +
   xlab(expression('Incubation '*Delta*''^14*'C-CO'[2]*' (‰)')) +
   ylab("Depth (cm)") +
-  facet_grid(rows = vars(ECO)) +
+  facet_grid(rows = vars(eco)) +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n}`. Rep 1 $\Delta$^14^C-CO~2~ of 2019 bulk soil incubations**
+>**Fig. `r {fig.n}`. $\Delta$^14^C-CO~2~ of 2019 bulk soil incubations**
 
->*Caption:* $\Delta$^14^CO~2~ by depth for each site in 2019. (Still waiting for data from laboratory duplicates). Note that the 10-20 cm increment sample from the cold granite site appears to have been contaminated: $\Delta$^14^C-CO~2~ = `r {sra.2019.inc.df_1[sra.2019.inc.df_1$PMeco == "GRrf" & sra.2019.inc.df_1$lyr_bot == 20, "d14c"]}`.
+>*Caption:* $\Delta$^14^CO~2~ by depth for each site in 2019. One rep from GRrf 10-20 (the 10-20 cm increment sample from the cold granite site) is strongly depleted relative to the other rep: $\Delta$^14^C-CO~2~ = `r {sra.2019.inc.df[sra.2019.inc.df$PMeco == "GRrf" & sra.2019.inc.df$lyr_bot == 20, "d14c"]}`. The highly depleted sample has been excluded for display reasons.
+
+```{r plot-inc-d14c-2001}
+# plot 2001 data
+fig.n <- fig.n + 1
+sra.2001.inc.sum.df %>%
+  ggplot(., aes(d14c_mean, lyr_bot, color = pm, shape = eco)) +
+  geom_vline(xintercept = atm.d14.2001) +
+  geom_hline(yintercept = 0) +
+  geom_point(size = 3) +
+  geom_errorbarh(
+    aes(xmin = d14c_l,
+        xmax = d14c_u,
+        color = pm),
+    height = 1.5) +
+  geom_path() +
+  scale_y_reverse() +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = "blue",
+                                "basalt" = "red",
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "Ecosystem",
+                     values = c("warm" = 15,
+                                "cool" = 16,
+                                "cold" = 17)) +
+  scale_x_continuous(limits = c(-70, 190)) +
+  xlab(expression('Incubation '*Delta*''^14*'C-CO'[2]*' (‰)')) +
+  ylab("Depth (cm)") +
+  facet_grid(rows = vars(eco)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+>**Fig. `r {fig.n}`. $\Delta$^14^C-CO~2~ of 2001 bulk soil incubations**
+
+>*Caption:* $\Delta$^14^CO~2~ by depth for each site in 2001. Note that some sites only have two depth increments. Similar to the 2019 dataset, one of the GRrf reps from the deepest depth increment was strongly depleted: $\Delta$^14^C-CO~2~ = `r {sra.2001.inc.sum.df %>% filter(pm == "granite", eco == "cold", lyr_bot == 27) %>% pull("d14c_l", "d14c_u")}`. Both points have been excluded for display reasons.
+
+```{r plot-inc-d14c-all}
+# plot together
+sra.inc.all <- rbind(sra.2001.inc.sum.df, sra.2019.inc.sum.df)
+
+fig.n <- fig.n + 1 
+sra.inc.all %>%
+  filter(lyr_bot > 0) %>%
+  mutate(PMeco_year = paste0(pm, eco, Year),
+         ecoYear = paste0(eco, " (", Year, ")")) %>%
+  ggplot(., aes(d14c_mean, lyr_bot, color = pm, shape = ecoYear, group = PMeco_year)) +
+  geom_vline(xintercept = atm.d14.2001) +
+  geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
+  geom_hline(yintercept = 0) +
+  geom_point(size = 3) +
+  geom_errorbarh(
+    aes(xmin = d14c_l, 
+        xmax = d14c_u,
+        color = pm), 
+    height = 1.5) +
+  geom_path(aes(linetype = Year)) +
+  scale_y_reverse(limits = c(41, 0)) +
+  scale_color_manual(name = "parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "Ecosystem (year)",
+                     values = c("warm (2001)" = 15, 
+                                "cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "warm (2019)" = 0, 
+                                "cool (2019)" = 1, 
+                                "cold (2019)" = 2)) +
+  scale_x_continuous(limits = c(-70, 190)) +
+  xlab(expression(Delta*''^14*'C (‰)')) +
+  ylab("Depth (cm)") +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+>**Fig. `r {fig.n}`. $\Delta$^14^C-CO~2~ of 2001 and 2019 bulk soil incubations**
+
+>*Caption:* $\Delta$^14^CO~2~ by depth for each site in 2001 and 2019. Different depth increments were sampled in 2001 and 2019. Points are the mean of laboratory duplicates; error bars are the measured values of each duplicate. Granite/cold point exlcuded for display reasons as it is strongly depleted.
 
 ## Incubation vs. bulk soil $\Delta$^14^C
 
-```{r plot-inc-bulk-d14c}
+```{r inc-bulk-d14c-plot-setup}
 # bind rows of inc list
-sra.19.inc <- sra.2019.inc.df_1[ , !(names(sra.2019.inc.df_1) %in% c("fm", "fm_err"))]
+sra.19.inc <- sra.2019.inc.sum.df
 sra.19.inc$Type <- "inc"
-sra.19.inc$d14c_l <- NA
-sra.19.inc$d14c_u <- NA
+
+# 2001
+sra.01.inc <- sra.2001.inc.sum.df
+sra.01.inc$Type <- "inc"
 
 # rbind bulk data
-sra.19.bulk <- sra.19.inc
-sra.19.bulk[ , c("d14c", "d14c_l", "d14c_u")] <- sra.19.sum[which(sra.19.sum$lyr_bot < 31), c("d14c", "d14c_l", "d14c_u")]
+sra.19.bulk <- sra.19.sum[which(sra.19.sum$lyr_bot < 31), c("Year", "PM", "ECO", "lyr_bot","d14c", "d14c_l", "d14c_u")]
+names(sra.19.bulk)[which(names(sra.19.bulk) == "d14c")] <- "d14c_mean"
 sra.19.bulk$Type <- "bulk"
-sra.19.inc.blk <- rbind(sra.19.inc, sra.19.bulk)
+sra.19.bulk <- sra.19.bulk %>%
+  mutate(pm = factor(ifelse(PM == "AN", "andesite",
+                            ifelse(PM == "BS", "basalt", "granite"))),
+         eco = factor(ifelse(ECO == "pp", "warm",
+                             ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         PM = NULL,
+         ECO = NULL)
+sra.19.inc.blk <- rbind(data.frame(sra.19.inc), data.frame(sra.19.bulk))
 
+# 2001
+# Need to calculate weighted average of radiocarbon values and stocks for combined inc depths 
+# 1) add SOC stocks to duplicate sra.2001.ls obj
+sra.2001.ls2 <- sra.2001.ls
+for(i in seq_along(sra.2001.ls2)) {
+  ix <- match(sra.2001.ls2[[i]][["ID"]], soc.2001.ls[[i]][["ID"]])
+  sra.2001.ls2[[i]]["lyr_soc_kgm2"] <- soc.2001.ls[[i]][ix, "lyr_soc_kgm2"]
+}
+# 2) weighted average fx
+d1d2.14c.fx <- function(df) {
+  sum_soc <- sum(df[1:2, "lyr_soc_kgm2"])
+  wt1 <- df$lyr_soc_kgm2[1] / sum_soc
+  wt2 <- df$lyr_soc_kgm2[2] / sum_soc
+  d1d2 <- df[1, ]
+  d1d2$ID = paste(df$PMeco[1], df$pro_rep[1], df$lyr_top[1], df$lyr_bot[2], sep = "_")
+  d1d2$lyr_soc_kgm2 = sum(df$lyr_soc_kgm2[1], df$lyr_soc_kgm2[2])
+  d1d2$lyr_bot = df$lyr_bot[2]
+  d1d2$fm <- sum(df$fm[1] * wt1, df$fm[2] * wt2)
+  d1d2$d14c <- sum(df$d14c[1] * wt1, df$d14c[2] * wt2)
+  return(rbind(d1d2,
+               df[3:nrow(df), ]))
+}
+# 3) calc. wtd. average for GRrf
+sra.2001.ls2$GRrf <- bind_rows(
+  lapply(split(sra.2001.ls2$GRrf, sra.2001.ls2$GRrf$pro_rep), function(x) {
+    d1d2.14c.fx(x)
+  })
+)
+# 4) calc. wtd. average for BSrf
+#    - problem here is that only one pro_rep has 0-3 cm data
+#    - so, need to calculate weighted SOC, then calculate weighted 14C
+#    - composite 0-8 = 15g BSrf_1_0-3 + 5 g from each pro_rep BSrf_3-8
+BSrf_comp_01_i <- sra.2001.ls2$BSrf[which(sra.2001.ls$BSrf$lyr_bot < 9), ]
+BSrf_comp_01_i$soc_wt <- c(15 / 30, rep(5 / 30, 3))
+BSrf_comp_01_i$soc_wtd <- BSrf_comp_01_i$lyr_soc_kgm2 * BSrf_comp_01_i$soc_wt
+
+# create summarized list
+sra.2001.sum.ls2  <- lapply(sra.2001.ls2, function(df) {
+  data.frame(
+    df %>%
+      filter(lyr_bot <= 40) %>%
+      mutate(lyr_bot_ch = as.character(lyr_bot)) %>%
+      select(PMeco, d14c, fm, lyr_bot_ch, lyr_soc_kgm2) %>%
+      group_by(PMeco, lyr_bot_ch) %>%
+      summarize(
+        across(where(is.numeric), list(mean = mean, sd = sd), na.rm = TRUE)) %>%
+      mutate(lyr_bot = as.numeric(lyr_bot_ch)) %>%
+      select(-lyr_bot_ch)
+  )
+})
+
+# remove BSrf row w/ lyr_bot = 3
+sra.2001.sum.ls2$BSrf <- sra.2001.sum.ls2$BSrf[-which(sra.2001.sum.ls2$BSrf$lyr_bot == 3), ]
+# calculate weighted average for d14c, fm, lyr_soc_kgm2
+sra.2001.sum.ls2$BSrf[which(sra.2001.sum.ls2$BSrf$lyr_bot == 8), "d14c_mean"] <- sum(BSrf_comp_01_i$d14c * (BSrf_comp_01_i$soc_wtd / sum(BSrf_comp_01_i$soc_wtd)))
+sra.2001.sum.ls2$BSrf[which(sra.2001.sum.ls2$BSrf$lyr_bot == 8), "fm_mean"] <- sum(BSrf_comp_01_i$fm * (BSrf_comp_01_i$soc_wtd / sum(BSrf_comp_01_i$soc_wtd)))
+sra.2001.sum.ls2$BSrf[which(sra.2001.sum.ls2$BSrf$lyr_bot == 8), "lyr_soc_kgm2_mean"] <- sum(BSrf_comp_01_i$soc_wtd)
+sra.2001.sum.ls2$BSrf[which(sra.2001.sum.ls2$BSrf$lyr_bot == 8), c("d14c_sd", "fm_sd", "lyr_soc_kgm2_sd")] <- NA
+
+# calculate cmtv soc
+sra.2001.sum.ls2 <- lapply(sra.2001.sum.ls2, function(x) {
+  x <- x[order(x$lyr_bot), ]
+  x$lyr_soc_cmtv <- NA
+  for(i in seq_along(x$lyr_bot)) {
+      if(i == 1) {
+        x$lyr_soc_cmtv[i] <- x$lyr_soc_kgm2_mean[i]
+      } else {
+        x$lyr_soc_cmtv[i] <- x$lyr_soc_kgm2_mean[i] + x$lyr_soc_cmtv[i-1] 
+      }
+  }
+  return(x)
+})
+
+# make df
+sra.01.sum <- data.frame(bind_rows(
+  lapply(sra.2001.sum.ls2, function(df) {
+    df %>%
+      mutate(eco = factor(ifelse(grepl("pp", df$PMeco), "warm",
+                                 ifelse(grepl("wf", df$PMeco), "cool", "cold")),
+                          levels = c("warm", "cool", "cold")),
+             pm = ifelse(grepl("AN", df$PMeco), "andesite",
+                         ifelse(grepl("BS", df$PMeco), "basalt", "granite")),
+             d14c_u = d14c_mean + d14c_sd,
+             d14c_l = d14c_mean - d14c_sd,
+             Year = 2001,
+             Type = "bulk") %>%
+      select(names(sra.01.inc)) %>%
+      arrange(lyr_bot)
+  })
+))
+# bind with inc
+sra.01.inc.blk <- rbind(data.frame(sra.01.inc), sra.01.sum)
+```
+
+```{r plot-inc-blk-2019}
+# plot 2019
 fig.n <- fig.n + 1
 sra.19.inc.blk %>%
-  mutate(ECOtype = paste0(ECO, Type),
-         eco = factor(ifelse(ECO == "pp", "warm",
-                      ifelse(ECO == "wf", "cool", "cold")),
-                      levels = c("warm", "cool", "cold")),
-         pm = ifelse(PM == "AN", "andesite",
-                     ifelse(PM == "BS", "basalt", "granite"))) %>%
-  ggplot(., aes(d14c, lyr_bot, color = pm, shape = ECOtype, linetype = Type)) +
-  geom_vline(xintercept = 0) +
+  mutate(ECOtype = paste0(eco, " (", Type, ")")) %>%
+  arrange(lyr_bot) %>%
+  ggplot(., aes(d14c_mean, lyr_bot, color = pm, shape = ECOtype, linetype = Type)) +
+  geom_vline(xintercept = atm.d14.2019) +
   geom_hline(yintercept = 0) +
   geom_point(size = 3) +
   geom_errorbarh(
@@ -625,18 +1282,12 @@ sra.19.inc.blk %>%
                                 "basalt" = "red", 
                                 "granite" = "darkgray")) +
   scale_shape_manual(name = "Ecosystem (type)",
-                     values = c("ppbulk" = 15, 
-                                "wfbulk" = 16, 
-                                "rfbulk" = 17,
-                                "ppinc" = 0, 
-                                "wfinc" = 1, 
-                                "rfinc" = 2),
-                     labels = c("ppbulk" = "warm (bulk)", 
-                                "wfbulk" = "cool (bulk)", 
-                                "rfbulk" = "cold (bulk)",
-                                "ppinc" ="warm (inc)", 
-                                "wfinc" = "cool (inc)", 
-                                "rfinc" = "cold (inc)")) +
+                     values = c("warm (bulk)" = 15, 
+                                "cool (bulk)" = 16, 
+                                "cold (bulk)" = 17,
+                                "warm (inc)" = 0, 
+                                "cool (inc)" = 1, 
+                                "cold (inc)" = 2)) +
   xlab(expression(Delta*''^14*'C (‰)')) +
   ylab("Depth (cm)") +
   facet_grid(rows = vars(eco), cols = vars(pm)) +
@@ -645,88 +1296,248 @@ sra.19.inc.blk %>%
 ```
 >**Fig. `r {fig.n}`. $\Delta$^14^C of 2019 bulk soil incubations and corresponding bulk soil**
 
->*Caption:* $\Delta$^14^C of bulk soil and respired CO~2~ by depth for each site in 2019. Error bars show one standard deviation for bulk soil, points show mean of three replicate profiles for bulk soils and single observations for respired CO~2~ (still waiting for data from laboratory duplicates). 
+>*Caption:* $\Delta$^14^C of bulk soil and respired CO~2~ by depth for each site in 2019. Error bars show one standard deviation for bulk soil, points show mean of three replicate profiles for bulk soils and single observations for respired CO~2~. 
 
-```{r plot-inc-bulk-14c-2019}
+```{r plot-inc-blk-2001}
+# plot 2001
+fig.n <- fig.n + 1
+sra.01.inc.blk %>%
+  mutate(ECOtype = paste0(eco, " (", Type, ")")) %>%
+  ggplot(., aes(d14c_mean, lyr_bot, color = pm, shape = ECOtype, linetype = Type)) +
+  geom_vline(xintercept = atm.d14.2001) +
+  geom_hline(yintercept = 0) +
+  geom_point(size = 3) +
+  geom_errorbarh(
+    aes(xmin = d14c_l, 
+        xmax = d14c_u,
+        color = pm), 
+    height = 1.5) +
+  geom_path() +
+  scale_y_reverse() +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "Ecosystem (type)",
+                     values = c("warm (bulk)" = 15, 
+                                "cool (bulk)" = 16, 
+                                "cold (bulk)" = 17,
+                                "warm (inc)" = 0, 
+                                "cool (inc)" = 1, 
+                                "cold (inc)" = 2)) +
+  scale_x_continuous(limits = c(-100, 200)) +
+  xlab(expression(Delta*''^14*'C (‰)')) +
+  ylab("Depth (cm)") +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+>**Fig. `r {fig.n}`. $\Delta$^14^C of 2001 bulk soil incubations and corresponding bulk soil**
+
+>*Caption:* $\Delta$^14^C of bulk soil and respired CO~2~ by depth for each site in 2001. Points show mean of three replicate profiles for bulk soils and mean of laboratory duplicates for respired CO~2~. The incubated soil samples are a composite made by homogenizing subsamples from each of the three replicate profile samples by depth. Error bars show one standard deviation for bulk soil and the measured values from laboratory duplicates of the incubated composite samples.
+
+```{r prep-inc-by-bulk-14c-plot}
 # first merge mean 14C data from 2019 samples with composite incubation data
-nms.inc.blk <- c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot", "Year")
-sra.19.inc.blk2 <- merge(sra.19.sum[which(sra.19.sum$lyr_bot < 31), c(nms.inc.blk, "d14c", "d14c_u", "d14c_l")], 
-                        sra.2019.inc.df_1[ , c(nms.inc.blk, "d14c")],
-                        by = nms.inc.blk, suffixes = c(".bulk", ".inc"))
+nms.inc.blk <- c("pm", "eco", "lyr_bot", "Year")
+sra.19.inc.blk2 <- left_join(sra.19.bulk %>% mutate(., Year = as.factor(Year)),
+                             sra.2019.inc.sum.df,
+                             by = nms.inc.blk,
+                             suffix = c(".bulk", ".inc"))
+# 2001
+sra.01.inc.blk2 <- left_join(sra.01.sum %>% mutate(., Year = as.factor(Year)),
+                             sra.01.inc,
+                             by = nms.inc.blk,
+                             suffix = c(".bulk", ".inc"))
+sra.01.inc.blk2$PMeco <- paste0(sra.01.inc.blk2$pm, sra.01.inc.blk2$eco)
+# add depth factor
+sra.01.inc.blk2 <- unsplit(
+  lapply(split(sra.01.inc.blk2, sra.01.inc.blk2$PMeco), function(x) {
+  x$depth <- seq(1, nrow(x))
+  return(x) 
+  }), 
+sra.01.inc.blk2$PMeco)
+sra.01.inc.blk2 <- sra.01.inc.blk2[which(sra.01.inc.blk2$lyr_bot < 35), ]
+sra.01.inc.blk2$depth <- factor(sra.01.inc.blk2$depth)
 
 # regress bulk vs. inc
-min.inc.blk <- min(sra.19.inc.blk2$d14c_l) # exclude highly negative incubation sample from GRwf
-max.inc.blk <- max(sra.19.inc.blk2$d14c_u, sra.19.inc.blk$d14c.inc)
+min.inc.blk.19 <- min(sra.19.inc.blk2$d14c_l.inc,
+                      sra.19.inc.blk2$d14c_l.bulk) # exclude highly negative incubation sample from GRwf
+max.inc.blk.19 <- max(sra.19.inc.blk2$d14c_l.inc,
+                      sra.19.inc.blk2$d14c_l.bulk)
 
 # What is the ideal grouping/expected relationship?
+```
+
+```{r plot-inc-by-bulk-14c}
+## stats
+# join all data as means and sds
+sra.all.sum.df <- left_join(
+  bind_rows(sra.2001.sum.ls2) %>%
+    select(PMeco, lyr_bot, d14c_mean, d14c_sd) %>%
+    mutate(Year = 2001) %>%
+    bind_rows(., 
+              bind_rows(lapply(sra.2019.ls, function(df) {
+                df %>%
+                  filter(lyr_bot < 31) %>%
+                  select(PMeco, lyr_bot, d14c) %>%
+                  group_by(PMeco, lyr_bot) %>%
+                  summarize(across(d14c, list(mean = mean, sd = sd))) %>%
+                  mutate(Year = 2019)
+                }))
+            ),
+  bind_rows(lapply(sra.2001.inc.ls, function(df) {
+              df %>%
+                select(PMeco, lyr_bot, d14c) %>%
+                group_by(PMeco, lyr_bot) %>%
+                summarize(across(d14c, list(mean = mean, sd = sd))) %>%
+                mutate(Year = 2001) 
+              })) %>%
+  bind_rows(., 
+            bind_rows(lapply(sra.2019.inc.ls, function(df) {
+              df %>%
+                select(PMeco, lyr_bot, d14c) %>%
+                group_by(PMeco, lyr_bot) %>%
+                summarize(across(d14c, list(mean = mean, sd = sd))) %>%
+                mutate(Year = 2019)
+              }))
+            ), 
+  by = c("PMeco", "lyr_bot", "Year"),
+  suffix = c(".bulk", ".inc")) %>%
+  mutate(PM = substring(PMeco, 1, 2),
+         eco = substring(PMeco, 3, 4))
+
+# simple linear regression of means
+summary(lm(d14c_mean.inc ~ d14c_mean.bulk * PM, sra.all.sum.df))
+
+# # Deming regression (accounts for error in x and y terms)
+# deming(d14c_mean.inc ~ d14c_mean.bulk,
+#        data = sra.all.sum.df[sra.all.sum.df$PM == "AN", ], 
+#        xstd = d14c_sd.inc, ystd = d14c_sd.bulk)
+# deming(d14c_mean.inc ~ d14c_mean.bulk,
+#        data = sra.all.sum.df[sra.all.sum.df$PM == "BS", ], 
+#        xstd = d14c_sd.inc, ystd = d14c_sd.bulk)
+# deming(d14c_mean.inc ~ d14c_mean.bulk,
+#        data = sra.all.sum.df[sra.all.sum.df$PM == "GR", ], 
+#        xstd = d14c_sd.inc, ystd = d14c_sd.bulk)
+
+# all depths and years together, by PM
 fig.n <- fig.n + 1
-sra.19.inc.blk2 %>%
-  mutate(depth = ifelse(lyr_top == 0, "0-10cm", ifelse(lyr_top == 10, "10-20cm", "20-30cm"))) %>%
-  ggplot(., aes(d14c.bulk, d14c.inc, color = PM, shape = ECO, group = PM)) +
+sra.19.inc.blk2  %>%
+  bind_rows(., sra.01.inc.blk2[ , which(names(sra.19.inc.blk2) %in% names(sra.01.inc.blk2))]) %>%
+  mutate(depth = factor(lyr_bot),
+         ecoYear = paste0(eco, " (", Year, ")")) %>%
+  ggplot(., aes(d14c_mean.bulk, d14c_mean.inc, color = pm)) +
   # geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
   geom_vline(xintercept = 0) +
   # geom_hline(yintercept = atm.d14.2019, linetype = "dashed") +
   geom_hline(yintercept = 0) +
-  geom_point(size = 3) +
-  # geom_smooth(method = "lm", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0) +
+  geom_point(aes(color = pm, shape = ecoYear), size = 3) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
   geom_errorbarh(
-    aes(xmin = d14c_l, 
-        xmax = d14c_u,
-        color = PM), 
+    aes(xmin = d14c_l.bulk, 
+        xmax = d14c_u.bulk,
+        color = pm), 
     height = 1.5) +
+  geom_errorbar(
+    aes(ymin = d14c_l.inc, 
+        ymax = d14c_u.inc,
+        color = pm), 
+    width = 1.5) +
   scale_color_manual(name = "Parent material",
-                     values = c("AN" = "blue",
-                                "BS" = "red",
-                                "GR" = "darkgray"),
-                     labels = c("AN" = "andesite",
-                                "BS"= "basalt",
-                                "GR" = "granite")) +
-  scale_shape_manual(name = "Ecosystem",
-                     values = c("pp" = 0,
-                                "wf" = 1,
-                                "rf" = 2),
-                     labels = c("pp" = "warm",
-                                "wf" = "cool",
-                                "rf" = "cold")) +
-  scale_x_continuous(limits = c(min.inc.blk, max.inc.blk)) +
-  scale_y_continuous(limits = c(min.inc.blk, max.inc.blk)) +
-  coord_fixed() +
+                     values = c("andesite" = "blue",
+                                "basalt" = "red",
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "Ecosystem (year)",
+                     values = c("warm (2019)" = 0,
+                                "cool (2019)" = 1,
+                                "cold (2019)" = 2,
+                                "warm (2001)" = 15,
+                                "cool (2001)" = 16,
+                                "cold (2001)" = 17)) +
+  coord_fixed(xlim = c(-100, 200), ylim = c(-100, 200)) +
   xlab(expression('Bulk soil '*Delta*''^14*'C (‰)')) +
   ylab(expression('Incubation '*Delta*''^14*'C (‰)')) +
-  facet_grid(cols = vars(depth)) +
+  # facet_grid(rows = vars(depth)) +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 
-# all depths together, by PM
-# sra.19.inc.blk %>%
-#   mutate(depth = ifelse(lyr_top == 0, "0-10cm", ifelse(lyr_top == 10, "10-20cm", "20-30cm"))) %>%
-#   ggplot(., aes(d14c.bulk, d14c.inc, color = depth, shape = ECO)) +
-#   geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
+# # 2001
+# sra.01.inc.blk2 %>%
+#   filter(d14c_mean.bulk > -100 & d14c_mean.inc > -100) %>%
+#   ggplot(., aes(d14c_mean.bulk, d14c_mean.inc, color = pm, shape = eco, group = pm)) +
+#   # geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
 #   geom_vline(xintercept = 0) +
-#   geom_hline(yintercept = atm.d14.2019, linetype = "dashed") +
+#   # geom_hline(yintercept = atm.d14.2019, linetype = "dashed") +
 #   geom_hline(yintercept = 0) +
+#   geom_abline(slope = 1, intercept = 0) +
 #   geom_point(size = 3) +
+#   geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
 #   geom_errorbarh(
-#     aes(xmin = d14c_l, 
-#         xmax = d14c_u,
-#         color = depth), 
+#     aes(xmin = d14c_l.bulk, 
+#         xmax = d14c_u.bulk,
+#         color = pm), 
 #     height = 1.5) +
+#   geom_errorbar(
+#     aes(ymin = d14c_l.inc, 
+#         ymax = d14c_u.inc,
+#         color = pm), 
+#     width = 1.5) +
+#   scale_color_manual(name = "Parent material",
+#                      values = c("andesite" = "blue",
+#                                 "basalt" = "red",
+#                                 "granite" = "darkgray")) +
 #   scale_shape_manual(name = "Ecosystem",
-#                      values = c("pp" = 0, 
-#                                 "wf" = 1, 
-#                                 "rf" = 2)) +
-#   scale_x_continuous(limits = c(min.inc.blk, max.inc.blk)) +
-#   scale_y_continuous(limits = c(min.inc.blk, max.inc.blk)) +
-#   coord_fixed() +
+#                      values = c("warm" = 15,
+#                                 "cool" = 16,
+#                                 "cold" = 17)) +
+#   coord_fixed(xlim = c(-100, 200), ylim = c(-100, 200)) +
 #   xlab(expression('Bulk soil '*Delta*''^14*'C (‰)')) +
 #   ylab(expression('Incubation '*Delta*''^14*'C (‰)')) +
-#   facet_grid(cols = vars(PM)) +
+#   facet_grid(rows = vars(depth)) +
+#   theme_bw() +
+#   theme(panel.grid.minor = element_blank())
+# 
+# # 2019
+# fig.n <- fig.n + 1
+# sra.19.inc.blk2 %>%
+#   mutate(depth = factor(lyr_bot)) %>%
+#   ggplot(., aes(d14c_mean.bulk, d14c_mean.inc, color = pm, shape = eco, group = pm)) +
+#   # geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
+#   geom_vline(xintercept = 0) +
+#   # geom_hline(yintercept = atm.d14.2019, linetype = "dashed") +
+#   geom_hline(yintercept = 0) +
+#   geom_abline(slope = 1, intercept = 0) +
+#   geom_point(size = 3) +
+#   geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+#   geom_errorbarh(
+#     aes(xmin = d14c_l.bulk, 
+#         xmax = d14c_u.bulk,
+#         color = pm), 
+#     height = 1.5) +
+#   geom_errorbar(
+#     aes(ymin = d14c_l.inc, 
+#         ymax = d14c_u.inc,
+#         color = pm), 
+#     width = 1.5) +
+#   scale_color_manual(name = "Parent material",
+#                      values = c("andesite" = "blue",
+#                                 "basalt" = "red",
+#                                 "granite" = "darkgray")) +
+#   scale_shape_manual(name = "Ecosystem",
+#                      values = c("warm" = 0,
+#                                 "cool" = 1,
+#                                 "cold" = 2)) +
+#   coord_fixed(xlim = c(-100, 200), ylim = c(-100, 200)) +
+#   xlab(expression('Bulk soil '*Delta*''^14*'C (‰)')) +
+#   ylab(expression('Incubation '*Delta*''^14*'C (‰)')) +
+#   facet_grid(rows = vars(depth)) +
 #   theme_bw() +
 #   theme(panel.grid.minor = element_blank())
 ```
 >**Fig. `r {fig.n}`. Regression of 2019 bulk soil incubations and corresponding bulk soil $\Delta$^14^C**
 
->*Caption:* Regressions of $\Delta$^14^C of bulk soil and respired CO~2~ by depth for each site in 2019. Error bars show one standard deviation for bulk soil, points show mean of three replicate profiles for bulk soils and single observations for respired CO~2~ (still waiting for data from laboratory duplicates).
+>*Caption:* Regressions of $\Delta$^14^C of bulk soil and respired CO~2~ by depth for each site in 2019. Error bars show one standard deviation for bulk soil, points show mean of three replicate profiles for bulk soils and single observations for respired CO~2~.
 
 ## Time series: $\Delta$^14^C by depth (as measured)
 ```{r plot-timeseries-meas-depths}
@@ -740,7 +1551,9 @@ sra.2009.df <- sra.2009.df[ , which(names(sra.2009.df) %in% names(sra.01.09.19.r
 sra.2009.df <- cbind(sra.2009.df, 
                      fm = NA,
                      d14c_sd = NA,
-                     fm_sd = NA)
+                     fm_sd = NA,
+                     d14c_u = NA,
+                     d14c_l = NA)
 sra.01.09.19.raw <- rbind(sra.01.09.19.raw, sra.2009.df)
 sra.01.09.19.raw$Year <- factor(c(rep(2001, nrow(bind_rows(sra.2001.sum.ls))),
                                   rep(2019, nrow(bind_rows(sra.2019.sum.ls))),
@@ -871,6 +1684,9 @@ sra.01.09.19.raw %>%
   scale_alpha_manual(values = c("2001" = 1,
                                 "2009" = 0.6,
                                 "2019" = 0.3)) +
+  scale_linetype_manual(values = c("2001" = "solid",
+                                   "2009" = "dashed",
+                                   "2019" = "dotted")) +
   facet_grid(rows = vars(eco), cols = vars(pm)) +
   xlab(expression(Delta*''^14*'C (‰)')) +
   ylab("Depth (cm)") +
@@ -882,11 +1698,10 @@ sra.01.09.19.raw %>%
 >*Caption:* Points show mean of three profile replicates for 2001 and 2019 samples. Error bars show ± 1 standard deviation of the mean (only a single profile was analyzed in 2009). 
 
 ## Spline fitting
-*Fit splines to 2009 data to predict at 2001 depths*
 
 Soils collected in both the 2001 and 2009 sampling campaigns were sampled by horizon, but the depth intervals differed between the two sampling years. In 2009, full profiles were excavated for each site, as opposed to the shorter profiles collected in 2001 from the GR and AN sites. Radiocarbon was measured on all three replicate profiles at each site for the 2001 samples, but only for one of the replicate profiles at each site in 2009, e.g. ANpp rep2, etc.
 
-In order to compare the radiocarbon profiles between 2001, 2009, and 2019 we interpolated both radiocarbon and carbon stock data at 1 cm intervals for each site in the 2009 and 2019 datasets, and then summed the carbon-stock-weighted radiocarbon values for each depth interval sampled in 2001. A monotonic cubic spline fit was used for the carbon stock interpolation (Wendt and Hauser 2013), and a mass-preserving spline was used to fit the radiocarbon data (Bishop, T.F.A., McBratney, A.B., Laslett, G.M., (1999) Modelling soil attribute depth functions with equal-area quadratic smoothing splines. Geoderma, 91(1-2): 27-45).
+In order to compare the radiocarbon profiles between 2001, 2009, and 2019 we first interpolated both radiocarbon and carbon stock data at 1 cm intervals for each site in the datasets from each year. The carbon-stock-weighted radiocarbon values for any given target depth interval can then be calculated as a simple sum of the product of the carbon weight of each 1 cm increment (relative to the total carbon stock of the target depth interval) and its radiocarbon value. A monotonic cubic spline fit was used for the carbon stock interpolation (Wendt and Hauser 2013), and a mass-preserving spline was used to fit the radiocarbon data (Bishop, T.F.A., McBratney, A.B., Laslett, G.M., (1999) Modelling soil attribute depth functions with equal-area quadratic smoothing splines. Geoderma, 91(1-2): 27-45).
 
 ```{r cn-clean, include = FALSE}
 elm_results_df <- bind_rows(unlist(elm_results_ls, recursive = FALSE))
@@ -905,22 +1720,14 @@ elm_results_df <- cbind(elm_results_df, PMeco_rep_depth)
 ```
 
 ```{r soc-2001, include = FALSE}
-# add SOC data (lyr_soc_kgm2) to sra.2001.ls
-soc.2001 <- data.frame(read_excel("../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
-                                  sheet = "2001_bulk_data"))
-soc.2001 <- type.convert(soc.2001[complete.cases(soc.2001), ])
-soc.2001$lyr_soc_kgm2 <- soc.2001$C. * soc.2001$bd.g.cm3 * soc.2001$lyr_bot - soc.2001$lyr_top * 10^-1
-nms.2001 <- c("PMeco", "lyr_top", "lyr_bot", "pro_rep")
-sra.2001.ls <- lapply(sra.2001.ls, function(df) {
-  merge(df, soc.2001[ , c(nms.2001, "lyr_soc_kgm2")], by = nms.2001)
-})
+# merge soc.2001.ls and sra.2001.ls to add SOC data
+sra.2001.ls <- mapply(merge, sra.2001.ls, soc.2001.ls, SIMPLIFY = FALSE)
 
 # calculate cumulative stocks
-# order 2001 data
 sra.2001.ls <- lapply(sra.2001.ls, function(df) {
   ls <- split(df, df$pro_name)
   ls <- lapply(ls, function(x) {
-    x <- x[order(x$lyr_bot), ]
+    x <- x[order(x$lyr_bot), ] # make sure to order data
     x$lyr_soc_cmtv <- NA
     for(i in seq_along(x$lyr_bot)) {
       if(i == 1) {
@@ -936,7 +1743,9 @@ sra.2001.ls <- lapply(sra.2001.ls, function(df) {
 ```
 
 ```{r spline-fm, include = FALSE}
-## spline fit for fm
+### spline fit for fm
+## bulk (split by pro rep)
+# 2001
 sra.2001.fm.sp <- lapply(sra.2001.ls, function(df) {
   lapply(split(df, df$pro_name), function(x) {
     depths(x) <- pro_name ~ lyr_top + lyr_bot
@@ -961,6 +1770,19 @@ sra.2019.fm.sp <- lapply(sra.2019.ls, function(df) {
     return(x.mps)
   })
 })
+
+## inc
+# need min and max values for spline fits
+# 2001
+sra.2001.inc.fm.sp <- lapply(sra.2001.inc.sum.ls, function(df) {
+    depths(df) <- PMeco ~ lyr_top + lyr_bot
+    mean.mps <- mpspline(df, var.name = "fm_mean")
+    min.mps <- mpspline(df, var.name = "fm_l")
+    max.mps <- mpspline(df, var.name = "fm_u")
+    return(list(mean.var.1cm = mean.mps$var.1cm[1:max(df$lyr_bot)],
+                min.var.1cm = min.mps$var.1cm[1:max(df$lyr_bot)],
+                max.var.1cm = max.mps$var.1cm[1:max(df$lyr_bot)]))
+  })
 ```
 
 ```{r spline-bd-soc-19, include = FALSE}
@@ -1011,7 +1833,7 @@ sra.2019.ls <- lapply(sra.2019.ls, function(df) {
   return(df)
 })
 
-# calculate stocks
+# calculate stocks  
 sra.2019.ls <- lapply(sra.2019.ls, function(df) {
   df$lyr_soc <- df$bd * df$C # units work out to kg_m2 
   return(df)
@@ -1054,7 +1876,8 @@ depth.spline <- function(x) {
   return(df[-length(df$lyr_soc), ])
 }
 
-# add (0, 0) point for (lyr_bot, lyr_cmtv_stock)
+## add (0, 0) point for (lyr_bot, lyr_cmtv_stock)
+# 2001
 sra.2001.sp.ls <- lapply(sra.2001.ls, function(df) {
   ls <- lapply(split(df, df$pro_name), function(x) {
     t0 <- data.frame(matrix(nrow = 1, ncol = ncol(x)))
@@ -1066,7 +1889,11 @@ sra.2001.sp.ls <- lapply(sra.2001.ls, function(df) {
   })
   return(bind_rows(ls))
 })
-
+sra.2001.sp.ls.avg <- lapply(sra.2001.sum.ls2, function(df) {
+  xy <- df[ , c("lyr_bot", "lyr_soc_cmtv")]
+  t0 <- data.frame(lyr_bot = 0, lyr_soc_cmtv = 0)
+  return(rbind(xy))
+})
 # 2009
 sra.2009.sp.ls <- lapply(sra.2009.ls, function(df) {
   t0 <- data.frame(matrix(nrow = 1, ncol = ncol(df)))
@@ -1076,7 +1903,6 @@ sra.2009.sp.ls <- lapply(sra.2009.ls, function(df) {
   new <- rbind(t0, df)
   return(new)
 })
-
 # 2019
 sra.2019.sp.ls <- lapply(sra.2019.ls, function(df) {
   ls <- lapply(split(df, df$pro_name), function(x) {
@@ -1096,6 +1922,9 @@ sra.2001.oc.sp <- lapply(sra.2001.sp.ls, function(df) {
   lapply(split(df, df$pro_name), function(x) {
     depth.spline(x[, c("lyr_bot", "lyr_soc_cmtv")])
   })
+})
+sra.2001.oc.sp.avg <- lapply(sra.2001.sp.ls.avg, function(df) {
+  depth.spline(df)
 })
 # 2009
 sra.2009.oc.sp <- lapply(sra.2009.sp.ls, function(x) {
@@ -1249,6 +2078,21 @@ cwt.19.01 <- lapply(seq_along(sra.2001.oc.sp), function(i) {
   })
 })
 names(cwt.19.01) <- names(sra.2001.oc.sp)
+# 2001 mean
+cwt.19.01.avg <- lapply(seq_along(sra.2001.oc.sp.avg), function(i) {
+    d <- sra.2019.sum.ls[[i]][["lyr_bot"]]
+    c <- vector(mode = "list", length = length(d))
+    for(j in seq_along(d)) {
+      if(j == 1) {
+        c[[j]] <- sra.2001.oc.sp.avg[[i]][1:d[j], "lyr_soc"]
+      } else {
+        c[[j]] <- sra.2001.oc.sp.avg[[i]][(d[j-1]+1):d[j], "lyr_soc"] 
+      }
+    }
+    return(unlist(lapply(c, function(x) x/sum(x))))
+})
+names(cwt.19.01.avg) <- names(sra.2001.oc.sp)
+
 # 2009
 cwt.19.09 <- lapply(seq_along(sra.2009.oc.sp), function(i) {
   d <- sra.2019.sum.ls[[i]][["lyr_bot"]]
@@ -1266,6 +2110,7 @@ names(cwt.19.09) <- names(sra.2009.oc.sp)
 
 ## calculate fm_wts
 ## '19 depths
+## bulk
 # 2001
 fm.wt.19.01 <- lapply(seq_along(cwt.19.01), function(i) {
   lapply(seq_along(cwt.19.01[[i]]), function(j) {
@@ -1287,6 +2132,31 @@ fm.wt.19.01 <- lapply(seq_along(cwt.19.01), function(i) {
   })
 })
 names(fm.wt.19.01) <- names(cwt.19.01)
+# '01 inc
+fm.wt.19.01.inc <- lapply(seq_along(cwt.19.01.avg), function(j) {
+  lapply(sra.2001.inc.fm.sp[[j]], function(fm) {
+    df <- data.frame(cwt = cwt.19.01.avg[[j]][1:30])
+    # linear extrapolation for filling 20-30cm fm data
+    if (length(fm) >= 30) {
+      fm_1_30 <- fm[1:30] # 0-30cm fm
+    } else {
+      fm_1_30 <- rep(NA, 30)
+      fm_1_30[1:length(fm)] <- fm
+      # first is.na(fm)
+      ix.min <- min(which(is.na(fm_1_30)))
+      # slope at last two measurement points
+      m <- fm_1_30[ix.min - 1] - fm_1_30[ix.min - 2]
+      for(x in ix.min:30) {
+        fm_1_30[x] <- fm_1_30[x - 1] + m
+      }
+    }
+    df$fm[1:30] <- fm_1_30 
+    df$fm_wt <- df$fm * df$cwt
+    return(df)
+  })
+})
+names(fm.wt.19.01.inc) <- names(cwt.19.01.avg)
+
 # 2009
 fm.wt.19.09 <- lapply(seq_along(cwt.19.09), function(i) {
   df <- data.frame(cwt = cwt.19.09[[i]])
@@ -1295,7 +2165,6 @@ fm.wt.19.09 <- lapply(seq_along(cwt.19.09), function(i) {
   return(df)
 })
 names(fm.wt.19.09) <- names(cwt.19.09)
-
 
 ## calculate weighted average of fm for each interval
 ## '19 depths
@@ -1330,6 +2199,21 @@ sra.19.01.ls <- lapply(seq_along(sra.2019.sum.ls), function(i) {
   return(bind_rows(fm))
 })
 names(sra.19.01.ls) <- names(fm.wt.19.01)
+
+## '01 inc
+sra.19.01.inc.ls <- lapply(fm.wt.19.01.inc, function(ls) {
+  lapply(ls, function(df) {
+    d <- c(10, 20, 30)
+    f <- vector(mode = "list", length = length(d))
+    for(j in seq_along(d)) {
+      if(j == 1) {
+        f[[j]] <- sum(df[1:d[j], "fm_wt"])
+      } else {
+        f[[j]] <- sum(df[(d[j-1]+1):d[j], "fm_wt"])
+      }
+    }
+    return(unlist(f)) 
+  })})
 
 # 2009
 sra.19.09.ls <- lapply(seq_along(sra.2019.sum.ls), function(i) {
@@ -1381,6 +2265,7 @@ sra.01.09.19 %>%
          d14c_l = d14c - d14c_sd,
          pm = ifelse(PM == "AN", "andesite",
                      ifelse(PM == "BS", "basalt", "granite"))) %>%
+  # filter(Year != "2009") %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, linetype = Year, group = PMeco_year)) +
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
@@ -1404,13 +2289,16 @@ sra.01.09.19 %>%
   scale_alpha_manual(values = c("2001" = 1,
                                 "2009" = 0.6,
                                 "2019" = 0.3)) +
+  scale_linetype_manual(values = c("2001" = "solid",
+                                 "2009" = "dashed",
+                                 "2019" = "dotted")) +
   facet_grid(rows = vars(eco), cols = vars(pm)) +
   xlab(expression(Delta*''^14*'C (‰)')) +
   ylab("Depth (cm)") +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n}`. Time series of $\Delta$^14^C by depth (2001, 2009, 2019)**
+>**Fig. `r {fig.n}`. Time series of bulk soil $\Delta$^14^C by depth (2001, 2009, 2019)**
 
 >*Caption:* Points for 2001 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2009 and 2019 samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2001. Error bars show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009). 
 
@@ -1448,15 +2336,220 @@ sra.19.01.09 %>%
   scale_alpha_manual(values = c("2001" = 1,
                                 "2009" = 0.6,
                                 "2019" = 0.3)) +
+  scale_linetype_manual(values = c("2001" = "solid",
+                                   "2009" = "dashed",
+                                   "2019" = "dotted")) +
   facet_grid(rows = vars(eco), cols = vars(pm)) +
   xlab(expression(Delta*''^14*'C (‰)')) +
   ylab("Depth (cm)") +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n}`. Time series of $\Delta$^14^C by depth (splined to 2019 depths)**
+>**Fig. `r {fig.n}`. Time series of bulk soil $\Delta$^14^C by depth (splined to 2019 depths)**
 
 >*Caption:* Points for 2019 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2001 and 2009 samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2019. Error bars show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009). 
+>*NB: Only two depth intervals were measured at the cool and cold andesite sites (max depth of 27 and 28 cm, respectively), so linear extrapolation (using the slope of the last 1cm spline-fitted depth increment) was used to extend the profiles to 30 cm.*
+
+```{r plot-by-depth-14C-timeseries}
+# plot individual depths
+fig.n <- fig.n + 1
+
+# Atm
+atm.14c <- data.frame(year = Datm[Datm$Date > 2000, "Date"],
+                      d14c = Datm[Datm$Date > 2000, "NHc14"])
+
+# bulk 14C over time for 0-10, 10-20, 20-30 w/ atm
+sra.19.01.09 %>%
+  filter(lyr_bot < 31) %>%
+  mutate(PMeco_depth = paste0(PMeco, lyr_bot),
+         depth = factor(lyr_bot),
+         eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         d14c_u = d14c + d14c_sd,
+         d14c_l = d14c - d14c_sd,
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite")),
+         year = as.numeric(as.character(Year))) %>%
+  ggplot(., aes(year, d14c)) +
+  geom_path(data = atm.14c) +
+  geom_point(aes(color = pm, shape = eco), size = 3) +
+  geom_path(aes(color = pm, group = PMeco_depth, linetype = depth), alpha = 0.3) +
+  geom_errorbar(
+    aes(ymin = d14c_l, 
+        ymax = d14c_u,
+        color = pm), 
+    width = .5) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "Ecosystem",
+                     values = c("warm" = 15, 
+                                "cool" = 16, 
+                                "cold" = 17)) +
+  scale_linetype_manual(name = "Depth (cm)",
+                        labels = c("10" = "0-10",
+                                   "20" = "10-20",
+                                   "30" = "20-30"),
+                        values = c("10" = 1,
+                                   "20" = 2,
+                                   "30" = 3)) +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
+  ylab(expression(Delta*''^14*'C (‰)')) +
+  xlab("Year") +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+### incubation
+## 2019
+# litter
+sra.2019.inc.L.df <- data.frame(
+  sra.2019.inc_L.df %>%
+    group_by(Year, PM, eco, lyr_bot, PMeco) %>%
+    summarize(across(.cols = d14c, 
+                     .fns = list(mean = mean, min = min, max = max))) %>%
+    rename(year = Year, d14c = d14c_mean) %>%
+    mutate(eco = factor(ifelse(eco == "pp", "warm",
+                      ifelse(eco == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+           pm = ifelse(PM == "AN", "andesite",
+                       ifelse(PM == "BS", "basalt", "granite"))))
+sra.2019.inc.df <- bind_rows(lapply(sra.2019.inc.ls, function(df) {
+  data.frame(df %>%
+               group_by(Year, PM, ECO, lyr_bot, PMeco) %>%
+               summarize(
+                 across(.cols = d14c, 
+                        .fns = list(mean = mean, min = min, max = max))) %>%
+               rename(year = Year, d14c = d14c_mean))
+}))
+sra.19.01.inc.df <- bind_rows(lapply(seq_along(sra.19.01.inc.ls), function(i) {
+  PMeco <- names(sra.19.01.inc.ls)[i]
+  d14c.ls <- lapply(sra.19.01.inc.ls[[i]], calc_14c, obs_date_y = 2001)
+  df <- data.frame(d14c = d14c.ls[[1]],
+                   d14c_min = d14c.ls[[2]],
+                   d14c_max = d14c.ls[[3]],
+                   lyr_bot = c(10, 20, 30),
+                   PMeco = PMeco,
+                   PM = substr(PMeco, 1, 2),
+                   ECO = substr(PMeco, 3, 4),
+                   year = 2001)
+  return(df)
+}))
+sra.19.01.inc <- rbind(sra.19.01.inc.df, sra.2019.inc.df)
+
+# plot
+sra.19.01.inc %>%
+  mutate(PMeco_depth = paste0(PMeco, lyr_bot),
+         depth = factor(lyr_bot),
+         eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite"))) %>%
+  ggplot(., aes(year, d14c)) +
+  geom_path(data = atm.14c) +
+  geom_point(aes(color = pm, shape = eco), size = 3) +
+  geom_point(data = sra.2019.inc.L.df, aes(color = pm), shape = 8, size = 3, show.legend = FALSE) +
+  geom_path(aes(color = pm, group = PMeco_depth, linetype = depth), alpha = 0.3) +
+  geom_errorbar(
+    aes(ymin = d14c_min, 
+        ymax = d14c_max,
+        color = pm), 
+    width = .5) +
+  geom_errorbar(
+    data = sra.2019.inc.L.df,
+    aes(ymin = d14c_min, 
+        ymax = d14c_max,
+        color = pm), 
+    width = .5) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = "blue", 
+                                "basalt" = "red", 
+                                "granite" = "darkgray")) +
+  scale_shape_manual(name = "Ecosystem",
+                     values = c("warm" = 15, 
+                                "cool" = 16, 
+                                "cold" = 17)) +
+  scale_linetype_manual(name = "Depth (cm)",
+                        labels = c("10" = "0-10",
+                                   "20" = "10-20",
+                                   "30" = "20-30"),
+                        values = c("10" = 1,
+                                   "20" = 2,
+                                   "30" = 3)) +
+  scale_y_continuous(limits = c(-40, 170)) +
+  facet_grid(rows = vars(eco), cols = vars(pm)) +
+  ylab(expression(Delta*''^14*'C (‰)')) +
+  xlab("Year") +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+# plot inc and bulk together, by depth
+sra.ts.all <- sra.19.01.09 %>%
+  filter(lyr_bot < 31) %>%
+  select(Year, PM, ECO, PMeco, lyr_bot, d14c, d14c_sd) %>%
+  mutate(Type = "bulk",
+         d14c_u = d14c + d14c_sd,
+         d14c_l = d14c - d14c_sd,
+         year = as.numeric(as.character(Year))) %>%
+  select(-d14c_sd) %>%
+  bind_rows(.,
+            sra.19.01.inc %>%
+              select(year, PM, ECO, PMeco, lyr_bot, d14c, d14c_min, d14c_max) %>%
+              rename(d14c_l = d14c_min,
+                     d14c_u = d14c_max) %>%
+              mutate(Type = "inc")
+  ) %>%
+  mutate(depth = factor(lyr_bot),
+         eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite")),
+         ecoType = paste0(eco, " (", Type, ")"))
+
+# Plot by depth
+plot.ts.fx <- function(df) {
+  df %>%
+    filter(d14c > -200) %>%
+    filter(year != 2009) %>%
+    ggplot(., aes(year, d14c)) +
+    geom_path(data = atm.14c) +
+    geom_point(aes(color = pm, shape = ecoType), size = 3) +
+    geom_path(aes(color = pm, linetype = Type), alpha = 0.3) +
+    geom_errorbar(
+      aes(ymin = d14c_l, 
+          ymax = d14c_u,
+          color = pm), 
+      width = .5) +
+    scale_color_manual(name = "Parent material",
+                       values = c("andesite" = "blue", 
+                                  "basalt" = "red", 
+                                  "granite" = "darkgray")) +
+    scale_shape_manual(name = "Ecosystem (type)",
+                       values = c("warm (inc)" = 0,
+                                  "cool (inc)" = 1,
+                                  "cold (inc)" = 2,
+                                  "warm (bulk)" = 15,
+                                  "cool (bulk)" = 16,
+                                  "cold (bulk)" = 17)) +
+    facet_grid(rows = vars(eco), cols = vars(pm)) +
+    ylab(expression(Delta*''^14*'C (‰)')) +
+    xlab("Year") +
+    theme_bw() +
+    theme(panel.grid = element_blank())
+}
+
+# plots
+lapply(split(sra.ts.all, sra.ts.all$depth), plot.ts.fx)
+
+# # to save
+# for(i in 1:3) ggsave(paste0(i, ".pdf"), lapply(split(sra.ts.all, sra.ts.all$depth), plot.ts.fx)[[i]])
+```
+>**Fig. `r {fig.n}`. Change in $\Delta$^14^C of bulk soil (panel a) and respired CO~2~ (panel b) over time relative to the atmosphere**
+
+>*Caption:* Points for 2019 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2001 and 2009 (bulk only) samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2019. Error bars for bulk samples in panel (a) show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009); error bars for incubation samples in panel (b) show the values of the two reps, while the point represents the mean. 
 >*NB: Only two depth intervals were measured at the cool and cold andesite sites (max depth of 27 and 28 cm, respectively), so linear extrapolation (using the slope of the last 1cm spline-fitted depth increment) was used to extend the profiles to 30 cm.*
 
 ## Initial modeling
@@ -1473,7 +2566,7 @@ The two-pool parallel model requires the following parameters:
 * steady-state carbon stocks (C)
 * inputs (I)
 * initial values of ^14^C
-
+1
 The two-pool series model requires the following parameters:
 * decomposition constants for each pool (*k*~1~, *k*~2~)
 * transfer coefficient ($\alpha$)
@@ -1528,25 +2621,41 @@ fm <- function (k){
 ```
 
 ```{r mod-constraints, include = FALSE}
+# Indices for each depth increment
+ix.10 <- seq(1, 27, 3)
+ix.20 <- seq(2, 27, 3)
+ix.30 <- seq(3, 27, 3)
+
 ## SOC stocks
 # use 2019 SOC stocks for steady-state estimates
-csoc.19.0_30 <- bind_rows(
+csoc.19.0_30.df <- bind_rows(
   lapply(sra.2019.sp.ls, function(df) {
     df <- suppressMessages(
-      df %>% 
+      df %>%
         filter(lyr_bot < 31 & lyr_bot > 0) %>%
         select(PMeco, lyr_top, lyr_bot, lyr_soc) %>%
-        group_by(PMeco, lyr_top, lyr_bot) %>%
-        summarize(lyr_soc = mean(lyr_soc)))
+        group_by(PMeco, lyr_top, lyr_bot))
     return(data.frame(df))
   })
 )
 # convert to 27 element list
-csoc.19.0_30 <- split(csoc.19.0_30, paste0(csoc.19.0_30$PMeco, "_", csoc.19.0_30$lyr_top, "-", csoc.19.0_30$lyr_bot))
+csoc.19.0_30.ls <- split(csoc.19.0_30.df, paste0(csoc.19.0_30.df$PMeco, "_", csoc.19.0_30.df$lyr_top, "-", csoc.19.0_30.df$lyr_bot))
+
+# average
+csoc.19.0_30 <- lapply(csoc.19.0_30.ls, function(df) {
+  data.frame(
+    df %>%
+      group_by(PMeco, lyr_top, lyr_bot) %>%
+      summarize(lyr_soc = mean(lyr_soc)))
+})
+
+# make into obs data frame for mod.cost fx
+obs.cStock <- lapply(csoc.19.0_30.ls, function(df) {
+  return(data.frame(time = rep(c(2001.5, 2009.5, 2019.5), each = 3), cStock = rep(df$lyr_soc, 3)))
+})
 
 ## Inputs
-# Inputs may vary among sites, and I could use respiration data from incubations as a constraint
-# However, initial inputs will be set at 4% of the layer carbon stocks
+# initial inputs will be set at 4% of the layer carbon stocks (arbitrary)
 in.i <- lapply(csoc.19.0_30, function(x) .04 * x$lyr_soc)
 # Inputs will be adjusted based on the fitted parameters to match measured stocks later
 
@@ -1571,13 +2680,55 @@ obs.bulk.14c <- unlist(
 names(obs.bulk.14c) <- paste0(rep(c("AN", "BS", "GR"), each = 9),
                               rep(c("pp", "rf", "wf"), each = 3, times = 3),
                               rep(c("_0-10", "_10-20", "_20-30"), times = 9))
-
 # respiration
-obs.resp.14c <- split(sra.2019.inc.df_1, gsub("comp_", "", sra.2019.inc.df_1$lyr_name))
-obs.resp.14c <- lapply(obs.resp.14c, function(df) {
-  df$resp <- df$d14c
-  df$time <- df$Year + .5
-  return(df[ , c("time", "resp")])
+sra.19.01.inc.min.max <- unlist(
+  lapply(seq_along(1:3), function(i) {
+    lapply(
+      mapply(merge,
+             lapply(lapply(sra.19.01.inc.ls, "[[", 2), "[[", i), 
+             lapply(lapply(sra.19.01.inc.ls, "[[", 3), "[[", i),
+             SIMPLIFY = FALSE),
+      function(df) {
+        data.frame(time = 2001.5, resp = c(df$x, df$y))
+      })
+  }), recursive = FALSE)
+names(sra.19.01.inc.min.max) <- paste0(names(sra.19.01.inc.min.max), 
+                                       rep(c("_0-10", "_10-20", "_20-30"), each = 9))
+sra.19.01.inc.min.max <- lapply(sra.19.01.inc.min.max, function(df) {
+  df$resp <- calc_14c(df$resp, 2001)
+  return(df)
+})
+
+sra.2019.inc.min.max <- unlist(lapply(sra.2019.inc.ls, function(df) {
+  lapply(split(df, df$lyr_bot), function(x) {
+    x$resp <- x$d14c
+    x$time <- x$Year + .5
+    return(x[ , c("time", "resp")])
+  })
+}), recursive = FALSE)
+names(sra.2019.inc.min.max) <- gsub("\\.", "_", names(sra.2019.inc.min.max))
+for (i in seq_along(names(sra.2019.inc.min.max))) {
+  names(sra.2019.inc.min.max)[i] <- ifelse(grepl("10", names(sra.2019.inc.min.max)[i]),
+                                   gsub("10", "0-10", names(sra.2019.inc.min.max)[i]),
+                                   ifelse(grepl("20", names(sra.2019.inc.min.max)[i]),
+                                          gsub("20", "10-20", names(sra.2019.inc.min.max)[i]), gsub("30", "20-30", names(sra.2019.inc.min.max)[i])))
+}
+
+obs.resp.14c <- rbind(bind_rows(sra.19.01.inc.min.max, .id = "id"),
+                      bind_rows(sra.2019.inc.min.max, .id = "id"))
+obs.resp.14c <- lapply(split(obs.resp.14c, obs.resp.14c$id), function(df) df[ , 2:3])
+
+## input/stock ratio
+ras06 <- data.frame(read_excel("../data/external/sra_ras_inc/RespRates_Rasmussen2006.xlsx", sheet = "RatesSum"))
+# Obs cost
+obs.flx.stock <- lapply(split(ras06, ras06$PMeco), function(x) {
+  data.frame(time = 2001.5, # arbitrary
+             flx.stock = x[ , "flx_stock_ratio"])
+})
+
+# calculate inputs using flx/stock ratio
+in.flx.stock <- lapply(seq_along(obs.flx.stock), function(i) {
+  obs.flx.stock[[i]][["flx.stock"]]/csoc.19.0_30[ix.10][[i]][["lyr_soc"]]
 })
 ```
 
@@ -1588,52 +2739,31 @@ year.ix <- c(which(Datm$Date == 2001.5),
              which(Datm$Date == 2019.5))
 
 # function for saving constraint data in a dataframe for plotting in ggplot'
-# NB should change this to reference obs.bulk.14c and obs.resp.14c dfs
-# con.df.fx <- function(PMeco, depth) {
-#   bulk.df <- obs.bulk.14[[paste0(PMeco, "_", depth)]]
-#   resp.df <- cbind(sra.2019.inc.df_1[sra.2019.inc.df_1$PMeco == PMeco &
-#                                        sra.2019.inc.df_1$lyr_bot == lyr_bot, c("Year", "d14c")], d14c_sd = NA)
-#   con.df <- cbind(pool = c(rep("bulk C", nrow(bulk.df)), rep("respiration", nrow(resp.df))), rbind(bulk.df, resp.df))
-#   con.df$d14c_l <- con.df$d14c - con.df$d14c_sd
-#   con.df$d14c_u <- con.df$d14c + con.df$d14c_sd
-#   con.df$Year <- as.numeric(as.character(con.df$Year))
-#   return(con.df)
-# }
-con.df.fx <- function(PMeco, lyr_bot) {
-  bulk.df <- sra.19.01.09[sra.19.01.09$PMeco == PMeco &
-                           sra.19.01.09$lyr_bot == lyr_bot, c("Year", "d14c", "d14c_sd")]
-  resp.df <- cbind(sra.2019.inc.df_1[sra.2019.inc.df_1$PMeco == PMeco &
-                                       sra.2019.inc.df_1$lyr_bot == lyr_bot, c("Year", "d14c")], d14c_sd = NA)
-  con.df <- cbind(pool = c(rep("bulk C", nrow(bulk.df)), rep("respiration", nrow(resp.df))), rbind(bulk.df, resp.df))
-  con.df$d14c_l <- con.df$d14c - con.df$d14c_sd
-  con.df$d14c_u <- con.df$d14c + con.df$d14c_sd
-  con.df$Year <- as.numeric(as.character(con.df$Year))
-  return(con.df)
+con.df.fx <- function(PMeco_depth) {
+  bulk.df <- obs.bulk.14c[[PMeco_depth]]
+  resp.df <- obs.resp.14c[[PMeco_depth]]
+  return(
+    con.df <- data.frame(pool = c(rep("bulk C", nrow(bulk.df)), rep("respiration", nrow(resp.df))),
+                         d14c = c(bulk.df$bulkC, resp.df$resp),
+                         Year = c(bulk.df$time, resp.df$time)))
 }
 
 # plot function
-C14.2p.plot.fx <- function(plot.df, con.df, mod) {
+C14.2p.plot.fx <- function(plot.df, con.df, mod, PMeco_depth) {
   plot.df %>%
   filter(pool == "bulk C" | pool == "respiration" | pool == "atm") %>%
   ggplot(., aes(years, d14C, color = pool)) +
   geom_path() +
   geom_point(data = con.df, aes(Year, d14c, color = pool), size = 3) +
-  geom_errorbar(data = con.df,
-    aes(x = Year,
-        ymin = d14c_l, 
-        ymax = d14c_u, 
-        color = pool), 
-    width = .1,
-    inherit.aes = FALSE) +
   scale_color_manual(
-    name = "Model pool",
+    name = "Pool",
     values = c("atm" = 8,
                "bulk C" = "black",
                "fast" = "#D81B60",
                "slow" = "#1E88E5",
                "respiration" = "#FFC107")) +
   scale_x_continuous(limits = c(1950, 2022)) +
-  ggtitle(paste0(PMeco, "_", lyr_top, "-", lyr_bot, " ", mod)) +
+  ggtitle(paste(PMeco_depth, mod)) +
   xlab("Year") +
   ylab(expression(''*Delta*''^14*'C (‰)')) +
   theme_bw() +
@@ -1641,19 +2771,26 @@ C14.2p.plot.fx <- function(plot.df, con.df, mod) {
 }
 
 # set up model function for optimization
-modFun_2p <- function(pars, In, lag = 5, pass = TRUE, out = "modFit", mod) {
+# NOTE: par[3] for 2ps model changed to proportion transferred (no longer = a21)
+# therefore, a21 = par[3] * par[1]
+modFun_2p <- function(pars, In, lag = 0, pass = TRUE, out = "modFit", mod) {
  
   # intial 14C
   F0_Delta14C <- unlist(lapply(pars[1:2], function(x) Delta14C_from_AbsoluteFractionModern(fm(x))))
   
   # model matrix
-  A <- -1 * diag(pars[1:2])
+  A <- -diag(pars[1:2])
   if (mod == "2ps") {
-    A[2, 1] <- pars[3]
+    a21 <- pars[3] * pars[1]
+    A[2, 1] <- a21
   }
     
   # steady-state C stocks
-  ss.cstock <- (-1 * solve(A) %*% c(In * pars[3], In * (1 - pars[3])))
+  if (mod == "2pp") {
+    ss.cstock <- (-1 * solve(A) %*% c(In * pars[3], In * (1 - pars[3])))
+  } else {
+    ss.cstock <- (-1 * solve(A) %*% c(In, 0))
+  }
   
   # time index
   ix.t <- c((lag + 1):nrow(Datm))
@@ -1675,7 +2812,7 @@ modFun_2p <- function(pars, In, lag = 5, pass = TRUE, out = "modFit", mod) {
                              C0 = c(ss.cstock[1], ss.cstock[2]),
                              F0_Delta14C = F0_Delta14C,
                              In = In,
-                             a21 = pars[3],
+                             a21 = a21,
                              inputFc = Datm,
                              lag = lag,
                              pass = pass)
@@ -1692,7 +2829,8 @@ modFun_2p <- function(pars, In, lag = 5, pass = TRUE, out = "modFit", mod) {
     return(data.frame(
       time = Datm$Date[ix.t],
       bulkC = C14m, 
-      resp = C14r))
+      resp = C14r,
+      cStock = rowSums(Ctot)))
   } else {
     # data frame for plotting
     return(data.frame(
@@ -1707,116 +2845,405 @@ modFun_2p <- function(pars, In, lag = 5, pass = TRUE, out = "modFit", mod) {
 }
 
 # function for trial and error approach to finding initial parameter set
-par.fx <- function(pars, In, lag = 5, out = "plot.df", verbose = TRUE, mod) {
+par.fx <- function(pars, In, lag = 5, out = "plot.df", verbose = TRUE, mod, pass = FALSE) {
   
   # model matrix
-  A <- -1 * diag(pars[1:2])
+  A <- -diag(pars[1:2])
   if (mod == "2ps") {
-    A[2, 1] <- pars[3]
+    a21 <- pars[3] * pars[1]
+    A[2, 1] <- a21
+    # steady-state stocks
+    ss.cstock <- round((-1 * solve(A) %*% c(In, 0)), 1)
+  } else {
+    # steady-state stocks
+    ss.cstock <- round((-1 * solve(A) %*% c(In * pars[3], In * (1 - pars[3]))), 1)
   }
   
-  # steady-state stocks
-  ss.cstock <- (-1 * solve(A) %*% c(In * pars[3], In * (1 - pars[3])))
+  cstock.sum <- colSums(ss.cstock)
   
   # print site and steady-state stocks
   if(verbose) {
-    cat(paste0(PMeco, "_", lyr_top, "-", lyr_bot), "\n")
-    cat(round(colSums(ss.cstock), 1), " (modeled stocks)\n")
-    cat(csoc.19.0_30[[paste0(PMeco, "_", lyr_top, "-", lyr_bot)]][ , "lyr_soc"], " (measured stocks)\n") 
+    cat(paste0(PMeco_depth, "\n"))
+    cat(paste0(ss.cstock[1], " (fast pool)\n", ss.cstock[2], " (slow pool)\n"))
+    cat(paste0("slow pool: ", round(ss.cstock[2] / cstock.sum * 100, 0), "%\n"))
+    cat(cstock.sum, " (modeled stocks)\n")
+    cat(round(csoc.19.0_30[[PMeco_depth]][ , "lyr_soc"], 1), " (measured stocks)\n") 
   }
   
   if (mod == "2pp") {
-   return(modFun_2p(pars = pars, In = In, lag = lag, out = out, mod = "2pp")) 
+   return(modFun_2p(pars = pars, In = In, lag = lag, out = out, mod = "2pp", pass = pass)) 
   } else {
-    return(modFun_2p(pars = pars, In = In, lag = lag, out = out, mod = "2ps")) 
+    return(modFun_2p(pars = pars, In = In, lag = lag, out = out, mod = "2ps", pass = pass)) 
   }
 }
 ```
+
+```{r inputs-stocks}
+## adjust inputs to match stocks
+# function for calculating steady-state SOC stocks
+soc.fx <- function(modStr, pars, In, out = "pools") {
+  if (modStr == "2pp") {
+    cmat <- -1 * solve(-diag(pars[1:2])) %*% c(In * pars[3], In * (1 - pars[3]))
+  } else {
+    A <- -diag(pars[1:2])
+    A[2, 1] <- pars[3] # note that a21 defined as pct transfer * k1
+    cmat <- -1 * solve(A) %*% c(In, 0) # In is total input into the system
+  }
+  if (out == "pools") {
+    return(cmat)
+  } else {
+    return(colSums(cmat))
+  }
+}
+
+in.fit.fx <- function(modStr, pars, initialIn, SOC) {
+  # sequence of possible input values
+  if  (SOC < soc.fx(modStr, pars, initialIn, out = "sum")) {
+    ins <- seq(.01, 
+               initialIn, 
+               .01)
+    } else {
+      ins <- seq(initialIn, 
+                 SOC, 
+                 .01)
+    }
+  # modeled stocks
+  soc_mod <- lapply(seq_along(ins), function(j) {
+    soc.fx(modStr, pars, ins[j], out = "sum")
+  })
+  ix <- which.min(abs(unlist(soc_mod) - SOC))
+  return(ins[ix])
+}
+
+# load initial parameter set
+load("../data/derived/modFit_pars/pars.i.2pp_2021-03-30.Rdata")
+load("../data/derived/modFit_pars/pars.i.2ps_2020-11-16.Rdata")
+
+## inputs for initial par set and measured stocks
+# 2pp
+in.meas.2pp <- lapply(seq_along(pars.i.2pp[ix.10]), function(i) {
+  PMeco_depth <- names(pars.i.2pp[ix.10])[i]
+  SOC <- csoc.19.0_30[[PMeco_depth]][ ,"lyr_soc"]
+  return(in.fit.fx("2pp", pars.i.2pp[ix.10][[i]], in.i[ix.10][[i]], SOC))
+})
+names(in.meas.2pp) <- names(pars.i.2pp[ix.10])
+# 2ps
+in.meas.2ps <- lapply(seq_along(pars.i.2ps[ix.10]), function(i) {
+  PMeco_depth <- names(pars.i.2ps[ix.10])[i]
+  SOC <- csoc.19.0_30[[PMeco_depth]][ ,"lyr_soc"]
+  return(in.fit.fx("2pp", pars.i.2ps[ix.10][[i]], in.i[ix.10][[i]], SOC))
+})
+names(in.meas.2ps) <- names(pars.i.2ps[ix.10])
+
+# Flux estimated from Goulden et al. 2012; Tang et al. 2005; Wang et al. 2000; Gaudinski 2000
+# fluxes by elevation from GPP reported in Goulden et al. Fig. 5 and approximated
+# Rh percentage from Tang et al. 2005 = 0.44 (ann. mean Blodgett); cf. 0.48 Harvard Forest
+# A horizon est. 0.55 from Gaudinski
+# assuming A = 0-30, assume 0-10 = 50%, 10-20 = 30%, 20-30 = 20% of total A production 
+hznA.Rh.kgm2 <- 0.44 * 0.55 * 10^-3
+gpp.ls <- c(1800, 1600, 1400)
+in.frc.ls <- c(0.5, 0.3, 0.2)
+
+# fx for calculating inputs
+in.flx.fx <- function(PMeco_depth) {
+  gpp <- ifelse(grepl("pp", PMeco_depth), gpp.ls[1], ifelse(grepl("wf", PMeco_depth), gpp.ls[2], gpp.ls[3]))
+  in.frc <- ifelse(grepl("0-10", PMeco_depth), in.frc.ls[1], ifelse(grepl("10-20", PMeco_depth), in.frc.ls[2], in.frc.ls[3]))
+  return(gpp * in.frc * hznA.Rh.kgm2)
+}
+
+# input list
+in.est <- lapply(seq_along(pars.i.2pp), function(i) {
+  PMeco_depth <- names(pars.i.2pp)[i]
+  return(in.flx.fx(PMeco_depth))
+})
+names(in.est) <- names(pars.i.2pp)
+```
+## Parameter optimization
+
+Optimizing the parameter set requires imposing costs and optionally constraining the allowable range of values for each parameter. Given that we only have data for three time points, this is a relatively sparse data set for constraining these models. Accordingly, the optimization procedure will benefit from a priori constraints of the allowable parameter ranges. For example, since we assume that the system cannot be adequately modeled as a single homogenous reservoir, we will ensure that the optimization procedure cannot collapse the two-pool system into a single pool. This can be mitigated in the two-pool parallel optimization by constraining $\gamma$ (i.e. the percentage of the inputs entering the fast pool) to a range of 50% to 95%. Similarly, for the two-pool series model structure we can constrain the range of the transfer coefficient to be between 0.0 and 0.1, ensuring that some carbon remains in the fast cycling pool.
+
+Additionally, to enforce a relatively fast cycling pool and relatively slower cycling pool, we will loosely constrain the intrinsic decomposition rates as well (both model structures):
+
+*k~1~*: [0.04, 1.00] (25 to 1 year)
+*k~2~*: [0.0001, 0.02] (10,000 to 50 years)
+
+Finally, the models will be run to enforce steady-state, i.e. with unvarying carbon stocks. The amount of carbon observed in the system will be used in the cost function in addition to the radiocarbon observations made in 2001, 2009, and 2019. The inputs will be estimated from net ecosystem exchange (NEE) data measured at nearby eddy covariance sites: Blodgett experimental forest (AmeriFlux), Lower Teakettle (NEON), and Soaproot Saddle (NEON). Alternatively, using correlations between fluxes measured from these eddy covariance towers and GPP estimated from satellite retrievals of SIF, estimates can be made for inputs at the pixels corresponding to each site location.
 
 ```{r opt-mod, eval = FALSE}
 # Note: this only runs if eval flag switched to TRUE
 ## Optimize model pars
 # Cost function (evaluates error as model vs. obsv, per FME req)
 # note that we have to set "pass" to TRUE so SoilR model doesn't fail (neg. resp)
-mod.fits.fx <- function(mod, pars, sub, upper, lower) {
+mod.fits.fx <- function(mod, pars, In, sub, upper, lower, cost) {
+  
   # start loop
   lapply(seq_along(pars[sub]), function(i) {
+    
     # start timer and print PMeco_depth
     start <- Sys.time()
     cat(paste0(names(pars)[sub][i], " parameter fitting\n"))
   
-  # define cost function for current iteration
+    # define pars
+    pars <- pars[sub][[i]]
     if (mod == "2pp") {
-      mod.Cost <- function(pars) {
-        modelOutput <- modFun_2p(pars, in.i[sub][[i]], mod = "2pp")
-        cost1 <- modCost(model = modelOutput, obs = obs.bulk.14c[sub][[i]], scaleVar = TRUE)
-        return(modCost(model = modelOutput, obs = obs.resp.14c[sub][[i]], cost = cost1))
-      }
+      names(pars) <- c("k1", "k2", "gam")
     } else {
+      names(pars) <- c("k1", "k2", "tc")
+    }
+    
+    # Set input
+    In <- In[sub][[i]]
+    
+    # define cost function
+    if (cost == "14C + cStock") {
       mod.Cost <- function(pars) {
-        modelOutput <- modFun_2p(pars, in.i[sub][[i]], mod = "2ps")
+        modelOutput <- modFun_2p(pars, In, mod = mod)
         cost1 <- modCost(model = modelOutput, obs = obs.bulk.14c[sub][[i]], scaleVar = TRUE)
-        return(modCost(model = modelOutput, obs = obs.resp.14c[sub][[i]], cost = cost1))
+        cost2 <- modCost(model = modelOutput, obs = obs.resp.14c[sub][[i]], scaleVar = TRUE, cost = cost1) 
+        return(modCost(model = modelOutput, obs = obs.cStock[sub][[i]], cost = cost2))
+      }
+    } else if (cost == "14C + stock/flx") {
+      mod.Cost <- function(pars) {
+        modelOutput <- modFun_2p(pars, In, mod = mod)
+        cost1 <- modCost(model = modelOutput, obs = obs.bulk.14c[sub][[i]], scaleVar = TRUE)
+        cost2 <- modCost(model = modelOutput, obs = obs.resp.14c[sub][[i]], scaleVar = TRUE, cost = cost1) 
+        return(modCost(model = modelOutput, obs = obs.flx.stock[[i]], cost = cost2))
+      }
+    } else if (cost == "14C") {
+      mod.Cost <- function(pars) {
+        modelOutput <- modFun_2p(pars, In, mod = mod)
+        cost1 <- modCost(model = modelOutput, obs = obs.bulk.14c[sub][[i]], scaleVar = TRUE)
+        return(modCost(model = modelOutput, obs = obs.resp.14c[sub][[i]], scaleVar = TRUE, cost = cost1))
+      } 
+    } else if (cost == "14C bulk + cStock") {
+      mod.Cost <- function(pars) {
+        modelOutput <- modFun_2p(pars, In, mod = mod)
+        cost1 <- modCost(model = modelOutput, obs = obs.bulk.14c[sub][[i]], scaleVar = TRUE)
+        return(modCost(model = modelOutput, obs = obs.cStock[sub][[i]], cost = cost1))
+      }
+    } else if (cost == "14C bulk only") {
+      mod.Cost <- function(pars) {
+        modelOutput <- modFun_2p(pars, In, mod = mod)
+        return(modCost(model = modelOutput, obs = obs.bulk.14c[sub][[i]], scaleVar = TRUE))
       }
     }
     
     # fit pars
     fit <- tryCatch(
       modFit(f = mod.Cost,
-             p = pars[sub][[i]],
+             p = pars,
              method = 'Nelder-Mead',
              upper = upper, 
              lower = lower),
       error = function (e) {cat("ERROR :", conditionMessage(e), "\n")})
     
+    Sfun <- sensFun(mod.Cost, fit$par)
+    
     # End timer and print elapsed time
     end <- Sys.time()
     cat(paste0("time: ", end - start, "\n"))
     
-    # Return fitted parameters
-    return(fit)
-}) 
+    # Return fitted parameters and sensitivity
+    return(list(modfit = fit, 
+                sens = Sfun))
+  }) 
 }
-
-# load initial parameter set
-load("../data/derived/modFit_pars/pars.i.2pp_2020-11-16.Rdata")
-load("../data/derived/modFit_pars/pars.i.2ps_2020-11-16.Rdata")
-
-# Start with just 0-10 cm depth increment
-ix.10 <- seq(1, 27, 3)
 
 ## 2pp
 # par range [0, 1] for all pars
-mod.fits.2pp <- mod.fits.fx(mod = "2pp",
-                            pars = pars.i.2pp, 
-                            sub = ix.10,
-                            upper = c(1, 1, 1),
-                            lower = c(0, 0, 0))
-names(mod.fits.2pp) <- names(pars.i.2pp)[ix.10]
-save(mod.fits.2pp, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp", "_", Sys.Date(), ".Rdata"))
+mod.sens.fits.2pp <- mod.fits.fx(mod = "2pp",
+                                 pars = pars.i.2pp,
+                                 In = in.i,
+                                 sub = ix.10,
+                                 upper = c(1, 1, 1),
+                                 lower = c(0, 0, 0),
+                                 cost = "14C")
+names(mod.sens.fits.2pp) <- names(pars.i.2pp)[ix.10]
+save(mod.sens.fits.2pp, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp", "_", Sys.Date(), ".Rdata"))
+mod.fits.2pp <- lapply(mod.sens.fits.2pp, function(x) x[[1]])
 # constrain gamma to [0.5, 0.95]
-mod.fits.2pp.p3.5.95 <- mod.fits.fx(mod = "2pp",
+mod.sens.fits.2pp.p3.5.95 <- mod.fits.fx(mod = "2pp",
                                     pars = pars.i.2pp,
                                     sub = ix.10,
+                                    In = in.i,
                                     upper = c(1, 1, 0.951),
                                     lower = c(0, 0, 0.5))
-names(mod.fits.2pp.p3.5.95) <- names(pars.i.2pp)[ix.10]
-save(mod.fits.2pp.p3.5.95, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp.p3.5.95", "_", Sys.Date(), ".Rdata"))
+names(mod.sens.fits.2pp.p3.5.95) <- names(pars.i.2pp)[ix.10]
+save(mod.sens.fits.2pp.p3.5.95, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp.p3.5.95", "_", Sys.Date(), ".Rdata"))
+mod.fits.2pp.p3.5.95 <- lapply(mod.sens.fits.2pp.p3.5.95, function(x) x[[1]])
+
+# 2pp3 (par range constraints, inputs fit to meas stocks)
+mod.sens.fits.2pp3 <- mod.fits.fx(mod = "2pp",
+                                  pars = pars.i.2pp,
+                                  sub = ix.10,
+                                  In = in.meas.2pp,
+                                  upper = c(1, .02, .951),
+                                  lower = c(.04, .0001, .5),
+                                  cost = "14C only")
+names(mod.sens.fits.2pp3) <- names(pars.i.2pp)[ix.10]
+save(mod.sens.fits.2pp3, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp3", "_", Sys.Date(), ".Rdata"))
+mod.fits.2pp3 <- lapply(mod.sens.fits.2pp3, function(x) x[[1]])
+# 2pp3s (par range constraints, inputs fit to meas stocks, + stock constraint)
+mod.sens.fits.2pp3s <- mod.fits.fx(mod = "2pp",
+                                   pars = pars.i.2pp,
+                                   sub = ix.10,
+                                   In = in.meas.2pp,
+                                   upper = c(1, .02, .951),
+                                   lower = c(.04, .0001, .5),
+                                   cost = "cStock")
+names(mod.sens.fits.2pp3s) <- names(pars.i.2pp)[ix.10]
+save(mod.sens.fits.2pp3s, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp3s", "_", Sys.Date(), ".Rdata"))
+mod.fits.2pp3s <- lapply(mod.sens.fits.2pp3s, function(x) x[[1]])
 
 ## 2ps
 # par range [0, 1] for all pars
-mod.fits.2ps <- mod.fits.fx(mod = "2ps",
-                            pars = pars.i.2ps, 
-                            sub = ix.10,
-                            upper = c(1, 1, 1),
-                            lower = c(0, 0, 0))
-names(mod.fits.2ps) <- names(pars.i.2ps)[ix.10]
-save(mod.fits.2ps, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps", "_", Sys.Date(), ".Rdata"))
+mod.sens.fits.2ps <- mod.fits.fx(mod = "2ps",
+                                 pars = pars.i.2ps, 
+                                 sub = ix.10,
+                                 In = in.i,
+                                 upper = c(1, 1, 1),
+                                 lower = c(0, 0, 0),
+                                 cost = "14C")
+names(mod.sens.fits.2ps) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps <- lapply(mod.sens.fits.2ps, function(x) x[[1]])
+# 20-30
+mod.sens.fits.2ps.30 <- mod.fits.fx(mod = "2ps",
+                                    pars = pars.i.2ps, 
+                                    sub = ix.30,
+                                    In = in.i,
+                                    upper = c(1, 1, 1),
+                                    lower = c(0, 0, 0),
+                                    cost = "14C")
+names(mod.sens.fits.2ps.30) <- names(pars.i.2ps)[ix.30]
+save(mod.sens.fits.2ps.30, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.30", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps.30 <- lapply(mod.sens.fits.2ps.30, function(x) x[[1]])
+
+# 2ps3 (par range constraints, inputs fit to meas stocks)
+mod.sens.fits.2ps3 <- mod.fits.fx(mod = "2ps",
+                                  pars = pars.i.2ps,
+                                  sub = ix.10,
+                                  In = in.meas.2ps,
+                                  upper = c(1, 1, .15),
+                                  lower = c(0, 0, .0004),
+                                  cost = "14C only")
+names(mod.sens.fits.2ps3) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps3, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps3", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps3 <- lapply(mod.sens.fits.2ps3, function(x) x[[1]])
+# 2ps3 (par range constraints, inputs fit to meas stocks, + stock constraint)
+mod.sens.fits.2ps3s <- mod.fits.fx(mod = "2ps",
+                                   pars = pars.i.2ps,
+                                   sub = ix.10,
+                                   In = in.meas.2ps,
+                                   upper = c(1, .02, .1),
+                                   lower = c(.04, .0001, 0),
+                                   cost = "cStock")
+names(mod.sens.fits.2ps3s) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps3s, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps3s", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps3s <- lapply(mod.sens.fits.2ps3s, function(x) x[[1]])
+
+### 2p4 (par range set, stock and bulk 14C costs, GPP-based inputs by eco)
+## 2pp
+# 0-10
+mod.sens.fits.2pp4.10 <- mod.fits.fx(mod = "2pp",
+                                     pars = pars.i.2pp,
+                                     sub = ix.10,
+                                     In = in.est,
+                                     upper = c(1, .02, .951),
+                                     lower = c(.04, .0001, .5),
+                                     cost = "14C bulk + cStock")
+names(mod.sens.fits.2pp4.10) <- names(pars.i.2pp)[ix.10]
+save(mod.sens.fits.2pp4.10, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp4.10", "_", Sys.Date(), ".Rdata"))
+mod.fits.2pp4.10 <- lapply(mod.sens.fits.2pp4.10, function(x) x[[1]])
+# 20-30
+mod.sens.fits.2pp4.30 <- mod.fits.fx(mod = "2pp",
+                                     pars = pars.i.2pp,
+                                     sub = ix.30,
+                                     In = in.est,
+                                     upper = c(1, .02, .951),
+                                     lower = c(.04, .0001, .5),
+                                     cost = "14C bulk + cStock")
+names(mod.sens.fits.2pp4.30) <- names(pars.i.2pp)[ix.30]
+save(mod.sens.fits.2pp4.30, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp4.30", "_", Sys.Date(), ".Rdata"))
+mod.fits.2pp4.30 <- lapply(mod.sens.fits.2pp4.30, function(x) x[[1]])
+## 2ps
+# 0-10
+mod.sens.fits.2ps4.10 <- mod.fits.fx(mod = "2ps",
+                                     pars = pars.i.2ps,
+                                     sub = ix.10,
+                                     In = in.est,
+                                     upper = c(1, .02, .1),
+                                     lower = c(.04, .0001, 0),
+                                     cost = "14C bulk + cStock")
+names(mod.sens.fits.2ps4.10) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps4.10, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps4.10", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps4.10 <- lapply(mod.sens.fits.2ps4.10, function(x) x[[1]])
+# 20-30
+mod.sens.fits.2ps4.30 <- mod.fits.fx(mod = "2ps",
+                                     pars = pars.i.2ps,
+                                     sub = ix.30,
+                                     In = in.est,
+                                     upper = c(1, .02, .1),
+                                     lower = c(.04, .0001, 0),
+                                     cost = "14C bulk + cStock")
+names(mod.sens.fits.2ps4.30) <- names(pars.i.2ps)[ix.30]
+save(mod.sens.fits.2ps4.30, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps4.30", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps4.30 <- lapply(mod.sens.fits.2ps4.30, function(x) x[[1]])
+
+### 2p4r (par range set, stock, bulk, and respiration 14C costs, GPP-based inputs by eco)
+## 2pp
+# 0-10
+mod.sens.fits.2pp4r.10 <- mod.fits.fx(mod = "2pp",
+                                      pars = pars.i.2pp,
+                                      sub = ix.10,
+                                      In = in.est,
+                                      upper = c(1, .02, .951),
+                                      lower = c(.04, .0001, .5),
+                                      cost = "14C + cStock")
+names(mod.sens.fits.2pp4r.10) <- names(pars.i.2pp)[ix.10]
+save(mod.sens.fits.2pp4r.10, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp4r.10", "_", Sys.Date(), ".Rdata"))
+mod.fits.2pp4r.10 <- lapply(mod.sens.fits.2pp4r.10, function(x) x[[1]])
+# 20-30
+mod.sens.fits.2pp4r.30 <- mod.fits.fx(mod = "2pp",
+                                      pars = pars.i.2pp,
+                                      sub = ix.30,
+                                      In = in.est,
+                                      upper = c(1, .02, .951),
+                                      lower = c(.04, .0001, .5),
+                                      cost = "14C + cStock")
+names(mod.sens.fits.2pp4r.30) <- names(pars.i.2pp)[ix.30]
+save(mod.sens.fits.2pp4r.30, file = paste0("../data/derived/modFit_pars/", "mod.fits.2pp4r.30", "_", Sys.Date(), ".Rdata"))
+mod.fits.2pp4r.30 <- lapply(mod.sens.fits.2pp4r.30, function(x) x[[1]])
+## 2ps
+# 0-10
+mod.sens.fits.2ps4r.10 <- mod.fits.fx(mod = "2ps",
+                                      pars = pars.i.2ps,
+                                      sub = ix.10,
+                                      In = in.est,
+                                      upper = c(1, .02, .1),
+                                      lower = c(.04, .0001, 0),
+                                      cost = "14C + cStock")
+names(mod.sens.fits.2ps4r.10) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps4r.10, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps4r.10", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps4r.10 <- lapply(mod.sens.fits.2ps4r.10, function(x) x[[1]])
+# 20-30
+mod.sens.fits.2ps4r.30 <- mod.fits.fx(mod = "2ps",
+                                      pars = pars.i.2ps,
+                                      sub = ix.30,
+                                      In = in.est,
+                                      upper = c(1, .02, .1),
+                                      lower = c(.04, .0001, 0),
+                                      cost = "14C + cStock")
+names(mod.sens.fits.2ps4r.30) <- names(pars.i.2ps)[ix.30]
+save(mod.sens.fits.2ps4r.30, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps4r.30", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps4r.30 <- lapply(mod.sens.fits.2ps4r.30, function(x) x[[1]])
 ```
 
 ```{r report-par-fit}
 # index for 0-10 cm depth increments
 ix.10 <- seq(1, 27, 3)
+
+load("../data/derived/modFit_pars/pars.i.2pp_2020-11-16.Rdata")
 
 # load initial parameters as needed
 if (!exists("pars.i.2pp")) {
@@ -1831,10 +3258,28 @@ if (!exists("mod.fits.2pp")) {
  load(file = "../data/derived/modFit_pars/mod.fits.2pp_2020-11-16.RData")
 }
 if (!exists("mod.fits.2pp.p3.5.95")) {
-  load("../data/derived/modFit_pars/pars.i.2ps_2020-11-16.Rdata")  
+  load("../data/derived/modFit_pars/mod.fits.2pp.p3.5.95_2020-11-16.Rdata")  
 }
 if (!exists("mod.fits.2ps")) {
- load(file = "../data/derived/modFit_pars/mod.fits.2pp_2020-11-16.RData")
+ load(file = "../data/derived/modFit_pars/mod.fits.2ps_2020-11-16.Rdata")
+}
+if (!exists("mod.fits.2pp2")) {
+ load(file = "../data/derived/modFit_pars/mod.fits.2pp.flx.stock_2020-12-02.RData")
+}
+if (!exists("mod.fits.2ps2")) {
+ load(file = "../data/derived/modFit_pars/mod.fits.2ps.flx.stock_2020-12-02.Rdata")
+}
+if (!exists("mod.fits.2pp3")) {
+ load(file = "../data/derived/modFit_pars/mod.fits.2pp3_2020-12-08.RData")
+}
+if (!exists("mod.fits.2ps3")) {
+ load(file = "../data/derived/modFit_pars/mod.fits.2ps3_2020-12-08.Rdata")
+}
+if (!exists("mod.fits.2pp3s")) {
+ load(file = "../data/derived/modFit_pars/mod.fits.2pp3s_2020-12-08.RData")
+}
+if (!exists("mod.fits.2ps3s")) {
+ load(file = "../data/derived/modFit_pars/mod.fits.2ps3s_2020-12-08.Rdata")
 }
 
 ## Par estimates
@@ -1844,9 +3289,56 @@ names(pars.fit.2pp) <- names(pars.i.2pp)[ix.10]
 # 2pp gam = [.5, .95]
 pars.fit.2pp.p3.5.95 <- lapply(mod.fits.2pp.p3.5.95, "[[", 1)
 names(pars.fit.2pp.p3.5.95) <- names(pars.i.2pp)[ix.10]
+
 # 2ps
 pars.fit.2ps <- lapply(mod.fits.2ps, "[[", 1)
 names(pars.fit.2ps) <- names(pars.i.2ps)[ix.10]
+
+
+# 2pp2 (input/stock and 14C constraints)
+pars.fit.2pp2 <- lapply(mod.fits.2pp2, "[[", 1)
+names(pars.fit.2pp2) <- names(pars.i.2pp)[ix.10]
+# 2ps2 (input/stock and 14C constraints)
+pars.fit.2ps2 <- lapply(mod.fits.2ps2, "[[", 1)
+names(pars.fit.2ps2) <- names(pars.i.2ps)[ix.10]
+
+# 2pp3 (14C constraints, constrained par ranges, stock-fit inputs)
+pars.fit.2pp3 <- lapply(mod.fits.2pp3, "[[", 1)
+names(pars.fit.2pp3) <- names(pars.i.2pp)[ix.10]
+# 2ps3 (14C constraints, constrained par ranges, stock-fit inputs)
+pars.fit.2ps3 <- lapply(mod.fits.2ps3, "[[", 1)
+names(pars.fit.2ps3) <- names(pars.i.2ps)[ix.10]
+
+# 2pp3s (14C constraints, constrained par ranges, stock-fit inputs, + stock constraint)
+pars.fit.2pp3s <- lapply(mod.fits.2pp3s, "[[", 1)
+names(pars.fit.2pp3s) <- names(pars.i.2pp)[ix.10]
+# 2ps3s (14C constraints, constrained par ranges, stock-fit inputs, + stock constraint)
+pars.fit.2ps3s <- lapply(mod.fits.2ps3s, "[[", 1)
+names(pars.fit.2ps3s) <- names(pars.i.2ps)[ix.10]
+
+## stock & bulk 14C costs only
+# 2pp
+pars.fit.2pp4.10 <- lapply(mod.fits.2pp4.10, "[[", 1)
+names(pars.fit.2pp4.10) <- names(pars.i.2pp)[ix.10]
+pars.fit.2pp4.30 <- lapply(mod.fits.2pp4.30, "[[", 1)
+names(pars.fit.2pp4.30) <- names(pars.i.2pp)[ix.30]
+# 2ps
+pars.fit.2ps4.10 <- lapply(mod.fits.2ps4.10, "[[", 1)
+names(pars.fit.2ps4.10) <- names(pars.i.2ps)[ix.10]
+pars.fit.2ps4.30 <- lapply(mod.fits.2ps4.30, "[[", 1)
+names(pars.fit.2ps4.30) <- names(pars.i.2ps)[ix.30]
+
+## stock, bulk and respiration 14C costs
+# 2pp
+pars.fit.2pp4r.10 <- lapply(mod.fits.2pp4r.10, "[[", 1)
+names(pars.fit.2pp4r.10) <- names(pars.i.2pp)[ix.10]
+pars.fit.2pp4r.30 <- lapply(mod.fits.2pp4r.30, "[[", 1)
+names(pars.fit.2pp4r.30) <- names(pars.i.2pp)[ix.30]
+# 2ps
+pars.fit.2ps4r.10 <- lapply(mod.fits.2ps4r.10, "[[", 1)
+names(pars.fit.2ps4r.10) <- names(pars.i.2ps)[ix.10]
+pars.fit.2ps4r.30 <- lapply(mod.fits.2ps4r.30, "[[", 1)
+names(pars.fit.2ps4r.30) <- names(pars.i.2ps)[ix.30]
 
 ## Summary of fits
 # 2pp
@@ -1866,15 +3358,35 @@ names(pars.fit.2ps.sum) <- names(pars.fit.2ps)
 # best par set (ssr)
 ssr.2pp.df <- data.frame(bind_rows(lapply(mod.fits.2pp, "[", "ssr"), .id = "PMeco_depth"))
 ssr.2ps.df <- data.frame(bind_rows(lapply(mod.fits.2ps, "[", "ssr"), .id = "PMeco_depth"))
+ssr.2pp2.df <- data.frame(bind_rows(lapply(mod.fits.2pp2, "[", "ssr"), .id = "PMeco_depth"))
+ssr.2ps2.df <- data.frame(bind_rows(lapply(mod.fits.2ps2, "[", "ssr"), .id = "PMeco_depth"))
+# stock and bulk 14C costs only
+ssr.2pp4.10.df <- data.frame(bind_rows(lapply(mod.fits.2pp4.10, "[", "ssr"), .id = "PMeco_depth"))
+ssr.2pp4.30.df <- data.frame(bind_rows(lapply(mod.fits.2pp4.30, "[", "ssr"), .id = "PMeco_depth"))
+ssr.2ps4.10.df <- data.frame(bind_rows(lapply(mod.fits.2ps4.10, "[", "ssr"), .id = "PMeco_depth"))
+ssr.2ps4.30.df <- data.frame(bind_rows(lapply(mod.fits.2ps4.30, "[", "ssr"), .id = "PMeco_depth"))
+# stock, bulk and resp 14C costs
+ssr.2pp4r.10.df <- data.frame(bind_rows(lapply(mod.fits.2pp4r.10, "[", "ssr"), .id = "PMeco_depth"))
+ssr.2pp4r.30.df <- data.frame(bind_rows(lapply(mod.fits.2pp4r.30, "[", "ssr"), .id = "PMeco_depth"))
+ssr.2ps4r.10.df <- data.frame(bind_rows(lapply(mod.fits.2ps4r.10, "[", "ssr"), .id = "PMeco_depth"))
+ssr.2ps4r.30.df <- data.frame(bind_rows(lapply(mod.fits.2ps4r.30, "[", "ssr"), .id = "PMeco_depth"))
+
 # mean residuals, by var (var_ms)
-var_ms.df.fx <- function(mod.fits.ls) {
+var_ms.df.fx <- function(mod.fits.ls, costs) {
   df <- data.frame(bind_rows(lapply(mod.fits.ls, "[", "var_ms"), .id = "PMeco_depth"))
-  df$var <- rep(c("resp", "bulkC"), nrow(df)/2)
+  if (length(costs) == 2 ) {
+    df$var <- rep(c("resp", "bulkC"), nrow(df)/2)
+  } else {
+    df$var <- rep(c("resp", "bulkC", "flx.stock"), nrow(df)/3)
+  }
   df$var_ms <- round(df$var_ms, 5)
   return(df)
 }
-var_ms.2pp.df <- var_ms.df.fx(mod.fits.2pp)
-var_ms.2ps.df <- var_ms.df.fx(mod.fits.2ps)
+var_ms.2pp.df <- var_ms.df.fx(mod.fits.2pp, c("resp", "bulkC"))
+var_ms.2pp.p3.5.95.df <- var_ms.df.fx(mod.fits.2pp.p3.5.95, c("resp", "bulkC"))
+var_ms.2ps.df <- var_ms.df.fx(mod.fits.2ps, c("resp", "bulkC"))
+var_ms.2pp2.df <- var_ms.df.fx(mod.fits.2pp2, c("resp", "bulkC", "flx.stock"))
+var_ms.2ps2.df <- var_ms.df.fx(mod.fits.2ps2, c("resp", "bulkC", "flx.stock"))
 
 # bind fitted pars with initial pars into data frame for plotting/summarizing
 par.fit.df.fx <- function(mod, pars.fit, pars.i) {
@@ -1912,41 +3424,247 @@ pars.fit.2pp.df <- par.fit.df.fx(mod = "2pp",
 pars.fit.2pp.p3.5.95.df <- par.fit.df.fx(mod = "2pp",
                                          pars.fit = pars.fit.2pp.p3.5.95,
                                          pars.i = pars.i.2pp[ix.10])
+# w/ input/stock cost and gam range = [.5, .95]
+pars.fit.2pp2.df <- par.fit.df.fx(mod = "2pp",
+                                  pars.fit = pars.fit.2pp2,
+                                  pars.i = pars.i.2pp[ix.10])
+
 ## 2ps
 # a21 range = [0, 1]
 pars.fit.2ps.df <- par.fit.df.fx(mod = "2ps",
                                  pars.fit = pars.fit.2ps,
                                  pars.i = pars.i.2ps[ix.10])
+# w/ input/stock cost and a21 range = [0, 1]
+pars.fit.2ps2.df <- par.fit.df.fx(mod = "2ps",
+                                 pars.fit = pars.fit.2ps2,
+                                 pars.i = pars.i.2ps[ix.10])
+
+## Constrained par ranges, with and without stock constraint
+# w/o stock
+pars.fit.2pp3.df <- par.fit.df.fx(mod = "2pp",
+                                  pars.fit = pars.fit.2pp3,
+                                  pars.i = pars.i.2pp[ix.10])
+pars.fit.2ps3.df <- par.fit.df.fx(mod = "2ps",
+                                  pars.fit = pars.fit.2ps3,
+                                  pars.i = pars.i.2ps[ix.10])
+# w/ stock
+pars.fit.2pp3s.df <- par.fit.df.fx(mod = "2pp",
+                                   pars.fit = pars.fit.2pp3s,
+                                   pars.i = pars.i.2ps[ix.10])
+pars.fit.2ps3s.df <- par.fit.df.fx(mod = "2ps",
+                                   pars.fit = pars.fit.2ps3s,
+                                   pars.i = pars.i.2ps[ix.10])
+# w/ stock & bulk 14C only
+pars.fit.2pp4.10.df <- par.fit.df.fx(mod = "2pp",
+                                     pars.fit = pars.fit.2pp4.10,
+                                     pars.i = pars.i.2pp[ix.10])
+pars.fit.2pp4.30.df <- par.fit.df.fx(mod = "2pp",
+                                     pars.fit = pars.fit.2pp4.30,
+                                     pars.i = pars.i.2pp[ix.30])
+pars.fit.2ps4.10.df <- par.fit.df.fx(mod = "2ps",
+                                     pars.fit = pars.fit.2ps4.10,
+                                     pars.i = pars.i.2ps[ix.10])
+pars.fit.2ps4.30.df <- par.fit.df.fx(mod = "2ps",
+                                     pars.fit = pars.fit.2ps4.30,
+                                     pars.i = pars.i.2ps[ix.30])
+
+# w/ stock, bulk + resp 14C
+pars.fit.2pp4r.10.df <- par.fit.df.fx(mod = "2pp",
+                                     pars.fit = pars.fit.2pp4r.10,
+                                     pars.i = pars.i.2pp[ix.10])
+pars.fit.2pp4r.30.df <- par.fit.df.fx(mod = "2pp",
+                                     pars.fit = pars.fit.2pp4r.30,
+                                     pars.i = pars.i.2pp[ix.30])
+pars.fit.2ps4r.10.df <- par.fit.df.fx(mod = "2ps",
+                                     pars.fit = pars.fit.2ps4r.10,
+                                     pars.i = pars.i.2ps[ix.10])
+pars.fit.2ps4r.30.df <- par.fit.df.fx(mod = "2ps",
+                                     pars.fit = pars.fit.2ps4r.30,
+                                     pars.i = pars.i.2ps[ix.30])
+
 
 ## Summarize by PM, depth
 # 2pp
 # PM/depth
-pars.fit.2pp.df.PM <- suppressMessages(
-  pars.fit.2pp.df %>%
+pars.fit.2pp.df.PM <- pars.fit.2pp.df %>%
     filter(est == "fit") %>%
     select(!c(est, PMeco_depth, eco)) %>%
     group_by(PM, depth) %>%
     summarize_all(list(mean = mean, sd = sd)) %>%
     mutate_if(is.numeric, format, digits = 2)
-)
-# # print table
-# knitr::kable(pars.fit.2pp.df.PM,
-#              caption = "Mean parameter estimates by parent material (PM)",
-#              align = "c")
+# print table
+knitr::kable(pars.fit.2pp.df.PM,
+             caption = "Mean parameter estimates by parent material (PM)",
+             align = "c")
 # eco/depth
-pars.fit.2pp.df.eco <- suppressMessages(
-  pars.fit.2pp.df %>%
-    filter(est == "fit") %>%
-    select(!c(est, PMeco_depth, PM)) %>%
-    group_by(eco, depth) %>%
-    summarize_all(list(mean = mean, sd = sd)) %>%
-    mutate_if(is.numeric, format, digits = 2)
-)
-# # print table
-# knitr::kable(pars.fit.2pp.df.eco,
-#              caption = "Mean parameter estimates by ecosystem (eco)",
-#              align = "c")
+pars.fit.2pp.df.eco <- pars.fit.2pp.df %>%
+  filter(est == "fit") %>%
+  mutate(eco = factor(eco, levels = c("pp", "wf", "rf"))) %>%
+  select(!c(est, PMeco_depth, PM)) %>%
+  group_by(eco, depth) %>%
+  summarize_all(list(mean = mean, sd = sd)) %>%
+  mutate_if(is.numeric, format, digits = 2)
+# print table
+knitr::kable(pars.fit.2pp.df.eco,
+             caption = "Mean parameter estimates by ecosystem (eco)",
+             align = "c")
 ```
+
+```{r sens-fun-fits}
+## look at sensFun output
+# without constraints
+sens.2pp <- lapply(mod.sens.fits.2pp, function(x) x[[2]])
+sens.2ps <- lapply(mod.sens.fits.2ps, function(x) x[[2]])
+# without stock constraint
+sens.2pp3 <- lapply(mod.sens.fits.2pp3, function(x) x[[2]])
+sens.2ps3 <- lapply(mod.sens.fits.2ps3, function(x) x[[2]])
+# with stock constraint
+sens.2pp3s <- lapply(mod.sens.fits.2pp3s, function(x) x[[2]])
+sens.2ps3s <- lapply(mod.sens.fits.2ps3s, function(x) x[[2]])
+# with stock constraint, w/o resp
+sens.2pp4.10 <- lapply(mod.sens.fits.2pp4.10, function(x) x[[2]])
+sens.2pp4.30 <- lapply(mod.sens.fits.2pp4.30, function(x) x[[2]])
+sens.2ps4.10 <- lapply(mod.sens.fits.2ps4.10, function(x) x[[2]])
+sens.2ps4.30 <- lapply(mod.sens.fits.2ps4.30, function(x) x[[2]])
+# with stock constraint + resp
+sens.2pp4r.10 <- lapply(mod.sens.fits.2pp4r.10, function(x) x[[2]])
+sens.2pp4r.30 <- lapply(mod.sens.fits.2pp4r.30, function(x) x[[2]])
+sens.2ps4r.10 <- lapply(mod.sens.fits.2ps4r.10, function(x) x[[2]])
+sens.2ps4r.30 <- lapply(mod.sens.fits.2ps4r.30, function(x) x[[2]])
+
+
+# plot sensitivity
+# w/o constraints
+lapply(sens.2pp, function(x) plot(x, which = c("bulkC", "resp")))
+lapply(sens.2ps, function(x) plot(x, which = c("bulkC", "resp")))
+# w/o stock constraint
+lapply(sens.2pp3, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2ps3, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2pp3s, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2ps3s, function(x) plot(x, which = c("bulkC", "cStock")))
+# with stock constraint, w/o resp
+lapply(sens.2pp4.10, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2pp4.30, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2ps4.10, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2ps4.30, function(x) plot(x, which = c("bulkC", "cStock")))
+# with stock constraint + resp
+lapply(sens.2pp4r.10, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2pp4r.30, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2ps4r.10, function(x) plot(x, which = c("bulkC", "cStock")))
+lapply(sens.2ps4r.30, function(x) plot(x, which = c("bulkC", "cStock")))
+
+
+# look at identifiability
+inden.df.fx <- function(ls, mod) {
+  lapply(ls, function(x) {
+    df <- collin(x)
+    if (mod == "2pp") {
+      df$ParCombo <- factor(c("k1 + k2", "k1 + gam", "k2 + gam", "k1 + k2 + gam"))
+    } else {
+      df$ParCombo <- factor(c("k1 + k2", "k1 + a21", "k2 + a21", "k1 + k2 + a21"))
+    }
+    return(df)
+  })
+}
+
+iden.2pp <- inden.df.fx(sens.2pp, mod = "2pp")
+iden.2ps <- inden.df.fx(sens.2ps, mod = "2ps")
+iden.2pp3 <- inden.df.fx(sens.2pp3, mod = "2pp")
+iden.2ps3 <- inden.df.fx(sens.2ps3, mod = "2ps")
+iden.2pp3s <- inden.df.fx(sens.2pp3s, mod = "2pp")
+iden.2ps3s <- inden.df.fx(sens.2ps3s, mod = "2ps")
+# with stock constraint, w/o resp
+iden.2pp4.10 <- inden.df.fx(sens.2pp4.10, mod = "2pp")
+iden.2pp4.30 <- inden.df.fx(sens.2pp4.30, mod = "2pp")
+iden.2ps4.10 <- inden.df.fx(sens.2ps4.10, mod = "2ps")
+iden.2ps4.30 <- inden.df.fx(sens.2ps4.30, mod = "2ps")
+# with stock constraint + resp
+iden.2pp4r.10 <- inden.df.fx(sens.2pp4r.10, mod = "2pp")
+iden.2pp4r.30 <- inden.df.fx(sens.2pp4r.30, mod = "2pp")
+iden.2ps4r.10 <- inden.df.fx(sens.2ps4r.10, mod = "2ps")
+iden.2ps4r.30 <- inden.df.fx(sens.2ps4r.30, mod = "2ps")
+
+# identifiability plot function
+coll.plot.fx <- function(df, mod, PMeco_depth, col.max) {
+  ggplot(df, aes(N, log(collinearity), color = ParCombo)) +
+    geom_hline(yintercept = log(20)) +
+    geom_point(size = 3.5, position = position_dodge(width = .1)) +
+    scale_y_continuous(limits = c(0, log(col.max))) +
+    scale_x_continuous(limits = c(1.5, 3.5), breaks = c(2, 3)) +
+    labs(title = paste(PMeco_depth, mod)) +
+    theme_bw() +
+    theme(panel.grid = element_blank()) +
+    if (mod == "2pp" | mod == "2pp + stock") {
+     scale_color_manual(
+       name = "Parameter combination",
+       values = c("k1 + k2" = "#EF476F",
+                  "k1 + gam" = "#FFD166",
+                  "k2 + gam" = "#118AB2",
+                  "k1 + k2 + gam" = "073B4C")) 
+    } else {
+      scale_color_manual(
+        name = "Parameter combination",
+        values = c("k1 + k2" = "#EF476F",
+                  "k1 + a21" = "#FFD166",
+                  "k2 + a21" = "#118AB2",
+                  "k1 + k2 + a21" = "073B4C"))
+    }
+}
+lapply(seq_along(iden.2pp), function(i) {
+  coll.plot.fx(iden.2pp[[i]], mod = "2pp", names(iden.2pp)[i], max(iden.2pp[[i]]["collinearity"]))
+})
+lapply(seq_along(iden.2ps), function(i) {
+  coll.plot.fx(iden.2ps[[i]], mod = "2ps", names(iden.2ps)[i], max(iden.2ps[[i]]["collinearity"]))
+})
+lapply(seq_along(iden.2pp3), function(i) {
+  coll.plot.fx(iden.2pp3[[i]], mod = "2pp", names(iden.2pp3)[i])
+})
+lapply(seq_along(iden.2pp3s), function(i) {
+  coll.plot.fx(iden.2pp3s[[i]], mod = "2pp + stock", names(iden.2pp3s)[i])
+})
+lapply(seq_along(iden.2ps3), function(i) {
+  coll.plot.fx(iden.2ps3[[i]], mod = "2ps", names(iden.2ps3)[i])
+})
+lapply(seq_along(iden.2ps3s), function(i) {
+  coll.plot.fx(iden.2ps3s[[i]], mod = "2ps + stock", names(iden.2ps3s)[i])
+})
+# stock constraint, w/o resp
+col.max <- max(unlist(list(lapply(iden.2ps4.10, function(df) df[["collinearity"]]),
+                           lapply(iden.2ps4.30, function(df) df[["collinearity"]]),
+                           lapply(iden.2pp4.10, function(df) df[["collinearity"]]),
+                           lapply(iden.2pp4.30, function(df) df[["collinearity"]]))))
+lapply(seq_along(iden.2ps4.10), function(i) {
+  coll.plot.fx(iden.2ps4.10[[i]], mod = "2ps + stock", names(iden.2ps4.10)[i], col.max)
+})
+lapply(seq_along(iden.2ps4.30), function(i) {
+  coll.plot.fx(iden.2ps4.30[[i]], mod = "2ps + stock", names(iden.2ps4.30)[i], col.max)
+})
+lapply(seq_along(iden.2pp4.10), function(i) {
+  coll.plot.fx(iden.2pp4.10[[i]], mod = "2pp + stock", names(iden.2pp4.10)[i], col.max)
+})
+lapply(seq_along(iden.2pp4.30), function(i) {
+  coll.plot.fx(iden.2pp4.30[[i]], mod = "2pp + stock", names(iden.2pp4.30)[i], col.max)
+})
+
+# stock constraint + resp
+col.max.r <- max(unlist(list(lapply(iden.2ps4r.10, function(df) df[["collinearity"]]),
+                             lapply(iden.2ps4r.30, function(df) df[["collinearity"]]),
+                             lapply(iden.2pp4r.10, function(df) df[["collinearity"]]),
+                             lapply(iden.2pp4r.30, function(df) df[["collinearity"]]))))
+lapply(seq_along(iden.2pp4r.10), function(i) {
+  coll.plot.fx(iden.2pp4r.10[[i]], mod = "2pp", names(iden.2pp4r.10)[i], col.max)
+})
+lapply(seq_along(iden.2pp4r.30), function(i) {
+  coll.plot.fx(iden.2pp4r.30[[i]], mod = "2ps", names(iden.2pp4r.30)[i], col.max)
+})
+lapply(seq_along(iden.2ps4r.10), function(i) {
+  coll.plot.fx(iden.2ps4r.10[[i]], mod = "2ps + stock", names(iden.2ps4r.10)[i], col.max)
+})
+lapply(seq_along(iden.2ps4r.30), function(i) {
+  coll.plot.fx(iden.2ps4r.30[[i]], mod = "2ps + stock", names(iden.2ps4r.30)[i], col.max)
+})
+```
+
 
 ```{r plot-modFit-pars}
 ## plot pars
@@ -1968,7 +3686,7 @@ par.plot.fx <- function(mod, depth, par.df, initial = FALSE) {
                                  "BS" = "red", 
                                  "GR" = "darkgray")) +
     facet_wrap(. ~ par, scales = "free") +
-    ggtitle(paste0("modFit pars ", mod, " 0-10 cm")) +
+    ggtitle(paste0("modFit pars ", mod, " ", depth)) +
     theme_bw() +
     theme(panel.grid.minor = element_blank())
 }
@@ -1978,43 +3696,81 @@ par.plot.fx(mod = "2pp",
             depth = "0-10",
             par.df = pars.fit.2pp.df,
             initial = FALSE)
-# 2ps
-par.plot.fx(mod = "2ps",
-            depth = "0-10",
-            par.df = pars.fit.2ps.df,
-            initial = FALSE)
 # 2pp, gam = [.5,.95]
 par.plot.fx(mod = "2pp (gam = [0.5, 0.95])",
             depth = "0-10",
             par.df = pars.fit.2pp.p3.5.95.df,
             initial = FALSE)
-```
+# 2pp2
+par.plot.fx(mod = "2pp2",
+            depth = "0-10",
+            par.df = pars.fit.2pp2.df,
+            initial = FALSE)
+# 2ps
+par.plot.fx(mod = "2ps",
+            depth = "0-10",
+            par.df = pars.fit.2ps.df,
+            initial = FALSE)
+# 2ps2
+par.plot.fx(mod = "2ps2",
+            depth = "0-10",
+            par.df = pars.fit.2ps2.df,
+            initial = FALSE)
 
-```{r fx-fit-soc-in}
-## adjust inputs to match modeled stocks
-# function for calculating steady-state SOC stocks
-soc.fx <- function(pars, In) {
-  colSums(-1 * solve(-1 * diag(pars[1:2])) %*% c(In * pars[3], In * (1 - pars[3])))
-}
+# w/ and w/o stock constraint
+par.plot.fx(mod = "2pp3",
+            depth = "0-10",
+            par.df = pars.fit.2pp3.df,
+            initial = FALSE)
+par.plot.fx(mod = "2pp3s",
+            depth = "0-10",
+            par.df = pars.fit.2pp3s.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps3",
+            depth = "0-10",
+            par.df = pars.fit.2ps3.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps3s",
+            depth = "0-10",
+            par.df = pars.fit.2ps3s.df,
+            initial = FALSE)
 
-in.fit.fx <- function(pars, initialIn, SOC) {
-  # sequence of possible input values
-  if  (SOC < soc.fx(pars, initialIn)) {
-    ins <- seq(.01, 
-               initialIn, 
-               .01)
-    } else {
-      ins <- seq(initialIn, 
-                 SOC, 
-                 .01)
-    }
-  # modeled stocks
-  soc_mod <- lapply(seq_along(ins), function(j) {
-    soc.fx(pars, ins[j])
-  })
-  ix <- which.min(abs(unlist(soc_mod) - SOC))
-  return(ins[ix])
-}
+## flux est inputs by eco
+# stock and bulk 14C only
+par.plot.fx(mod = "2pp4",
+            depth = "0-10",
+            par.df = pars.fit.2pp4.10.df,
+            initial = FALSE)
+par.plot.fx(mod = "2pp4",
+            depth = "20-30",
+            par.df = pars.fit.2pp4.30.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps4",
+            depth = "0-10",
+            par.df = pars.fit.2ps4.10.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps4",
+            depth = "20-30",
+            par.df = pars.fit.2ps4.30.df,
+            initial = FALSE)
+
+# stock and bulk + resp 14C
+par.plot.fx(mod = "2pp4r",
+            depth = "0-10",
+            par.df = pars.fit.2pp4r.10.df,
+            initial = FALSE)
+par.plot.fx(mod = "2pp4r",
+            depth = "20-30",
+            par.df = pars.fit.2pp4r.30.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps4r",
+            depth = "0-10",
+            par.df = pars.fit.2ps4r.10.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps4r",
+            depth = "20-30",
+            par.df = pars.fit.2ps4r.30.df,
+            initial = FALSE)
 ```
 
 ```{r fit-soc-in}
@@ -2023,29 +3779,42 @@ in.fit.fx <- function(pars, initialIn, SOC) {
 in.fit.2pp <- lapply(seq_along(pars.fit.2pp), function(i) {
   PMeco_depth <- names(pars.fit.2pp)[i]
   SOC <- csoc.19.0_30[[PMeco_depth]][ ,"lyr_soc"]
-  return(in.fit.fx(pars.fit.2pp[[i]], in.i[ix.10][[i]], SOC))
+  return(in.fit.fx("2pp", pars.fit.2pp[[i]], in.i[ix.10][[i]], SOC))
 })
 names(in.fit.2pp) <- names(mod.fits.2pp)
 # 2pp gam = [.5, .95]
 in.fit.2pp.p3.5.95 <- lapply(seq_along(pars.fit.2pp.p3.5.95), function(i) {
   PMeco_depth <- names(pars.fit.2pp.p3.5.95)[i]
   SOC <- csoc.19.0_30[[PMeco_depth]][ ,"lyr_soc"]
-  return(in.fit.fx(pars.fit.2pp.p3.5.95[[i]], in.i[ix.10][[i]], SOC))
+  return(in.fit.fx("2pp", pars.fit.2pp.p3.5.95[[i]], in.i[ix.10][[i]], SOC))
 })
 names(in.fit.2pp.p3.5.95) <- names(mod.fits.2pp.p3.5.95)
+# 2pp2
+in.fit.2pp2 <- lapply(seq_along(pars.fit.2pp2), function(i) {
+  PMeco_depth <- names(pars.fit.2pp2)[i]
+  SOC <- csoc.19.0_30[[PMeco_depth]][ ,"lyr_soc"]
+  return(in.fit.fx("2pp", pars.fit.2pp2[[i]], in.flx.stock[[i]], SOC))
+})
+names(in.fit.2pp2) <- names(mod.fits.2pp2)
 # 2ps
 in.fit.2ps <- lapply(seq_along(pars.fit.2ps), function(i) {
   PMeco_depth <- names(pars.fit.2ps)[i]
   SOC <- csoc.19.0_30[[PMeco_depth]][ ,"lyr_soc"]
-  return(in.fit.fx(pars.fit.2ps[[i]], in.i[ix.10][[i]], SOC))
+  return(in.fit.fx("2ps", pars.fit.2ps[[i]], in.i[ix.10][[i]], SOC))
 })
 names(in.fit.2ps) <- names(mod.fits.2ps)
+# 2ps2
+in.fit.2ps2 <- lapply(seq_along(pars.fit.2ps2), function(i) {
+  PMeco_depth <- names(pars.fit.2ps2)[i]
+  SOC <- csoc.19.0_30[[PMeco_depth]][ ,"lyr_soc"]
+  return(in.fit.fx("2ps", pars.fit.2ps2[[i]], in.flx.stock[[i]], SOC))
+})
+names(in.fit.2ps2) <- names(mod.fits.2ps2)
 
 ## Calc modeled stocks and compare with measured stocks
 # 2pp
 mod.socs.2pp.ls <- lapply(seq_along(pars.fit.2pp), function(i) {
-  A <- -1 * diag(pars.fit.2pp[[i]][1:2])
-  return(-1 * solve(A) %*% c(in.fit.2pp[[i]] * pars.fit.2pp[[i]][3], in.fit.2pp[[i]] * (1 - pars.fit.2pp[[i]][3])))
+  soc.fx("2pp", pars.fit.2pp[[i]], in.fit.2pp[[i]])
 })
 names(mod.socs.2pp.ls) <- names(pars.fit.2pp)
 socs.2pp.ls <- mapply(cbind,
@@ -2054,24 +3823,74 @@ socs.2pp.ls <- mapply(cbind,
                       SIMPLIFY = FALSE)
 # 2pp gam = [.5, .95]
 mod.socs.2pp.p3.5.95.ls <- lapply(seq_along(pars.fit.2pp.p3.5.95), function(i) {
-  A <- -1 * diag(pars.fit.2pp.p3.5.95[[i]][1:2])
-  return(-1 * solve(A) %*% c(in.fit.2pp.p3.5.95[[i]] * pars.fit.2pp.p3.5.95[[i]][3], in.fit.2pp.p3.5.95[[i]] * (1 - pars.fit.2pp.p3.5.95[[i]][3])))
+  soc.fx("2pp", pars.fit.2pp.p3.5.95[[i]], in.fit.2pp.p3.5.95[[i]])
 })
 names(mod.socs.2pp.p3.5.95.ls) <- names(pars.fit.2pp.p3.5.95)
 socs.2pp.p3.5.95ls <- mapply(cbind,
                              csoc.19.0_30[ix.10], 
                              lapply(mod.socs.2pp.p3.5.95.ls, colSums), 
                              SIMPLIFY = FALSE)
+# 2pp2
+mod.socs.2pp2.ls <- lapply(seq_along(pars.fit.2pp2), function(i) {
+  soc.fx("2pp", pars.fit.2pp2[[i]], in.fit.2pp2[[i]])
+})
+names(mod.socs.2pp2.ls) <- names(pars.fit.2pp2)
+
 # 2ps
 mod.socs.2ps.ls <- lapply(seq_along(pars.fit.2ps), function(i) {
-  A <- -1 * diag(pars.fit.2ps[[i]][1:2])
-  return(-1 * solve(A) %*% c(in.fit.2ps[[i]] * pars.fit.2ps[[i]][3], in.fit.2ps[[i]] * (1 - pars.fit.2ps[[i]][3])))
+  soc.fx("2ps", pars.fit.2ps[[i]], in.fit.2ps[[i]])
 })
 names(mod.socs.2ps.ls) <- names(pars.fit.2ps)
 socs.2ps.ls <- mapply(cbind,
                       csoc.19.0_30[ix.10], 
                       lapply(mod.socs.2ps.ls, colSums), 
                       SIMPLIFY = FALSE)
+# 2ps2
+mod.socs.2ps2.ls <- lapply(seq_along(pars.fit.2ps2), function(i) {
+  soc.fx("2ps", pars.fit.2ps2[[i]], in.fit.2ps2[[i]])
+})
+names(mod.socs.2ps2.ls) <- names(pars.fit.2ps2)
+
+## stock and bulk 14C costs only
+# 2pp
+mod.socs.2pp4.10.ls <- lapply(seq_along(pars.fit.2pp4.10), function(i) {
+  soc.fx("2pp", pars.fit.2pp4.10[[i]], in.est[ix.10][[i]])
+})
+names(mod.socs.2pp4.10.ls) <- names(pars.fit.2pp4.10)
+mod.socs.2pp4.30.ls <- lapply(seq_along(pars.fit.2pp4.30), function(i) {
+  soc.fx("2pp", pars.fit.2pp4.30[[i]], in.est[ix.30][[i]])
+})
+names(mod.socs.2pp4.30.ls) <- names(pars.fit.2pp4.30)
+# 2ps
+mod.socs.2ps4.10.ls <- lapply(seq_along(pars.fit.2ps4.10), function(i) {
+  soc.fx("2ps", pars.fit.2ps4.10[[i]], in.est[ix.10][[i]])
+})
+names(mod.socs.2ps4.10.ls) <- names(pars.fit.2ps4.10)
+mod.socs.2ps4.30.ls <- lapply(seq_along(pars.fit.2ps4.30), function(i) {
+  soc.fx("2ps", pars.fit.2ps4.30[[i]], in.est[ix.30][[i]])
+})
+names(mod.socs.2ps4.30.ls) <- names(pars.fit.2ps4.30)
+
+## stock and bulk + resp 14C costs
+# 2pp
+mod.socs.2pp4r.10.ls <- lapply(seq_along(pars.fit.2pp4r.10), function(i) {
+  soc.fx("2pp", pars.fit.2pp4r.10[[i]], in.est[ix.10][[i]])
+})
+names(mod.socs.2pp4r.10.ls) <- names(pars.fit.2pp4r.10)
+mod.socs.2pp4r.30.ls <- lapply(seq_along(pars.fit.2pp4r.30), function(i) {
+  soc.fx("2pp", pars.fit.2pp4r.30[[i]], in.est[ix.30][[i]])
+})
+names(mod.socs.2pp4r.30.ls) <- names(pars.fit.2pp4r.30)
+# 2ps
+mod.socs.2ps4r.10.ls <- lapply(seq_along(pars.fit.2ps4r.10), function(i) {
+  soc.fx("2ps", pars.fit.2ps4r.10[[i]], in.est[ix.10][[i]])
+})
+names(mod.socs.2ps4r.10.ls) <- names(pars.fit.2ps4r.10)
+mod.socs.2ps4r.30.ls <- lapply(seq_along(pars.fit.2ps4r.30), function(i) {
+  soc.fx("2ps", pars.fit.2ps4r.30[[i]], in.est[ix.30][[i]])
+})
+names(mod.socs.2ps4r.30.ls) <- names(pars.fit.2ps4r.30)
+
 
 ## Return data frames of model fits with adjusted inputs and optimal parameters
 # 2pp
@@ -2084,11 +3903,61 @@ Twopp.p3.5.95.fits <- lapply(seq_along(pars.fit.2pp.p3.5.95), function(i) {
   par.fx(pars.fit.2pp.p3.5.95[[i]], in.fit.2pp.p3.5.95[[i]], verbose = FALSE, mod = "2pp")
 })
 names(Twopp.p3.5.95.fits) <- names(pars.fit.2pp.p3.5.95)
+# 2pp2
+Twopp2.fits <- lapply(seq_along(pars.fit.2pp2), function(i) {
+  par.fx(pars.fit.2pp2[[i]], in.fit.2pp2[[i]], verbose = FALSE, mod = "2pp")
+})
+names(Twopp2.fits) <- names(pars.fit.2pp2)
 # 2ps
 Twops.fits <- lapply(seq_along(pars.fit.2ps), function(i) {
   par.fx(pars.fit.2ps[[i]], in.fit.2ps[[i]], verbose = FALSE, mod = "2ps")
 })
 names(Twops.fits) <- names(pars.fit.2ps)
+# 2ps2
+Twops2.fits <- lapply(seq_along(pars.fit.2ps2), function(i) {
+  par.fx(pars.fit.2ps2[[i]], in.fit.2ps2[[i]], verbose = FALSE, mod = "2ps", pass = TRUE)
+})
+names(Twops2.fits) <- names(pars.fit.2ps2)
+
+## stock and bulk 14C costs only
+# 2pp
+Twopp4.10.fits <- lapply(seq_along(pars.fit.2pp4.10), function(i) {
+  par.fx(pars.fit.2pp4.10[[i]], in.est[ix.10][[i]], verbose = FALSE, mod = "2pp", pass = FALSE)
+})
+names(Twopp4.10.fits) <- names(pars.fit.2pp4.10)
+Twopp4.30.fits <- lapply(seq_along(pars.fit.2pp4.30), function(i) {
+  par.fx(pars.fit.2pp4.30[[i]], in.est[ix.30][[i]], verbose = FALSE, mod = "2pp", pass = FALSE)
+})
+names(Twopp4.30.fits) <- names(pars.fit.2pp4.30)
+# 2ps
+Twops4.10.fits <- lapply(seq_along(pars.fit.2ps4.10), function(i) {
+  par.fx(pars.fit.2ps4.10[[i]], in.est[ix.10][[i]], verbose = FALSE, mod = "2ps", pass = FALSE)
+})
+names(Twops4.10.fits) <- names(pars.fit.2ps4.10)
+Twops4.30.fits <- lapply(seq_along(pars.fit.2ps4.30), function(i) {
+  par.fx(pars.fit.2ps4.30[[i]], in.est[ix.30][[i]], verbose = FALSE, mod = "2ps", pass = FALSE)
+})
+names(Twops4.30.fits) <- names(pars.fit.2ps4.30)
+
+## stock and bulk + resp 14C costs
+# 2pp
+Twopp4r.10.fits <- lapply(seq_along(pars.fit.2pp4r.10), function(i) {
+  par.fx(pars.fit.2pp4r.10[[i]], in.est[ix.10][[i]], verbose = FALSE, mod = "2pp", pass = FALSE)
+})
+names(Twopp4r.10.fits) <- names(pars.fit.2pp4r.10)
+Twopp4r.30.fits <- lapply(seq_along(pars.fit.2pp4r.30), function(i) {
+  par.fx(pars.fit.2pp4r.30[[i]], in.est[ix.30][[i]], verbose = FALSE, mod = "2pp", pass = FALSE)
+})
+names(Twopp4r.30.fits) <- names(pars.fit.2pp4r.30)
+# 2ps
+Twops4r.10.fits <- lapply(seq_along(pars.fit.2ps4r.10), function(i) {
+  par.fx(pars.fit.2ps4r.10[[i]], in.est[ix.10][[i]], verbose = FALSE, mod = "2ps", pass = FALSE)
+})
+names(Twops4r.10.fits) <- names(pars.fit.2ps4r.10)
+Twops4r.30.fits <- lapply(seq_along(pars.fit.2ps4r.30), function(i) {
+  par.fx(pars.fit.2ps4r.30[[i]], in.est[ix.30][[i]], verbose = FALSE, mod = "2ps", pass = FALSE)
+})
+names(Twops4r.30.fits) <- names(pars.fit.2ps4r.30)
 ```
 
 ```{r plot-soc-stocks}
@@ -2101,16 +3970,91 @@ mod.socs.df.fx <- function(mod, mod.socs.ls, pools) {
                     Model = rep(mod, sum(n))))       
 }
 # run fx
-mod.socs.2p.df <- rbind(mod.socs.df.fx("2pp", mod.socs.2pp.ls, c("fast", "slow")),
-                        mod.socs.df.fx("2ps", mod.socs.2ps.ls, c("fast", "slow"))
-                        # ,mod.socs.df.fx("2pp [.5,.95]", mod.socs.2pp.p3.5.95.ls, c("fast", "slow"))
+# mod.socs.2p.df <- rbind(mod.socs.df.fx("2pp", mod.socs.2pp.ls, c("fast", "slow"))
+#                         ,mod.socs.df.fx("2ps", mod.socs.2ps.ls, c("fast", "slow"))
+#                         ,mod.socs.df.fx("2pp [.5,.95]", mod.socs.2pp.p3.5.95.ls, c("fast", "slow"))
+#                         ,mod.socs.df.fx("2ps2", mod.socs.2ps2.ls, c("fast", "slow"))
+#                         ,mod.socs.df.fx("2pp2", mod.socs.2pp2.ls, c("fast", "slow"))
+#                         )
+mod.socs.2p.df <- rbind(mod.socs.df.fx("2pp", mod.socs.2pp.ls, c("fast", "slow"))
+                        ,mod.socs.df.fx("2ps", mod.socs.2ps.ls, c("fast", "slow"))
                         )
 
-# plot
-mod.socs.2p.df %>%
+
+# stocks and bulk 14C only
+mod.socs.2p4.10.df <- rbind(mod.socs.df.fx("2pp4 0-10", mod.socs.2pp4.10.ls, c("fast", "slow")), mod.socs.df.fx("2ps4 0-10", mod.socs.2ps4.10.ls, c("fast", "slow")))
+mod.socs.2p4.30.df <- rbind(mod.socs.df.fx("2pp4 20-30", mod.socs.2pp4.30.ls, c("fast", "slow")) ,mod.socs.df.fx("2ps4 20-30", mod.socs.2ps4.30.ls, c("fast", "slow")))
+
+# stocks and bulk + resp 14C
+mod.socs.2p4r.10.df <- rbind(mod.socs.df.fx("2pp4r 0-10", mod.socs.2pp4r.10.ls, c("fast", "slow")), mod.socs.df.fx("2ps4r 0-10", mod.socs.2ps4r.10.ls, c("fast", "slow")))
+mod.socs.2p4r.30.df <- rbind(mod.socs.df.fx("2pp4r 20-30", mod.socs.2pp4r.30.ls, c("fast", "slow")) ,mod.socs.df.fx("2ps4r 20-30", mod.socs.2ps4r.30.ls, c("fast", "slow")))
+
+# combine inputs to compare
+# in.fits.df <- pivot_longer(do.call(bind_rows, list(in.fit.2pp,
+#                                                 in.fit.2pp.p3.5.95,
+#                                                 in.fit.2pp2,
+#                                                 in.fit.2ps,
+#                                                 in.fit.2ps2)),
+#                            everything(),
+#                            names_to = "PMeco_depth",
+#                            values_to = "inputs")
+# in.fits.df$mod <- rep(c("2pp",
+#                         "2pp.5.95",
+#                         "2pp2",
+#                         "2ps",
+#                         "2ps2"),
+#                       each = 9)
+in.fits.df <- pivot_longer(do.call(bind_rows, list(in.fit.2pp,
+                                                   in.fit.2ps)),
+                           everything(),
+                           names_to = "PMeco_depth",
+                           values_to = "inputs")
+in.fits.df$mod <- rep(c("2pp",
+                        "2ps"),
+                      each = 9)
+                        
+## plot stocks
+# stock and bulk 14C only
+mod.socs.2p4.10.df %>%
   mutate(PM = substr(PMeco_depth, 1, 2),
-         eco = substr(PMeco_depth, 3, 4)) %>%
+         eco = factor(substr(PMeco_depth, 3, 4), levels = c("pp", "wf", "rf"))) %>%
   ggplot(., aes(pool, SOC, fill = Model)) +
+  geom_col(position = position_dodge()) +
+  facet_grid(rows = vars(eco), cols = vars(PM)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+mod.socs.2p4.30.df %>%
+  mutate(PM = substr(PMeco_depth, 1, 2),
+         eco = factor(substr(PMeco_depth, 3, 4), levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(pool, SOC, fill = Model)) +
+  geom_col(position = position_dodge()) +
+  facet_grid(rows = vars(eco), cols = vars(PM)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+# stock and bulk + resp 14C
+mod.socs.2p4r.10.df %>%
+  mutate(PM = substr(PMeco_depth, 1, 2),
+         eco = factor(substr(PMeco_depth, 3, 4), levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(pool, SOC, fill = Model)) +
+  geom_col(position = position_dodge()) +
+  facet_grid(rows = vars(eco), cols = vars(PM)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+mod.socs.2p4r.30.df %>%
+  mutate(PM = substr(PMeco_depth, 1, 2),
+         eco = factor(substr(PMeco_depth, 3, 4), levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(pool, SOC, fill = Model)) +
+  geom_col(position = position_dodge()) +
+  facet_grid(rows = vars(eco), cols = vars(PM)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# inputs
+in.fits.df %>%
+  mutate(PM = substr(PMeco_depth, 1, 2),
+         # Model = factor(Model, levels = c("2pp [.5,.95]", "2pp", "2ps")),
+         eco = factor(substr(PMeco_depth, 3, 4), levels = c("pp", "wf", "rf"))) %>%
+  ggplot(., aes(mod, inputs, fill = mod)) +
   geom_col(position = position_dodge()) +
   facet_grid(rows = vars(eco), cols = vars(PM)) +
   theme_bw() +
@@ -2126,7 +4070,8 @@ Twop.fit.plot.fx <- function(fit1, fit1.name, fit2, fit2.name, fit3 = NULL, fit3
                       nchar(names(fit1)[i]) - 1, 
                       nchar(names(fit1)[i]))
     lyr_top <- ifelse(lyr_bot == 10, 0, ifelse(lyr_bot == 20, 10, 20))
-    con.df <- con.df.fx(PMeco, lyr_bot)
+    PMeco_depth <- names(fit1)[i]
+    con.df <- con.df.fx(PMeco_depth)
     plot.df <- rbind(fit1[[i]],
                      fit2[[i]],
                      fit3[[i]])
@@ -2138,13 +4083,6 @@ Twop.fit.plot.fx <- function(fit1, fit1.name, fit2, fit2.name, fit3 = NULL, fit3
              filter(pool == "bulk C" | pool == "respiration" | pool == "atm") %>%
              ggplot(., aes(years, d14C, color = pool)) +
              geom_path(aes(linetype = Model)) +
-             geom_errorbar(data = con.df,
-                           aes(x = Year,
-                               ymin = d14c_l, 
-                               ymax = d14c_u, 
-                               color = pool), 
-                           width = .1,
-                           inherit.aes = FALSE) +
              geom_point(data = con.df, aes(Year, d14c, color = pool), size = 3) +
              scale_color_manual(
                name = "Model pool",
@@ -2154,7 +4092,7 @@ Twop.fit.plot.fx <- function(fit1, fit1.name, fit2, fit2.name, fit3 = NULL, fit3
                           "slow" = "#1E88E5",
                           "respiration" = "#FFC107")) +
              scale_x_continuous(limits = c(1950, 2022)) +
-             ggtitle(paste0(PMeco, "_", lyr_top, "-", lyr_bot, " 2p mod fits")) +
+             ggtitle(paste0(PMeco_depth, " 2p mod fits")) +
              xlab("Year") +
              ylab(expression(''*Delta*''^14*'C (‰)')) +
              theme_bw() +
@@ -2164,8 +4102,341 @@ Twop.fit.plot.fx <- function(fit1, fit1.name, fit2, fit2.name, fit3 = NULL, fit3
 # 2p modFit optimal model comparison
 Twop.fits.plots <- Twop.fit.plot.fx(Twopp.fits, "2pp", Twops.fits, "2ps")
 Twop.fits.plots
-# Twop.fits.plots2 <- Twop.fit.plot.fx(Twops.fits, "2ps", Twopp.fits, "2pp", Twopp.p3.5.95.fits, "2pp gam = [.5, .95]")
+# Twop.fits.plots2 <- Twop.fit.plot.fx(Twopp.fits, "2pp", Twopp.p3.5.95.fits, "2pp gam = [.5, .95]")
 # Twop.fits.plots2
+Twop.fits.plots3 <- Twop.fit.plot.fx(Twopp.p3.5.95.fits, "2pp gam = [.5, .95]", Twopp2.fits, "2pp2")
+Twop.fits.plots3
+
+## compare fits w/ and w/o resp constraint (2p4 mods)
+# 2pp
+Twopp4.fits.plots.10 <- Twop.fit.plot.fx(Twopp4.10.fits, "2pp4 0-10cm w/o resp", Twopp4r.10.fits, "2pp4r 0-10cm w/ resp")
+Twopp4.fits.plots.30 <- Twop.fit.plot.fx(Twopp4.30.fits, "2pp4 20-30cm w/o resp", Twopp4r.10.fits, "2pp4r 20-30cm w/ resp")
+# 2ps
+Twops4.fits.plots.10 <- Twop.fit.plot.fx(Twops4.10.fits, "2ps4 0-10cm w/o resp", Twops4r.10.fits, "2ps4r 0-10cm w/ resp")
+Twops4.fits.plots.30 <- Twop.fit.plot.fx(Twops4.30.fits, "2ps4 20-30cm w/o resp", Twops4r.10.fits, "2ps4r 20-30cm w/ resp")
+# plot
+Twopp4.fits.plots.10
+Twopp4.fits.plots.30
+Twops4.fits.plots.10
+Twops4.fits.plots.30
+```
+
+```{r SAB}
+### Run modfit
+## 14C bulk only
+# 0-10
+mod.sens.fits.2ps.10b <- mod.fits.fx(mod = "2ps",
+                                     pars = pars.i.2ps, 
+                                     sub = ix.10,
+                                     In = in.est,
+                                     upper = c(1, 1, .999),
+                                     lower = c(.02, .0001, .001),
+                                     cost = "14C bulk only")
+names(mod.sens.fits.2ps.10b) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps.10b, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.10b", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps.10b <- lapply(mod.sens.fits.2ps.10b, function(x) x[[1]])
+# # 20-30
+# mod.sens.fits.2ps.30b <- mod.fits.fx(mod = "2ps",
+#                                      pars = pars.i.2ps, 
+#                                      sub = ix.30,
+#                                      In = in.est,
+#                                      upper = c(1, .02, .15),
+#                                      lower = c(.005, .0001, .0004),
+#                                      cost = "14C bulk only")
+# names(mod.sens.fits.2ps.30b) <- names(pars.i.2ps)[ix.30]
+# save(mod.sens.fits.2ps.30b, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.30b", "_", Sys.Date(), ".Rdata"))
+# mod.fits.2ps.30b <- lapply(mod.sens.fits.2ps.30b, function(x) x[[1]])
+
+## 14C (bulk + resp)
+# 0-10
+mod.sens.fits.2ps.10br <- mod.fits.fx(mod = "2ps",
+                                     pars = pars.i.2ps, 
+                                     sub = ix.10,
+                                     In = in.est,
+                                     upper = c(1, 1, .999),
+                                     lower = c(.02, .0001, .001),
+                                     cost = "14C")
+names(mod.sens.fits.2ps.10br) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps.10br, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.10br", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps.10br <- lapply(mod.sens.fits.2ps.10br, function(x) x[[1]])
+# # 20-30
+# mod.sens.fits.2ps.30br <- mod.fits.fx(mod = "2ps",
+#                                      pars = pars.i.2ps, 
+#                                      sub = ix.30,
+#                                      In = in.est,
+#                                      upper = c(1, .02, .15),
+#                                      lower = c(.005, .0001, .0004),
+#                                      cost = "14C")
+# names(mod.sens.fits.2ps.30br) <- names(pars.i.2ps)[ix.30]
+# save(mod.sens.fits.2ps.30br, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.30br", "_", Sys.Date(), ".Rdata"))
+# mod.fits.2ps.30br <- lapply(mod.sens.fits.2ps.30br, function(x) x[[1]])
+
+## 14C bulk + stocks
+# 0-10
+mod.sens.fits.2ps.10bs <- mod.fits.fx(mod = "2ps",
+                                      pars = pars.i.2ps,
+                                      sub = ix.10,
+                                      In = in.est,
+                                      upper = c(1, 1, .999),
+                                      lower = c(.02, .0001, .001),
+                                      cost = "14C bulk + cStock")
+names(mod.sens.fits.2ps.10bs) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps.10bs, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.10bs", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps.10bs <- lapply(mod.sens.fits.2ps.10bs, function(x) x[[1]])
+# # 20-30
+# mod.sens.fits.2ps.30b <- mod.fits.fx(mod = "2ps",
+#                                      pars = pars.i.2ps, 
+#                                      sub = ix.30,
+#                                      In = in.est,
+#                                      upper = c(1, .02, .15),
+#                                      lower = c(.005, .0001, .0004),
+#                                      cost = "14C bulk only")
+# names(mod.sens.fits.2ps.30b) <- names(pars.i.2ps)[ix.30]
+# save(mod.sens.fits.2ps.30b, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.30b", "_", Sys.Date(), ".Rdata"))
+# mod.fits.2ps.30b <- lapply(mod.sens.fits.2ps.30b, function(x) x[[1]])
+
+## 14C + cStock (14C resp, 14C bulk, stocks)
+# 0-10
+mod.sens.fits.2ps.10rbs <- mod.fits.fx(mod = "2ps",
+                                       pars = pars.i.2ps,
+                                       sub = ix.10,
+                                       In = in.est,
+                                       upper = c(1, 1, .999),
+                                       lower = c(.02, .0001, .001),
+                                       cost = "14C + cStock")
+names(mod.sens.fits.2ps.10rbs) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps.10rbs, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.10rbs", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps.10rbs <- lapply(mod.sens.fits.2ps.10rbs, function(x) x[[1]])
+# # 20-30
+# mod.sens.fits.2ps.30b <- mod.fits.fx(mod = "2ps",
+#                                      pars = pars.i.2ps, 
+#                                      sub = ix.30,
+#                                      In = in.est,
+#                                      upper = c(1, .02, .15),
+#                                      lower = c(.005, .0001, .0004),
+#                                      cost = "14C bulk only")
+# names(mod.sens.fits.2ps.30b) <- names(pars.i.2ps)[ix.30]
+# save(mod.sens.fits.2ps.30b, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps.30b", "_", Sys.Date(), ".Rdata"))
+# mod.fits.2ps.30b <- lapply(mod.sens.fits.2ps.30b, function(x) x[[1]])
+
+### Extract optimized pars from modfit output
+## bulk 14c only
+# 0-10
+pars.fit.2ps.10b <- lapply(mod.fits.2ps.10b, "[[", 1)
+names(pars.fit.2ps.10b) <- names(pars.i.2ps)[ix.10]
+# # 20-30
+# pars.fit.2ps.30b <- lapply(mod.fits.2ps.30b, "[[", 1)
+# names(pars.fit.2ps.30b) <- names(pars.i.2ps)[ix.30]
+
+## resp + bulk 14c
+# 0-10
+pars.fit.2ps.10br <- lapply(mod.fits.2ps.10br, "[[", 1)
+names(pars.fit.2ps.10br) <- names(pars.i.2ps)[ix.10]
+# # 20-30
+# pars.fit.2ps.30br <- lapply(mod.fits.2ps.30br, "[[", 1)
+# names(pars.fit.2ps.30br) <- names(pars.i.2ps)[ix.30]
+
+## bulk 14c + stocks
+# 0-10
+pars.fit.2ps.10bs <- lapply(mod.fits.2ps.10bs, "[[", 1)
+names(pars.fit.2ps.10bs) <- names(pars.i.2ps)[ix.10]
+# # 20-30
+# pars.fit.2ps.30br <- lapply(mod.fits.2ps.30br, "[[", 1)
+# names(pars.fit.2ps.30br) <- names(pars.i.2ps)[ix.30]
+
+## resp, bulk 14c, stocks
+# 0-10
+pars.fit.2ps.10rbs <- lapply(mod.fits.2ps.10rbs, "[[", 1)
+names(pars.fit.2ps.10rbs) <- names(pars.i.2ps)[ix.10]
+# # 20-30
+# pars.fit.2ps.30br <- lapply(mod.fits.2ps.30br, "[[", 1)
+# names(pars.fit.2ps.30br) <- names(pars.i.2ps)[ix.30]
+
+
+### Summarize optimized par data for plotting
+## bulk 14c only
+# 0-10
+pars.fit.2ps.10b.df <- par.fit.df.fx(mod = "2ps",
+                                     pars.fit = pars.fit.2ps.10b,
+                                     pars.i = pars.i.2ps[ix.10])
+# # 20-30
+# pars.fit.2ps.30b.df <- par.fit.df.fx(mod = "2ps",
+#                                       pars.fit = pars.fit.2ps.30b,
+#                                       pars.i = pars.i.2ps[ix.30])
+
+## resp + bulk 14c
+# 0-10
+pars.fit.2ps.10br.df <- par.fit.df.fx(mod = "2ps",
+                                       pars.fit = pars.fit.2ps.10br,
+                                       pars.i = pars.i.2ps[ix.10])
+# # 20-30
+# pars.fit.2ps.30br.df <- par.fit.df.fx(mod = "2ps",
+#                                        pars.fit = pars.fit.2ps.30br,
+#                                        pars.i = pars.i.2ps[ix.30])
+
+## bulk 14c + stocks
+# 0-10
+pars.fit.2ps.10bs.df <- par.fit.df.fx(mod = "2ps",
+                                       pars.fit = pars.fit.2ps.10bs,
+                                       pars.i = pars.i.2ps[ix.10])
+# # 20-30
+# pars.fit.2ps.30br.df <- par.fit.df.fx(mod = "2ps",
+#                                        pars.fit = pars.fit.2ps.30br,
+#                                        pars.i = pars.i.2ps[ix.30])
+
+## resp, bulk, stocks
+# 0-10
+pars.fit.2ps.10rbs.df <- par.fit.df.fx(mod = "2ps",
+                                       pars.fit = pars.fit.2ps.10rbs,
+                                       pars.i = pars.i.2ps[ix.10])
+# # 20-30
+# pars.fit.2ps.30br.df <- par.fit.df.fx(mod = "2ps",
+#                                        pars.fit = pars.fit.2ps.30br,
+#                                        pars.i = pars.i.2ps[ix.30])
+
+### Par fits
+par.plot.fx(mod = "2ps bulk 14c",
+            depth = "0-10",
+            par.df = pars.fit.2ps.10b.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps resp + bulk 14c",
+            depth = "0-10",
+            par.df = pars.fit.2ps.10br.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps bulk 14c + stocks",
+            depth = "0-10",
+            par.df = pars.fit.2ps.10bs.df,
+            initial = FALSE)
+par.plot.fx(mod = "2ps resp, bulk, stocks",
+            depth = "0-10",
+            par.df = pars.fit.2ps.10rbs.df,
+            initial = FALSE)
+# par.plot.fx(mod = "2ps bulk 14c",
+#             depth = "20-30",
+#             par.df = pars.fit.2ps.30b.df,
+#             initial = FALSE)
+# par.plot.fx(mod = "2ps resp + bulk 14c",
+#             depth = "20-30",
+#             par.df = pars.fit.2ps.30br.df,
+#             initial = FALSE)
+
+### Fit models with optimized pars
+## bulk 14C only
+# 0-10
+Twops.10b.fits <- lapply(seq_along(pars.fit.2ps.10b), function(i) {
+  tryCatch(
+    par.fx(pars.fit.2ps.10b[[i]], in.est[ix.10][[i]], verbose = FALSE, mod = "2ps", pass = FALSE),
+    error = function (e) {cat("ERROR :", conditionMessage(e), "\n")})
+})
+names(Twops.10b.fits) <- names(pars.fit.2ps.10b)
+# # 20-30
+# Twops.30b.fits <- lapply(seq_along(pars.fit.2ps.30b), function(i) {
+#   tryCatch(
+#     par.fx(pars.fit.2ps.30b[[i]], in.est[ix.30][[i]], verbose = FALSE, mod = "2ps", pass = FALSE),
+#     error = function (e) {cat("ERROR :", conditionMessage(e), "\n")})
+# })
+# names(Twops.30b.fits) <- names(pars.fit.2ps.30b)
+
+## resp + bulk 14C
+# 0-10
+Twops.10br.fits <- lapply(seq_along(pars.fit.2ps.10br), function(i) {
+  tryCatch(
+    par.fx(pars.fit.2ps.10br[[i]], in.est[ix.10][[i]], verbose = FALSE, mod = "2ps", pass = FALSE),
+    error = function (e) {cat("ERROR :", conditionMessage(e), "\n")})
+})
+names(Twops.10br.fits) <- names(pars.fit.2ps.10br)
+# # 20-30
+# Twops.30br.fits <- lapply(seq_along(pars.fit.2ps.30br), function(i) {
+#   tryCatch(
+#     par.fx(pars.fit.2ps.30br[[i]], in.est[ix.30][[i]], verbose = FALSE, mod = "2ps", pass = FALSE),
+#     error = function (e) {cat("ERROR :", conditionMessage(e), "\n")})
+# })
+# names(Twops.30br.fits) <- names(pars.fit.2ps.30br)
+
+## bulk 14C + stocks
+# 0-10
+Twops.10bs.fits <- lapply(seq_along(pars.fit.2ps.10bs), function(i) {
+  tryCatch(
+    par.fx(pars.fit.2ps.10bs[[i]], in.est[ix.10][[i]], verbose = FALSE, mod = "2ps", pass = FALSE),
+    error = function (e) {cat("ERROR :", conditionMessage(e), "\n")})
+})
+names(Twops.10bs.fits) <- names(pars.fit.2ps.10bs)
+
+## resp, bulk, stocks
+# 0-10
+Twops.10rbs.fits <- lapply(seq_along(pars.fit.2ps.10rbs), function(i) {
+  tryCatch(
+    par.fx(pars.fit.2ps.10rbs[[i]], in.est[ix.10][[i]], verbose = FALSE, mod = "2ps", pass = FALSE),
+    error = function (e) {cat("ERROR :", conditionMessage(e), "\n")})
+})
+names(Twops.10rbs.fits) <- names(pars.fit.2ps.10rbs)
+
+# # remove null entries
+# Twops.10b.fits <- Filter(Negate(is.null), Twops.10b.fits)
+# Twops.30b.fits <- Filter(Negate(is.null), Twops.30b.fits)
+# Twops.10br.fits <- Filter(Negate(is.null), Twops.10br.fits)
+# Twops.30br.fits <- Filter(Negate(is.null), Twops.30br.fits)
+
+# Look at role of resp constraint in fit
+# lapply(seq_along(Twops.10b.fits), function(i) {
+#   C14.2p.plot.fx(Twops.10b.fits[[i]],
+#                  con.df = con.df.fx(names(Twops.10b.fits)[i]), 
+#                  mod = "2ps bulk only",
+#                  PMeco_depth = names(Twops.10b.fits)[i])
+# })
+lapply(seq_along(Twops.10br.fits), function(i) {
+  C14.2p.plot.fx(Twops.10br.fits[[i]], 
+                 con.df = con.df.fx(names(Twops.10br.fits)[i]), 
+                 mod = "2ps bulk + resp",
+                 PMeco_depth = names(Twops.10br.fits)[i])
+})
+# lapply(seq_along(Twops.10bs.fits), function(i) {
+#   C14.2p.plot.fx(Twops.10bs.fits[[i]],
+#                  con.df = con.df.fx(names(Twops.10bs.fits)[i]), 
+#                  mod = "2ps bulk + stock",
+#                  PMeco_depth = names(Twops.10bs.fits)[i])
+# })
+lapply(seq_along(Twops.10rbs.fits), function(i) {
+  C14.2p.plot.fx(Twops.10rbs.fits[[i]], 
+                 con.df = con.df.fx(names(Twops.10rbs.fits)[i]), 
+                 mod = "bulk, resp, stock",
+                 PMeco_depth = names(Twops.10rbs.fits)[i])
+})
+# lapply(seq_along(Twops.30b.fits), function(i) {
+#   C14.2p.plot.fx(Twops.30b.fits[[i]],
+#                  con.df = con.df.fx(names(Twops.30b.fits)[i]), 
+#                  mod = "2ps bulk only",
+#                  PMeco_depth = names(Twops.30b.fits)[i])
+# })
+# lapply(seq_along(Twops.30br.fits), function(i) {
+#   C14.2p.plot.fx(Twops.30br.fits[[i]], 
+#                  con.df = con.df.fx(names(Twops.30br.fits)[i]), 
+#                  mod = "2ps bulk + resp",
+#                  PMeco_depth = names(Twops.30br.fits)[i])
+# })
+
+## Show role of resp in constraining models
+# GRwf 0-10
+Twop.fit.plot.fx(Twops.10br.fits[which(names(Twops.10br.fits) == "GRwf_0-10")], 
+                 "2ps 0-10cm w/ resp", 
+                 Twops.10b.fits[which(names(Twops.10b.fits) == "GRwf_0-10")],
+                 "2ps 0-10cm w/o resp")
+# BSrf 0-10
+Twop.fit.plot.fx(Twops.10br.fits[which(names(Twops.10br.fits) == "BSrf_0-10")], 
+                 "2ps 0-10cm w/ resp", 
+                 Twops.10b.fits[which(names(Twops.10b.fits) == "BSrf_0-10")],
+                 "2ps 0-10cm w/o resp")
+
+# compare resp + bulk fits w/ and w/o stocks
+Twop.fit.plot.fx(Twops.10rbs.fits, 
+                 "2ps 0-10cm w/ resp, bulk, stocks", 
+                 Twops.10br.fits,
+                 "2ps 0-10cm w/ resp + bulk, no stock")
+# compare resp + bulk fits w/ and w/o stocks
+Twop.fit.plot.fx(Twops.10br.fits,
+                 "2ps 0-10cm w/ resp + bulk 14C",
+                 Twops.10b.fits, 
+                 "2ps 0-10cm w/ bulk 14C only")
 ```
 
 ```{r modFit-2p-comparison}
@@ -2405,30 +4676,46 @@ SA.TT.df %>%
 
 ### Bayesian parameter estimation (MCMC)
 
-This section needs some work.
-
 ```{r MCMC-fits, eval = FALSE}
-# the following .RData file is generated by script "sra-ts/source/sra-ts-mcmc-bayes.R"
-# load(file = "../data/derived/bayes-par-fit-2020-11-06/bayes_fit_2pp-5000itr.RData")
+# the following .RData files are generated by script "sra-ts/source/sra-ts-mcmc-bayes.R"
+load(file = "../data/derived/bayes-par-fit-2020-11-06/bayes_fit_2pp_0-10_5000iter.RData")
+load(file = "../data/derived/bayes-par-fit-2020-11-17/bayes_fit_2ps_0-10_5000iter.RData")
 
-# plot parameter convergence
-lapply(bayes_fit_2pp_0_10, plot)
+# # plot parameter convergence
+# lapply(bayes_fit_2pp_0_10, plot)
+# lapply(bayes_fit_2ps_0_10, plot)
 
 # plot collinearity
+iter <- 5000
 lapply(bayes_fit_2pp_0_10, pairs, nsample = floor(iter/4))
+lapply(bayes_fit_2ps_0_10, pairs, nsample = floor(iter/4))
 
 ## look at model performance
-pars.bayes.df <- bind_rows(lapply(seq_along(bayes_fit_2pp_0_10), function(i) {
-  df <- data.frame(k1 = unique(bayes_fit_2pp[[i]][["pars"]][, 1]),
-                   k2 = unique(bayes_fit_2pp[[i]][["pars"]][, 2]),
-                   gam = unique(bayes_fit_2pp[[i]][["pars"]][, 3]))
-  df <- cbind(PMeco_depth = rep(names(pars.fit)[test.ix][i]), 
-              df)
-}))
-pars.bayes.df$PM <- factor(substr(pars.bayes.df$PMeco_depth, 1, 2))
-pars.bayes.df$eco <- factor(substr(pars.bayes.df$PMeco_depth, 3, 4), levels = c("pp", "wf", "rf"))
-summary(lm(k2 ~ PM, pars.bayes.df))
-summary(lm(k1 ~ eco, pars.bayes.df))
+pars.bayes.df.fx <- function(mod, pars.bayes, pars.fit) {
+  bind_rows(lapply(seq_along(pars.bayes), function(i) {
+    ix <- match(unique(pars.bayes[[i]][["pars"]][, 1]), pars.bayes[[i]][["pars"]][, 1])
+    df <- data.frame(k1 = pars.bayes[[i]][["pars"]][ix, 1],
+                     k2 = pars.bayes[[i]][["pars"]][ix, 2],
+                     p3 = pars.bayes[[i]][["pars"]][ix, 3])
+    df <- cbind(df,
+                PMeco_depth = rep(names(pars.fit)[i], length(ix)),
+                mod = rep(mod, length(ix)))
+    df <- cbind(df, 
+                PM = factor(substr(df$PMeco_depth, 1, 2)),
+                eco = factor(substr(df$PMeco_depth, 3, 4), levels = c("pp", "wf", "rf")))
+    return(df)
+  }))
+}
+pars.bayes.2pp.df <- pars.bayes.df.fx("2pp", bayes_fit_2pp_0_10, pars.fit.2pp)
+pars.bayes.2ps.df <- pars.bayes.df.fx("2ps", bayes_fit_2ps_0_10, pars.fit.2ps)
+
+# # linear fits
+# summary(lm(k2 ~ PM, pars.bayes.2pp.df))
+# summary(lm(k2 ~ eco, pars.bayes.2pp.df))
+# summary(lm(k1 ~ PM, pars.bayes.2pp.df))
+# summary(lm(k1 ~ eco, pars.bayes.2pp.df))
+# summary(lm(p3 ~ PM, pars.bayes.2pp.df))
+# summary(lm(p3 ~ eco, pars.bayes.2pp.df))
 
 # best par set
 bestPars.bayes.ls <- lapply(bayes_fit_2pp_0_10, function(x) {

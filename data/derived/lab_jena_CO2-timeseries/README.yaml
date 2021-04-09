@@ -1,0 +1,124 @@
+Files:
+  - "S01_1_CO2_flux_2021-01-27.csv"
+  - "S01_2_CO2_flux_2021-01-27.csv"
+  - "S19a_CO2_flux_2021-01-19.csv"
+  - "S19b_CO2_flux_2021-01-19.csv"
+Source: J. Beem-Miller
+Curator: J. Beem-Miller
+Date: 27-Jan-21
+Contents:
+  - CO2 release data for batches 1 ("Sierra_Nevada_Inc_2001_part1.xlsx") and 2 ("Sierra_Nevada_Inc_2001_part2.xlsx") of the 2001 archived Sierra Nevada soil incubations; and for rep 1 ("a") and rep 2 ("b") of the 2019 soil samples
+Notes:
+  - Generated from laboratory incubation templates; see files "data/raw/lab_jena_results-co2-S01_2021-01-18/Sierra_Nevada_Inc_2001_part1.xlsx" and "data/raw/lab_jena_results-co2-S01_2021-01-18/Sierra_Nevada_Inc_2001_part1.xlsx" for the source data (tabs 'S01_1_flux' and 'S01_2_flux', in the respective files)
+  - Note that the 2001 source files were updated on 27-Jan-2021 with exact soil weights (previously target weights had been entered); new files (with suffix 2021-01-027) contain updated data
+  - both the 2001 and 2019 soils were air-dried prior to rewetting to 60% water holding capacity and underwent a 7-day pre-incubation period after which the jars were sealed, CO2 measurement begun, and allowed to progress until CO2 targets were reached.
+  - CO2 targets for the 2019 samples were set at ca. 1% CO2 (~10,000 ppm), however due to differences in respiration rates among samples and lock-down procedures from COVID-19, some samples did not reach the target; we attempted to make sure replicate samples respired an equivalent amount of CO2 per g soil C
+  - CO2 targets for 2001 samples were determined by the corresponding 2019 samples. Due to differences in depths, the matching of samples was not extact
+  - water holding capacity for the 2001 samples was also based on the values determined for the 2019 samples, as we did not have enough soil to determine WHC separately on the 2001 samples
+  - also due to limited quantities of the 2001 archived soils, we only incubated ~8g of soil (cf. 15g for 2019 samples), and we also used smaller jars for the second set of the 2001 incubations, i.e. ~400 ml instead of ~1000 ml (file "S01_2_CO2_flux_2021-01-27.csv")
+  - samples analyzed:
+    - "S01_1_CO2_flux_2021-01-27.csv"
+      - GRrf_0-8_2001_a
+      - GRrf_0-8_2001_b
+      - GRrf_8-27_2001_a
+      - GRrf_8-27_2001_b
+      - GRwf_0-4_2001_a
+      - GRwf_0-4_2001_b
+      - GRwf_4-13_2001_a
+      - GRwf_4-13_2001_b
+      - GRwf_13-28_2001_a
+      - GRwf_13-28_2001_b
+      - GRpp_0-7_2001_a
+      - GRpp_0-7_2001_b
+      - GRpp_7-15_2001_a
+      - GRpp_7-15_2001_b
+      - GRpp_15-27_2001_a
+      - GRpp_15-27_2001_b
+      - ANrf_0-11_2001_a
+      - ANrf_0-11_2001_b
+      - ANrf_11-32_2001_a
+      - ANrf_11-32_2001_b
+      - ANwf_0-11_2001_a
+      - ANwf_0-11_2001_b
+      - ANwf_11-35_2001_a
+      - ANwf_11-35_2001_b
+    - "S01_2_CO2_flux_2021-01-27.csv"
+      - ANpp_0-6_2001_a
+      - ANpp_0-6_2001_b
+      - ANpp_6-13_2001_a
+      - ANpp_6-13_2001_b
+      - ANpp_13-33_2001_a
+      - ANpp_13-33_2001_b
+      - BSrf_0-8_2001_a
+      - BSrf_0-8_2001_b
+      - BSrf_8-15_2001_a
+      - BSrf_8-15_2001_b
+      - BSrf_15-30_2001_a
+      - BSrf_15-30_2001_b
+      - BSwf_0-10_2001_a
+      - BSwf_0-10_2001_b
+      - BSwf_10-19_2001_a
+      - BSwf_10-19_2001_b
+      - BSpp_0-7_2001_a
+      - BSpp_0-7_2001_b
+      - BSpp_7-18_2001_a
+      - BSpp_7-18_2001_b
+      - BSpp_18-28_2001_a
+      - BSpp_18-28_2001_b
+    - "S19a_CO2_flux_2021-01-19.csv"
+      - GRrf_0-10_2019_a
+      - GRrf_10-20_2019_a
+      - GRrf_20-30_2019_a
+      - GRwf_0-10_2019_a
+      - GRwf_10-20_2019_a
+      - GRwf_20-30_2019_a
+      - GRpp_0-10_2019_a
+      - GRpp_10-20_2019_a
+      - GRpp_20-30_2019_a
+      - ANrf_0-10_2019_a
+      - ANrf_10-20_2019_a
+      - ANrf_20-30_2019_a
+      - ANwf_0-10_2019_a
+      - ANwf_10-20_2019_a
+      - ANwf_20-30_2019_a
+      - ANpp_0-10_2019_a
+      - ANpp_10-20_2019_a
+      - ANpp_20-30_2019_a
+      - BSrf_0-10_2019_a
+      - BSrf_10-20_2019_a
+      - BSrf_20-30_2019_a
+      - BSwf_0-10_2019_a
+      - BSwf_10-20_2019_a
+      - BSwf_20-30_2019_a
+      - BSpp_0-10_2019_a
+      - BSpp_10-20_2019_a
+      - BSpp_20-30_2019_a
+    - "S19b_CO2_flux_2021-01-19.csv"
+      - GRrf_0-10_2019_b
+      - GRrf_10-20_2019_b
+      - GRrf_20-30_2019_b
+      - GRwf_0-10_2019_b
+      - GRwf_10-20_2019_b
+      - GRwf_20-30_2019_b
+      - GRpp_0-10_2019_b
+      - GRpp_10-20_2019_b
+      - GRpp_20-30_2019_b
+      - ANrf_0-10_2019_b
+      - ANrf_10-20_2019_b
+      - ANrf_20-30_2019_b
+      - ANwf_0-10_2019_b
+      - ANwf_10-20_2019_b
+      - ANwf_20-30_2019_b
+      - ANpp_0-10_2019_b
+      - ANpp_10-20_2019_b
+      - ANpp_20-30_2019_b
+      - BSrf_0-10_2019_b
+      - BSrf_10-20_2019_b
+      - BSrf_20-30_2019_b
+      - BSwf_0-10_2019_b
+      - BSwf_10-20_2019_b
+      - BSwf_20-30_2019_b
+      - BSpp_0-10_2019_b
+      - BSpp_10-20_2019_b
+      - BSpp_20-30_2019_b
+References:
