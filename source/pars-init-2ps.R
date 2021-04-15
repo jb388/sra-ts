@@ -59,8 +59,8 @@ con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.est[[PMeco_depth]]
-ks <- c(.01, .0005) # fast, slow
-tc <- .02 # transfer coef 
+ks <- c(.04, .003) # fast, slow
+tc <- .5 # transfer coef 
 pars <- c(ks, tc)
 
 # evaluate pars
@@ -626,7 +626,7 @@ con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.est[[PMeco_depth]]
-ks <- c(.008, .002) # fast, slow
+ks <- c(.02, .002) # fast, slow
 tc <- .2 # transfer coef 
 pars <- c(ks, tc)
 
@@ -707,8 +707,8 @@ con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.est[[PMeco_depth]]
-ks <- c(.5, .004) # fast, slow
-tc <- .02 # transfer coef 
+ks <- c(.35, .0035) # fast, slow
+tc <- .4 # transfer coef 
 pars <- c(ks, tc)
 
 # evaluate pars
