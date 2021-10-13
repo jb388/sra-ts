@@ -30,6 +30,7 @@ library(SoilR)
 library(FME)
 library(tidyr)
 library(readxl)
+library(gt)
 ```
 
 # Data preparation script for Sierra Nevada time series analysis
@@ -1173,6 +1174,7 @@ sra.19.bulk <- sra.19.bulk %>%
          PM = NULL,
          ECO = NULL)
 sra.19.inc.blk <- rbind(data.frame(sra.19.inc), data.frame(sra.19.bulk))
+save(sra.19.inc.blk, file = "sra.19.inc.blk.RData")
 
 # 2001
 # Need to calculate weighted average of radiocarbon values and stocks for combined inc depths 
@@ -1266,11 +1268,13 @@ sra.01.sum <- data.frame(bind_rows(
 ))
 # bind with inc
 sra.01.inc.blk <- rbind(data.frame(sra.01.inc), sra.01.sum)
+save(sra.01.inc.blk, file = "sra.01.inc.blk.RData")
 ```
 
 ```{r plot-inc-blk-2019}
 # plot 2019
 fig.n <- fig.n + 1
+# p <-
 sra.19.inc.blk %>%
   mutate(ECOtype = paste0(eco, " (", Type, ")")) %>%
   arrange(lyr_bot) %>%
@@ -1301,6 +1305,7 @@ sra.19.inc.blk %>%
   facet_grid(rows = vars(eco), cols = vars(pm)) +
   theme_bw() +
   theme(panel.grid.minor = element_blank())
+# ggsave("sra.bulkInc.19.pdf", p, device = cairo_pdf, width = 9.5, height = 5, units = "in")
 ```
 >**Fig. `r {fig.n}`. $\Delta$^14^C of 2019 bulk soil incubations and corresponding bulk soil**
 
@@ -1930,6 +1935,7 @@ sra.2019.ls <- lapply(sra.2019.ls, function(df) {
   })
   return(unsplit(ls, df$pro_name))
 })
+save(sra.2019.ls, file = "sra.2019.ls.RData")
 ```
 
 ```{r spline-soc, include = FALSE}
@@ -2265,6 +2271,7 @@ sra.19.01.rep.ls <- lapply(seq_along(sra.19.01.rep.ls), function(i) {
   return(sra.19.01.rep.ls[[i]])
 })
 names(sra.19.01.rep.ls) <- names(fm.wt.19.01)
+save(sra.19.01.rep.ls, file = "sra.19.01.rep.ls.RData")
 
 # average reps
 sra.19.01.ls <- lapply(seq_along(sra.2019.sum.ls), function(i) {
@@ -2328,6 +2335,7 @@ sra.19.01.09 <- rbind(data.frame(sra.19.01.09[, nms[1:5]],
 # calc d14c from fm
 sra.19.01.09$d14c <- calc_14c(sra.19.01.09$fm, as.numeric(as.character(sra.19.01.09$Year)))
 sra.19.01.09$d14c_sd <- abs(sra.19.01.09$d14c - calc_14c(sra.19.01.09$fm + sra.19.01.09$fm_sd, as.numeric(as.character(sra.19.01.09$Year))))
+save(sra.19.01.09, file = "sra.19.01.09.RData")
 ```
 
 ```{r plot-01-09-19-14c-profiles}
@@ -2374,7 +2382,7 @@ sra.01.09.19 %>%
   theme_bw() +
   theme(panel.grid.minor = element_blank())
 ```
->**Fig. `r {fig.n}`. Time series of bulk soil $\Delta$^14^C by depth (2001, 2009, 2019)**
+>**Fig. `r {fig.n}`. Time series of bulk soil $\Delta$^14^C by 2001 depths (2001, 2009, 2019 samples)**
 
 >*Caption:* Points for 2001 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2009 and 2019 samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2001. Error bars show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009). 
 
@@ -2399,7 +2407,8 @@ sra.19.01.09 %>%
         xmax = d14c_u,
         color = pm), 
     height = 1.5) +
-  scale_y_reverse(limits = c(30, 0)) +
+  # scale_y_reverse(limits = c(30, 0)) +
+  scale_y_reverse() +
   scale_x_continuous() +    
   scale_color_manual(name = "Parent material",
                      values = c("andesite" = "blue", 
@@ -2433,6 +2442,7 @@ fig.n <- fig.n + 1
 # Atm
 atm.14c <- data.frame(year = Datm[Datm$Date > 2000, "Date"],
                       d14c = Datm[Datm$Date > 2000, "NHc14"])
+save(atm.14c, file = "atm.14c.RData")
 
 # bulk 14C over time for 0-10, 10-20, 20-30 w/ atm
 sra.19.01.09 %>%
@@ -2607,12 +2617,30 @@ lapply(split(sra.ts.all, sra.ts.all$depth), plot.ts.fx)
 >*NB: Only two depth intervals were measured at the cool and cold andesite sites (max depth of 27 and 28 cm, respectively), so linear extrapolation (using the slope of the last 1cm spline-fitted depth increment) was used to extend the profiles to 30 cm.*
 
 ```{r ts-stats}
+# function for Tukey HSD tables
+tukey.table.fx <- function(x, year, type, var) {
+  depth <- paste0(unique(x$lyr_bot) - 10, "-", unique(x$lyr_bot), " cm")
+  if (type == "inc") {
+    x <- x[x$d14c > -200, c("d14c", var)]
+  } 
+  return(
+    TukeyHSD(aov(reformulate(var, "d14c"), x))[var] %>%
+    data.frame(.) %>%
+    mutate(Pairs = rownames(.)) %>%
+    mutate(across(where(is.numeric), round, 3)) %>%
+    gt() %>%
+    tab_header(
+      title = depth,
+      subtitle = paste(year, type, var)
+    ))
+}
+
 ### 2001
 ## bulk
 sra.2001.bulk.df <- bind_rows(
   lapply(sra.19.01.rep.ls, function(ls) {
     ls <- lapply(ls, function(x) x[complete.cases(x)])
-    d14c <- unlist(ls)
+    d14c <- calc_14c(unlist(ls), 2001)
     df <- data.frame(d14c = d14c,
                      lyr_bot = rep(c(10, 20, 30), length(d14c) / 3))
     return(df)
@@ -2621,71 +2649,293 @@ sra.2001.bulk.df <- bind_rows(
   mutate(PM = substr(PMeco, 1, 2),
          ECO = substr(PMeco, 3, 4))
 # PM
+# lapply(split(sra.2001.bulk.df, sra.2001.bulk.df$lyr_bot), function(x) {
+#   summary(lm(d14c ~ PM, x))
+# })
 lapply(split(sra.2001.bulk.df, sra.2001.bulk.df$lyr_bot), function(x) {
-  summary(lm(d14c ~ PM, x))
-})
-lapply(split(sra.2001.bulk.df, sra.2001.bulk.df$lyr_bot), function(x) {
-  TukeyHSD(aov(d14c ~ PM, x[x$d14c > -200, ]))
+  tukey.table.fx(x, "2001", "bulk", "PM")
 })
 # ECO
+# lapply(split(sra.2001.bulk.df, sra.2001.bulk.df$lyr_bot), function(x) {
+#   summary(lm(d14c ~ ECO, x))
+# })
 lapply(split(sra.2001.bulk.df, sra.2001.bulk.df$lyr_bot), function(x) {
-  summary(lm(d14c ~ ECO, x))
-})
-lapply(split(sra.2001.bulk.df, sra.2001.bulk.df$lyr_bot), function(x) {
-  TukeyHSD(aov(d14c ~ ECO, x[x$d14c > -200, ]))
+  tukey.table.fx(x, "2001", "bulk", "ECO")
 })
 
 ## inc
 sra.2001.inc.df2 <- cbind(sra.19.01.inc.df[rep(1:nrow(sra.19.01.inc.df), 2), c("PM", "ECO", "lyr_bot")],
                           d14c = c(sra.19.01.inc.df$d14c_min, sra.19.01.inc.df$d14c_max))
-# PM (no effect)
+save(sra.2001.inc.df2, file = "sra.2001.inc.df2.RData")
+# PM
+# lapply(split(sra.2001.inc.df2, sra.2001.inc.df2$lyr_bot), function(x) {
+#   summary(lm(d14c ~ PM, x[x$d14c > -200, ]))
+# })
 lapply(split(sra.2001.inc.df2, sra.2001.inc.df2$lyr_bot), function(x) {
-  summary(lm(d14c ~ PM, x[x$d14c > -200, ]))
-})
-lapply(split(sra.2001.inc.df2, sra.2001.inc.df2$lyr_bot), function(x) {
-  TukeyHSD(aov(d14c ~ PM, x[x$d14c > -200, ]))
+  tukey.table.fx(x, "2001", "inc", "PM")
 })
 # ECO
+# lapply(split(sra.2001.inc.df2, sra.2001.inc.df2$lyr_bot), function(x) {
+#   summary(lm(d14c ~ ECO, x[x$d14c > -200, ]))
+# })
 lapply(split(sra.2001.inc.df2, sra.2001.inc.df2$lyr_bot), function(x) {
-  summary(lm(d14c ~ ECO, x[x$d14c > -200, ]))
-})
-lapply(split(sra.2001.inc.df2, sra.2001.inc.df2$lyr_bot), function(x) {
-  TukeyHSD(aov(d14c ~ ECO, x[x$d14c > -200, ]))
+  tukey.table.fx(x, "2001", "inc", "ECO")
 })
 
 ### 2019
 ## bulk
 sra.2019.bulk.df <- bind_rows(sra.2019.ls)
 # PM
+# lapply(split(sra.2019.bulk.df, sra.2019.bulk.df$lyr_bot), function(x) {
+#   if (nrow(x) == 27) summary(lm(d14c ~ PM, x[x$d14c > -200, ]))
+# })
 lapply(split(sra.2019.bulk.df, sra.2019.bulk.df$lyr_bot), function(x) {
-  if (nrow(x) == 27) summary(lm(d14c ~ PM, x[x$d14c > -200, ]))
-})
-lapply(split(sra.2019.bulk.df, sra.2019.bulk.df$lyr_bot), function(x) {
-  if (nrow(x) == 27) TukeyHSD(aov(d14c ~ PM, x[x$d14c > -200, ]))
+  if (nrow(x) == 27) tukey.table.fx(x, "2019", "bulk", "PM")
 })
 # ECO
+# lapply(split(sra.2019.bulk.df, sra.2019.bulk.df$lyr_bot), function(x) {
+#   if (nrow(x) == 27) summary(lm(d14c ~ ECO, x[x$d14c > -200, ]))
+# })
 lapply(split(sra.2019.bulk.df, sra.2019.bulk.df$lyr_bot), function(x) {
-  if (nrow(x) == 27) summary(lm(d14c ~ ECO, x[x$d14c > -200, ]))
-})
-lapply(split(sra.2019.bulk.df, sra.2019.bulk.df$lyr_bot), function(x) {
-  if (nrow(x) == 27) TukeyHSD(aov(d14c ~ ECO, x[x$d14c > -200, ]))
+  if (nrow(x) == 27) tukey.table.fx(x, "2019", "bulk", "ECO")
 })
 ## inc
 sra.2019.inc.df2 <- bind_rows(sra.2019.inc.ls)
+save(sra.2019.inc.df2, file = "sra.2019.inc.df2.RData")
 # PM
+# lapply(split(sra.2019.inc.df2, sra.2019.inc.df2$lyr_bot), function(x) {
+#   summary(lm(d14c ~ PM, x[x$d14c > -200, ]))
+# })
 lapply(split(sra.2019.inc.df2, sra.2019.inc.df2$lyr_bot), function(x) {
-  summary(lm(d14c ~ PM, x[x$d14c > -200, ]))
-})
-lapply(split(sra.2019.inc.df2, sra.2019.inc.df2$lyr_bot), function(x) {
-  TukeyHSD(aov(d14c ~ PM, x[x$d14c > -200, ]))
+  tukey.table.fx(x, "2019", "inc", "PM")
 })
 # ECO
+# lapply(split(sra.2019.inc.df2, sra.2019.inc.df2$lyr_bot), function(x) {
+#   summary(lm(d14c ~ ECO, x[x$d14c > -200, ]))
+# })
 lapply(split(sra.2019.inc.df2, sra.2019.inc.df2$lyr_bot), function(x) {
-  summary(lm(d14c ~ ECO, x[x$d14c > -200, ]))
+  tukey.table.fx(x, "2019", "inc", "ECO")
 })
-lapply(split(sra.2019.inc.df2, sra.2019.inc.df2$lyr_bot), function(x) {
-  TukeyHSD(aov(d14c ~ ECO, x[x$d14c > -200, ]))
+
+# compare 2001 and 2019
+# bulk
+sra.01.19.bulk.df <- data.frame(
+  rbind(sra.2001.bulk.df, 
+        sra.2019.bulk.df[, which(names(sra.2019.bulk.df) %in% names(sra.2001.bulk.df))]),
+  year = as.factor(c(rep(2001, nrow(sra.2001.bulk.df)), rep(2019, nrow(sra.2019.bulk.df))))) %>%
+  filter(lyr_bot < 31)
+sra.01.19.bulk.ls <- split(sra.01.19.bulk.df, sra.01.19.bulk.df$PMeco)
+lapply(sra.01.19.bulk.ls, function(df) {
+  lapply(split(df, df$lyr_bot), function(x) {
+    tukey.table.fx(x, paste0(unique(df$PMeco), " 2001 vs. 2019"), "bulk", "year")
+  })
 })
+# by PM
+lapply(split(sra.01.19.bulk.df, sra.01.19.bulk.df$PM), function(df) {
+  lapply(split(df, df$lyr_bot), function(x) {
+    tukey.table.fx(x, paste0(unique(df$PM), " 2001 vs. 2019"), "bulk", "year")
+  })
+})
+# by ECO
+lapply(split(sra.01.19.bulk.df, sra.01.19.bulk.df$ECO), function(df) {
+  lapply(split(df, df$lyr_bot), function(x) {
+    tukey.table.fx(x, paste0(unique(df$ECO), " 2001 vs. 2019"), "bulk", "year")
+  })
+})
+# inc
+sra.01.19.inc.df <- data.frame(
+  d14c = c(sra.19.01.inc[ , "d14c_min"],
+           sra.19.01.inc[ , "d14c_max"]),
+  sra.19.01.inc[ , c("PMeco", "lyr_bot", "PM", "ECO", "year")]) %>%
+  mutate(year = as.factor(year))
+sra.01.19.inc.ls <- split(sra.01.19.inc.df, sra.01.19.inc.df$PMeco)
+lapply(sra.01.19.inc.ls, function(df) {
+  lapply(split(df, df$lyr_bot), function(x) {
+    tukey.table.fx(x, paste0(unique(df$PMeco), " 2001 vs. 2019"), "inc", "year")
+  })
+})
+lapply(split(sra.01.19.inc.df, sra.01.19.inc.df$PM), function(df) {
+  lapply(split(df, df$lyr_bot), function(x) {
+    tukey.table.fx(x, paste0(unique(df$PM), " 2001 vs. 2019"), "inc", "year")
+  })
+})
+lapply(split(sra.01.19.inc.df, sra.01.19.inc.df$ECO), function(df) {
+  lapply(split(df, df$lyr_bot), function(x) {
+    tukey.table.fx(x, paste0(unique(df$ECO), " 2001 vs. 2019"), "inc", "year")
+  })
+})
+```
+
+```{r tukey-plots}
+# color palettes for ECO & PM
+warm <- "#BF812D"
+cool <- "#80CDC1"
+cold <- "#01665E"
+granite <- "#9daba9"
+andesite <- "#382dbf"
+basalt <- "#bf382d"
+
+# plot fx
+boxplot.fx <- function(df, var, year, type, topsoil = FALSE, subsoil = FALSE) {
+  atm <- ifelse(year == "2001", atm.d14.2001, atm.d14.2019)
+  if (type == "inc") {
+    df <- df[df$d14c > -200, ]
+    ylim <- c(-65, 165)
+  } else {
+    if (topsoil) {
+      df <- df[df$lyr_bot < 31, ]
+      ylim <- c(-120, 165)
+      }
+    if (subsoil) {
+      df <- df[df$lyr_bot > 31, ]
+      ylim <- c(-270, 65)
+    }
+  }
+  if (var == "PM") {
+    df %>%
+      mutate(pm = factor(ifelse(PM == "GR", "granite",
+                                ifelse(PM == "AN", "andesite", "basalt")),
+                         levels = c("granite", "andesite", "basalt"))) %>%
+      group_by(pm, lyr_bot) %>%
+      ggplot(., aes(pm, d14c)) +
+      geom_hline(yintercept = atm, linetype = "dotted", alpha = 0.3) +
+      geom_hline(yintercept = 0) +
+      geom_boxplot(aes(color = pm), lwd = 1) +
+      scale_color_manual(values = c("andesite" = andesite,
+                                    "basalt" = basalt,
+                                    "granite" = granite),
+                         guide = "none") +
+      scale_y_continuous(limits = ylim) +
+      facet_grid(cols = vars(lyr_bot)) +
+      ylab(expression(Delta*''^14*'C (‰)')) +
+      ggtitle(paste(year, type)) +
+      theme_bw() +
+      theme(panel.grid = element_blank(),
+            text = element_text(size = 14))
+  } else {
+    df %>%
+      mutate(eco = factor(ifelse(ECO == "pp", "warm",
+                                 ifelse(ECO == "wf", "cool", "cold")),
+                          levels = c("warm", "cool", "cold"))) %>%
+      group_by(eco, lyr_bot) %>%
+      ggplot(., aes(eco, d14c)) +
+      geom_hline(yintercept = atm, linetype = "dotted", alpha = 0.3) +
+      geom_hline(yintercept = 0) +
+      geom_boxplot(aes(color = eco), lwd = 1) +
+      scale_color_manual(values = c("warm" = warm,
+                                    "cool" = cool,
+                                    "cold" = cold),
+                         guide = "none") +
+      scale_y_continuous(limits = ylim) +
+      facet_grid(cols = vars(lyr_bot)) +
+      ylab(expression(Delta*''^14*'C (‰)')) +
+      ggtitle(paste(year, type)) +
+      theme_bw() +
+      theme(panel.grid = element_blank(),
+            text = element_text(size = 14))
+  }
+}
+
+# bulk
+boxplot.fx(sra.2001.bulk.df, "PM", "2001", "bulk", topsoil = TRUE)
+boxplot.fx(sra.2019.bulk.df, "PM", "2019", "bulk", topsoil = TRUE)
+boxplot.fx(sra.2001.bulk.df, "ECO", "2001", "bulk", topsoil = TRUE)
+boxplot.fx(sra.2019.bulk.df, "ECO", "2019", "bulk", topsoil = TRUE)
+boxplot.fx(sra.2019.bulk.df, "ECO", "2019", "bulk", subsoil = TRUE)
+# inc
+boxplot.fx(sra.2001.inc.df2, "PM", "2001", "inc")
+boxplot.fx(sra.2019.inc.df2, "PM", "2019", "inc")
+boxplot.fx(sra.2001.inc.df2, "ECO", "2001", "inc")
+boxplot.fx(sra.2019.inc.df2, "ECO", "2019", "inc")
+```
+
+```{r delta-delta-plots}
+# data, unsummarized
+sra.ts.all.raw <- rbind(
+  sra.2001.bulk.df[ , names(sra.2001.bulk.df) %in% names(sra.2001.inc.df2)],
+  sra.2019.bulk.df[ , names(sra.2019.bulk.df) %in% names(sra.2001.inc.df2)],
+  sra.2001.inc.df2,
+  sra.2019.inc.df2[ , names(sra.2019.inc.df2) %in% names(sra.2001.inc.df2)]) %>%
+  mutate(eco = factor(ifelse(ECO == "pp", "warm",
+                             ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         pm = factor(ifelse(PM == "GR", "granite",
+                                ifelse(PM == "AN", "andesite", "basalt")),
+                         levels = c("granite", "andesite", "basalt")),
+         Type = c(rep("bulk", length = nrow(sra.2001.bulk.df)),
+                  rep("bulk", length = nrow(sra.2019.bulk.df)),
+                  rep("inc", length = nrow(sra.2001.inc.df2)),
+                  rep("inc", length = nrow(sra.2019.inc.df2))),
+         year = c(rep(2001, length = nrow(sra.2001.bulk.df)),
+                  rep(2019, length = nrow(sra.2019.bulk.df)),
+                  rep(2001, length = nrow(sra.2001.inc.df2)),
+                  rep(2019, length = nrow(sra.2019.inc.df2))))
+
+# plot fx
+ts.groupPlot.fx <- function(df, x, y) {
+  quo_x <- sym(x)
+  quo_y <- sym(y)
+  if (x == "pm") {
+    var.name <- "Parent material"
+    var.values <- c("andesite" = andesite,
+                    "basalt" = basalt,
+                    "granite" = granite) 
+  } else {
+    var.name <- "Climate"
+    var.values <-  c("warm" = warm,
+                     "cool" = cool,
+                     "cold" = cold)
+  }
+  plot.df <- df %>%
+    filter(d14c > -200) %>%
+    filter(lyr_bot < 31) %>%
+    group_by(!! quo_x, lyr_bot, Type, year) %>%
+    summarize(across(d14c, list(mean = mean, sd = sd)))
+  if (y == "dd14c") {
+    plot.df <- plot.df %>%
+      mutate(atm = ifelse(year == 2001, atm.d14.2001, atm.d14.2019),
+             dd14c = d14c_mean - atm,
+             u = d14c_mean + d14c_sd - atm,
+             l = d14c_mean - d14c_sd - atm)
+    atm.df <- atm.14c
+    atm.df$d14c <- 0
+    ylab <- expression(Delta*Delta*''^14*'C (‰)') 
+    } else {
+      plot.df <- plot.df %>%
+        mutate(u = d14c_mean + d14c_sd,
+               l = d14c_mean - d14c_sd)
+      atm.df <- atm.14c
+      ylab <- expression(Delta*''^14*'C (‰)') 
+    }
+    ggplot(plot.df, aes(year, !! quo_y)) +
+    geom_path(data = atm.df, aes(year, d14c)) +
+    geom_path(aes(color = !! quo_x, linetype = Type), alpha = .5, lwd = 1) +
+    geom_point(aes(color = !! quo_x), 
+               size = 3, position = position_dodge(width = 1)) +
+    geom_errorbar(
+      aes(ymin = l,
+          ymax = u,
+          color = !! quo_x,
+          alpha = Type),
+      width = 1,
+      position = position_dodge(width = 1)) +
+    scale_color_manual(name = var.name,
+                       values = var.values) +
+    scale_fill_manual(name = "±SD",
+                      values = var.values) +
+    scale_alpha_manual(values = c("bulk" = 1,
+                                  "inc" = .5)) +
+    facet_grid(cols = vars(lyr_bot)) +
+    ylab(ylab) +
+    xlab("Year") +
+    theme_bw() +
+    theme(panel.grid = element_blank())
+}
+# plot
+ts.groupPlot.fx(sra.ts.all.raw, "pm", "dd14c")
+ts.groupPlot.fx(sra.ts.all.raw, "eco", "dd14c")
+ts.groupPlot.fx(sra.ts.all.raw, "pm", "d14c_mean")
+ts.groupPlot.fx(sra.ts.all.raw, "eco", "d14c_mean")
 ```
 ## Initial modeling
 
@@ -4537,6 +4787,9 @@ load("../data/derived/modFit_pars/mod.fits.2ps.10b_2021-04-07.Rdata")
 load("../data/derived/modFit_pars/mod.fits.2ps.10br_2021-04-07.Rdata")
 load("../data/derived/modFit_pars/mod.fits.2ps.10bs_2021-04-07.Rdata")
 load("../data/derived/modFit_pars/mod.fits.2ps.10rbs_2021-04-07.Rdata")
+load("../data/derived/modFit_pars/mod.fits.2ps.20rbs_2021-04-12.Rdata")
+load("../data/derived/modFit_pars/mod.fits.2ps.20rbs.l_2021-04-13.Rdata")
+load("../data/derived/modFit_pars/mod.fits.2ps.20br.l_2021-04-13.Rdata")
 load("../data/derived/modFit_pars/pars.i.2ps_2021-04-06.Rdata")
 
 # extract mod fits
@@ -5041,6 +5294,29 @@ TT.2ps.20.rbs.ls <- lapply(seq_along(pars.fit.2ps.20rbs), function(i) {
 })
 names(TT.2ps.20.rbs.ls) <- names(pars.fit.2ps.20rbs)
 lapply(TT.2ps.20.rbs.ls, "[[", 1)
+# 0-10
+TT.MA.2ps.10.rbs.ls <- lapply(seq_along(pars.fit.2ps.10rbs), function(i) {
+  ks <- pars.fit.2ps.10rbs[[i]][1:2]
+  tc <- pars.fit.2ps.10rbs[[i]][3]
+  In <- in.est[ix.10][[i]]
+  A <- diag(-ks)
+  A[2, 1] <- tc * ks[1]
+  TT <- transitTime(A = A, u = c(In, 0))
+  Age <- systemAge(A = A, u = c(In, 0))
+  return(list(TT = TT$meanTransitTime, Age = Age$meanSystemAge))
+})
+names(TT.MA.2ps.10.rbs.ls) <- names(pars.fit.2ps.10rbs)
+lapply(TT.MA.2ps.10.rbs.ls, unlist)
+# 
+ageD.2ps.10.rbs.ls <- lapply(seq_along(pars.fit.2ps.10rbs), function(i) {
+  ks <- pars.fit.2ps.10rbs[[i]][1:2]
+  tc <- pars.fit.2ps.10rbs[[i]][3]
+  In <- in.est[ix.10][[i]]
+  A <- diag(-ks)
+  A[2, 1] <- tc * ks[1]
+  return(systemAge(A = A, u = c(In, 0)))
+})
+names(ageD.2ps.10.rbs.ls) <- names(pars.fit.2ps.10rbs)
 ```
 
 ```{r modFit-2p-comparison}
