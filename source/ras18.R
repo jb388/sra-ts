@@ -173,15 +173,16 @@ sra.19.inc.blk.min <- ras18.sp.df %>%
   pivot_longer(cols = c("Al_py", "Al_ox", "Fe_ox", "Fe_dc"), names_to = "min", values_to = "conc")
 # plot
 sra.19.inc.blk.min %>%
-  # filter(lyr_bot == 30) %>%
+  mutate(lyr_bot = factor(lyr_bot)) %>%
   ggplot(., aes(conc, bulk.inc)) +
-  geom_point(aes(color = pm, shape = eco), size = 2) +
+  geom_point(aes(color = pm, shape = eco, size = lyr_bot)) +
   scale_color_manual(values = c("andesite" = andesite,
                                 "basalt" = basalt,
                                 "granite" = granite)) +
   scale_shape_manual(values = c("warm" = 15,
                                 "cool" = 17,
                                 "cold" = 16)) +
+  scale_size_manual(values = (3:5)) +
   facet_wrap(vars(min), scales = "free") +
   ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
   xlab(expression('Concentration (g kg'^-1*')')) +

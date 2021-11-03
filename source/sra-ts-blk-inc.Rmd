@@ -130,19 +130,24 @@ load("atm.14c.RData")
 atm.14c <- atm.14c %>% rename(Year = year) %>% mutate(atm = "atmosphere")
 ```
 
+```{r load-min}
+load("ras18.sp.df.RData")
+```
+
 ```{r bulk-data-wrangling}
 # load data
 load("sra.19.01.09.RData")
 load("sra.19.01.rep.ls.RData")
 load("sra.2019.ls.RData")
 
+## change over time
 # merge '01 and '19 data
-sra.19.01.d <- merge(sra.19.01.09[sra.19.01.09$Year == 2001, ],
-                     sra.19.01.09[sra.19.01.09$Year == 2019, ],
+sra.19.01.d <- merge(sra.19.01.09[sra.19.01.09$Year == 2001 & sra.19.01.09$lyr_bot, ],
+                     sra.19.01.09[sra.19.01.09$Year == 2019 & sra.19.01.09$lyr_bot < 31, ],
                      by = c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot"),
                      suffixes = c("_01", "_19")) 
 sra.19.01.d$dd14c_01_19 <- sra.19.01.d$d14c_01 - sra.19.01.d$d14c_19
-sra.19.01.d$sd14c_01_19 <- sra.19.01.d$d14c_sd_01 + sra.19.01.d$d14c_sd_19
+sra.19.01.d$sd14c_01_19 <- sqrt(sra.19.01.d$d14c_sd_01^2/3 + sra.19.01.d$d14c_sd_19^2/3)
 
 ## summarize change '01-'19
 # PM
@@ -187,6 +192,8 @@ sra.01.09.19.d.df <- rbind(
   sra.2019.rep.df[ , match(names(sra.19.01.rep.df), names(sra.2019.rep.df))],
   sra.09.19.df,
   sra.19.01.rep.df) %>%
+  left_join(., ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "lyr_bot", "PM", "ECO")], 
+  by = c("lyr_bot", "PM", "ECO")) %>%
   mutate(PM = factor(recode(PM, `AN` = "andesite", `BS` = "basalt", `GR` = "granite")),
          ECO = factor(recode(ECO, `pp` = "warm", `wf` = "cool", `rf` = "cold"),
                       levels = c("warm", "cool", "cold")),
@@ -194,7 +201,7 @@ sra.01.09.19.d.df <- rbind(
          Year = as.numeric(Year))
 sra.01.09.19.d.df$d14c <- convert_fm_d14c(fm = sra.01.09.19.d.df$fm,
                                           obs_date_y = sra.01.09.19.d.df$Year, verbose = FALSE)
-  
+
 # by depth
 sra.01.09.19.d.10df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 10, ]
 sra.01.09.19.d.20df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 20, ]
@@ -203,6 +210,8 @@ sra.01.09.19.d.30df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 30, ]
 
 ```{r resp-data-wrangling}
 # load data
+load("sra.19.01.inc.df.RData")
+load("sra.2019.inc.df.RData")
 load("sra.2001.inc.df2.RData")
 load("sra.2019.inc.df2.RData")
 
@@ -211,12 +220,28 @@ sra.01.19.inc.d.df <- rbind(cbind(sra.2001.inc.df2,
                                   rep = rep(c("a", "b"), each = 27),
                                   Year = 2001),
                             sra.2019.inc.df2[ , c("PM", "ECO", "rep", "lyr_bot", "Year", "d14c")]) %>%
+  left_join(., ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "lyr_bot", "PM", "ECO")], 
+  by = c("lyr_bot", "PM", "ECO")) %>%
   mutate(PM = factor(recode(PM, `AN` = "andesite", `BS` = "basalt", `GR` = "granite")),
          ECO = factor(recode(ECO, `pp` = "warm", `wf` = "cool", `rf` = "cold"),
                       levels = c("warm", "cool", "cold")),
          year = Year - 2000)
 
-# filter outliers
+## change over time
+# merge '01 and '19 data
+sd.inc.fx <- function(df) {
+  apply(df[ , c("d14c_min", "d14c_max")], 1, sd)
+}
+sra.19.01.inc.d.df <- merge(
+  cbind(sra.19.01.inc.df, sd = sd.inc.fx(sra.19.01.inc.df))[ , c("PM", "ECO", "PMeco", "lyr_bot", "d14c", "sd")],
+  cbind(sra.2019.inc.df, sd = sd.inc.fx(sra.2019.inc.df))[ , c("PM", "ECO", "PMeco", "lyr_bot", "d14c", "sd")],
+  by = c("PM", "ECO", "PMeco", "lyr_bot"),
+  suffixes = c("_01", "_19"))
+sra.19.01.inc.d.df$dd14c_01_19 <- sra.19.01.inc.d.df$d14c_01 - sra.19.01.inc.d.df$d14c_19
+sra.19.01.inc.d.df$sd14c_01_19 <- sqrt(
+  sra.19.01.inc.d.df$sd_01^2/2 + sra.19.01.inc.d.df$sd_19^2/2)
+
+## filter outliers
 sra.01.19.inc.d.df <- sra.01.19.inc.d.df[-which(sra.01.19.inc.d.df$d14c < -200), ]
 
 # df by depth
@@ -478,11 +503,11 @@ anova(blk.PMeco.30.lm)
 
 ### Respired CO~2~
 
-The relative importance of parent material and climate for explaining the variance in $\Delta$^14^C-CO~2~ changes with depth in a similar manner as it does for bulk soil. Climate explains more of the variance in $\Delta$^14^C-CO~2~ at the surface (0-10cm) than does parent material (Table 4). Unlike bulk soil, however, parent material is not significant for $\Delta$^14^C-CO~2~ at the surface at all. Both parent material and climate are significant (*p* < 0.0005) for $\Delta$^14^C-CO~2~ at the 10-20cm depth, but parent material explains more variance than does climate (Table 5). At the deepest depth (20-30cm) climate is no longer a siginficant predictor of $\Delta$^14^C-CO~2~ at all, while parent material is strongly siginficant (*p* = 0.006) (Table 6). 
+The relative importance of parent material and climate for explaining the variance in $\Delta$^14^C-CO~2~ changes with depth in a similar manner as for bulk soil. Climate explains more of the variance in $\Delta$^14^C-CO~2~ at the surface (0-10cm) than does parent material (Table 4). Unlike bulk soil, however, parent material is not significant for $\Delta$^14^C-CO~2~ at the surface (*p* = ). Both parent material and climate are significant (*p* < 0.0005) for $\Delta$^14^C-CO~2~ at the 10-20cm depth, but parent material explains more variance than does climate (Table 5). At the deepest depth (20-30cm) climate is no longer a siginficant predictor of $\Delta$^14^C-CO~2~ at all, while parent material is strongly siginficant (*p* = 0.006) (Table 6). 
 
 Year is highly significant for 0-10cm and 10-20cm (p < 0.0001), but not significant at 20-30cm (p = 0.0950). The two-way interaction between climate and year is significant at all depths, while the two-way interaction between parent material and year is siginficant below 10cm. 
 
-Overall the models explained more variance in respired $\Delta$^14^C-CO~2~ than in bulk soil $\Delta$^14^C. The $\Delta$^14^C-CO~2~ models explained a similar amount of the variance at the 0-10cm and 10-20cm depths (R^2^ of 0.86 and 0.89, respectively), and slightly less at the deepest depth (R^2^ = 0.70).
+We were able to explain more of the total variance in $\Delta$^14^C-CO~2~ than in bulk soil $\Delta$^14^C. The models explained a similar amount of variance in $\Delta$^14^C-CO~2~ at the 0-10cm and 10-20cm depths (R^2^ of 0.86 and 0.89, respectively), and had a similar amount of unexplained variance at 20-30cm (R^2^ = 0.70) as the model for bulk soil $\Delta$^14^C at the surface (R^2^ = 0.73).
 
 #### 0-10cm
 ```{r models-inc-10-sum-con, include = FALSE}
@@ -852,4 +877,209 @@ emtrends(inc.PMeco.30.lm, pairwise ~ PM | ECO, var = "year")
 ```{r trends-est-slopes-inc-30-ECOpm}
 print("Interactions, ECO | PM")
 emtrends(inc.PMeco.30.lm, pairwise ~ ECO | PM, var = "year")
+```
+
+`r pagebreak()`
+## Interactions with mineral assemblages
+
+Selective dissolution of iron and aluminum bearing secondary minerals provides quantitative information about the differences in mineral assemblages and the nature of mineral-organic associations among different soils (Sposito 2008). 
+- Oxalate extractable Fe and Al
+  - targets min-OM complexes
+  - Fe_ox extracts SRO iron oxyhydroxides, e.g. ferrihydrite
+  - Al_ox extracts SRO aluminosilicates, e.g. allophane and imogolite
+    - NB: the concentration of the SRO aluminosilicates can be estimated from the difference between Al_ox and Al_py (Parfitt & Childs 1988)
+  - relatively tighly bound?
+- Dithionate citrate extractable Fe
+  - targets iron OM complexes
+  - extracts iron from both crystalline (goethite, hematite) and non-crystalline secondary oxyhydroxides (ferrihydrite)
+    - non-crytalline component is therefore: Fe_dc - Fe_ox (Parfitt & Childs 1988)
+- Pyrophosphate extractable Al
+  - targets min-OM complexes formed by cation bridging (LaCroix et al. 2013, Bruckhart 1982, Jansen et al. 2011); of particular note for smectite rich soils, i.e. 2:1 clays (Wattel-Koekkoek et al. 2001)
+  - particularly enriched in carboxylic and carbonyl C (Ellerbrock et al 2018)
+  - relatively exchangeable pool
+  
+The differences in $\Delta$^14^C between bulk soil and heterotrophically respired CO~2~ indicates the presence of persistent soil C pools that are inaccessible to the microbial community. Greater differences can indicate the presence of 
+  
+```{r plot-min-14c}
+load("sra.all.min.RData")
+sra.all.min %>%
+  mutate(pmEcoDepth = paste0(pm, eco, lyr_bot),
+         ecoYear = paste0(eco, " (", year, ")"),
+         width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+  filter(pmEcoDepth != "granitecold30" & pmEcoDepth != "granitecold20") %>%
+  ggplot(., aes(conc, blk.inc)) +
+  geom_point(aes(color = pm, shape = ecoYear, size = depth)) +
+  geom_errorbar(
+    aes(ymin = blk.inc - blk.inc.sd,
+        ymax = blk.inc + blk.inc.sd,
+        color = pm,
+        width = width)) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("warm (2001)" = 15, 
+                                "cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "warm (2019)" = 0, 
+                                "cool (2019)" = 1, 
+                                "cold (2019)" = 2)) +
+  scale_size_manual(name = "Depth",
+                    values = (3:5)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# Fe_dc alone
+#####
+# warm
+sra.all.min %>%
+  filter(eco == "warm" & min == "Fe_dc") %>%
+  mutate(ecoYear = paste0(eco, " (", year, ")")) %>%
+  ggplot(., aes(conc, blk.inc)) +
+  geom_point(aes(color = pm, shape = ecoYear, size = depth)) +
+  geom_errorbar(
+    aes(ymin = blk.inc - blk.inc.sd,
+        ymax = blk.inc + blk.inc.sd,
+        color = pm),
+        width = 1.5) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("warm (2001)" = 15,
+                                "warm (2019)" = 0)) +
+  scale_size_manual(name = "Depth",
+                    values = (3:5)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# cool + cold
+sra.all.min %>%
+  filter(eco != "warm" & min == "Fe_dc") %>%
+  mutate(pmEcoDepth = paste0(pm, eco, lyr_bot),
+         ecoYear = paste0(eco, " (", year, ")")) %>%
+  filter(pmEcoDepth != "granitecold30" & pmEcoDepth != "granitecold20") %>%
+  ggplot(., aes(conc, blk.inc)) +
+  geom_point(aes(color = pm, shape = ecoYear, size = depth)) +
+  geom_errorbar(
+    aes(ymin = blk.inc - blk.inc.sd,
+        ymax = blk.inc + blk.inc.sd,
+        color = pm),
+        width = .5) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "cool (2019)" = 1, 
+                                "cold (2019)" = 2)) +
+  scale_size_manual(name = "Depth",
+                    values = (3:5)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+```
+
+```{r min-stats, include = FALSE}
+# reshape sra.all.min wider
+sra.all.min2 <- sra.all.min %>%
+  pivot_wider(names_from = min, values_from = conc)
+corrplot(cor(sra.all.min2[sra.all.min2$year == 2001, c(1,4:9)]), method = "number")
+
+## change over time vs. min
+# bulk
+sra.19.01.d.min <- left_join(
+  sra.19.01.d[ , c("lyr_bot", "PM", "ECO", "dd14c_01_19", "sd14c_01_19")], 
+  ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "lyr_bot", "PM", "ECO")], 
+  by = c("lyr_bot", "PM", "ECO")) 
+sra.19.01.d.min2 <- sra.19.01.d.min %>%
+  pivot_longer(cols = c("Al_py", "Al_ox", "Fe_ox", "Fe_dc"), names_to = "min", values_to = "conc")
+
+# corr
+corrplot(cor(sra.19.01.d.min[ , c(1,4:9)]), method = "number")
+
+# min vs. d/t
+sra.19.01.d.min2 %>%
+  filter(lyr_bot == 20) %>%
+  mutate(eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite")),
+         width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+  ggplot(., aes(conc, dd14c_01_19)) +
+  geom_point(aes(color = pm, shape = eco), size = 3) +
+  geom_errorbar(
+    aes(ymin = dd14c_01_19 - sd14c_01_19,
+        ymax = dd14c_01_19 + sd14c_01_19,
+        color = pm,
+        width = width)) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate",
+                     values = c("warm" = 15, 
+                                "cool" = 16, 
+                                "cold" = 17)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Change in bulk soil '*Delta*''^14*'C (‰) 2019-2001')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# inc
+sra.19.01.inc.d.min.df <- left_join(
+  sra.19.01.inc.d.df[ , c("lyr_bot", "PM", "ECO", "dd14c_01_19", "sd14c_01_19")], 
+  ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "lyr_bot", "PM", "ECO")], 
+  by = c("lyr_bot", "PM", "ECO"))
+sra.19.01.inc.d.min.df2 <- sra.19.01.inc.d.min.df %>%
+  pivot_longer(cols = c("Al_py", "Al_ox", "Fe_ox", "Fe_dc"), names_to = "min", values_to = "conc")
+
+# corr
+corrplot(cor(sra.19.01.inc.d.min.df[ , c(1,4:9)]), method = "number")
+
+# min vs. d/t
+sra.19.01.inc.d.min.df %>%
+  filter(lyr_bot == 30) %>%
+  mutate(pmeco = paste0(PM, ECO),
+         eco = factor(ifelse(ECO == "pp", "warm",
+                      ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         pm = ifelse(PM == "AN", "andesite",
+                     ifelse(PM == "BS", "basalt", "granite")),
+         width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+  filter(pmeco != "GRrf") %>%
+  ggplot(., aes(conc, dd14c_01_19)) +
+  geom_point(aes(color = pm, shape = eco), size = 3) +
+  geom_errorbar(
+    aes(ymin = dd14c_01_19 - sd14c_01_19,
+        ymax = dd14c_01_19 + sd14c_01_19,
+        color = pm,
+        width = width)) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate",
+                     values = c("warm" = 15, 
+                                "cool" = 16, 
+                                "cold" = 17)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Change in respired '*Delta*''^14*'C (‰) 2019-2001')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
 ```

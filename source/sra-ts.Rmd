@@ -2497,6 +2497,7 @@ sra.2019.inc.df <- bind_rows(lapply(sra.2019.inc.ls, function(df) {
                         .fns = list(mean = mean, min = min, max = max))) %>%
                rename(year = Year, d14c = d14c_mean))
 }))
+save(sra.2019.inc.df, file = "sra.2019.inc.df.RData")
 ## 2001
 sra.19.01.inc.df <- bind_rows(lapply(seq_along(sra.19.01.inc.ls), function(i) {
   PMeco <- names(sra.19.01.inc.ls)[i]
@@ -2511,6 +2512,8 @@ sra.19.01.inc.df <- bind_rows(lapply(seq_along(sra.19.01.inc.ls), function(i) {
                    year = 2001)
   return(df)
 }))
+save(sra.19.01.inc.df, file = "sra.19.01.inc.df.RData")
+# join
 sra.19.01.inc <- rbind(sra.19.01.inc.df, sra.2019.inc.df)
 
 # plot
@@ -2557,7 +2560,7 @@ sra.ts.all <- sra.19.01.09 %>%
          d14c_u = d14c + d14c_sd,
          d14c_l = d14c - d14c_sd,
          year = as.numeric(as.character(Year))) %>%
-  select(-d14c_sd) %>%
+  select(-d14c_sd, -Year) %>%
   bind_rows(.,
             sra.19.01.inc %>%
               select(year, PM, ECO, PMeco, lyr_bot, d14c, d14c_min, d14c_max) %>%
@@ -2615,6 +2618,330 @@ lapply(split(sra.ts.all, sra.ts.all$depth), plot.ts.fx)
 
 >*Caption:* Points for 2019 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2001 and 2009 (bulk only) samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2019. Error bars for bulk samples in panel (a) show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009); error bars for incubation samples in panel (b) show the values of the two reps, while the point represents the mean. 
 >*NB: Only two depth intervals were measured at the cool and cold andesite sites (max depth of 27 and 28 cm, respectively), so linear extrapolation (using the slope of the last 1cm spline-fitted depth increment) was used to extend the profiles to 30 cm.*
+
+```{r min-data-ras18}
+# load data
+ras18.min <- read_excel("/Users/jeff/sra-ts/data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
+                        sheet = "Data_Summary_2018_paper")
+ras18.lyr <- read_excel("/Users/jeff/sra-ts/data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
+                        sheet = "2009_bulk_data")
+ras18.frc <- read_excel("/Users/jeff/sra-ts/data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
+                        sheet = "2009_fraction_data")
+
+# join data
+nms <- names(ras18.min)[which(names(ras18.min) %in% names(ras18.lyr))]
+nms <- nms[-which(nms == "ID_sra")]
+ras18.min <- ras18.min[ , -which(names(ras18.min) %in% nms)]
+ras18 <- type.convert(merge(ras18.lyr, ras18.min))
+
+# spline fits
+ras18.split <- split(ras18_2, ras18_2$mins)[c(1, 3:5)]
+ras18.sp <- lapply(ras18.split, function(df) {
+  ls <- lapply(split(df, df$pro_name), function(x) {
+    depths(x) <- pro_name ~ lyr_top + lyr_bot
+    x.mps <- mpspline(x, var.name = "conc", d = t(seq(0, 100, 10)))
+    return(x.mps$var.std)
+  })
+  names(ls) <- unique(df$pro_name)
+  return(ls)
+})
+names(ras18.sp) <- c("Al_ox", "Al_py", "Fe_dc", "Fe_ox")
+ras18.sp.df <- data.frame(reduce(lapply(seq_along(ras18.sp), function(i) {
+    df <- data.frame(t(bind_rows(ras18.sp[[i]])))
+    names(df) <- unique(ras18$pro_name)
+    df$depth <- rownames(df)
+    return(df %>%
+             pivot_longer(!depth, names_to = "pro_name", values_to = names(ras18.sp)[i]))
+  }),
+  left_join,
+  by = c("depth", "pro_name")
+))
+ras18.sp.df <- ras18.sp.df[-which(ras18.sp.df$depth == "soil depth"), ]
+ras18.sp.df$lyr_bot <- rep(seq(10, 100, 10), each = 9)
+ras18.sp.df <- ras18.sp.df[complete.cases(ras18.sp.df), ]
+ras18.sp.df$PM <- substr(ras18.sp.df$pro_name, 1, 2)
+ras18.sp.df$ECO <- substr(ras18.sp.df$pro_name, 3, 4)
+save(ras18.sp.df, file = "ras18.sp.df.RData")
+
+# reshape sra.ts.all w/ bulk and inc in separate cols
+nms.inc.blk2 <- nms.inc.blk
+nms.inc.blk2[[4]] <- "year"
+sra.ts.all.blk.inc <- merge(sra.ts.all[sra.ts.all$Type == "bulk", ],
+                            sra.ts.all[sra.ts.all$Type == "inc", c(nms.inc.blk2, "d14c", "d14c_u", "d14c_l")],
+                            by = nms.inc.blk2,
+                            suffixes = c("_bulk", "_inc")) %>%
+  filter(year != 2009) %>%
+  mutate(blk.inc = d14c_bulk - d14c_inc,
+         blk.inc.sd = sqrt((d14c_u_bulk - d14c_bulk)^2 + apply(cbind(d14c_inc, d14c_u_inc, d14c_l_inc), 1, var)))
+
+# join w/ d14c
+sra.all.min <- ras18.sp.df %>%
+  mutate(pm = ifelse(PM == "AN", "andesite", ifelse(PM == "BS", "basalt", "granite")),
+         eco = ifelse(ECO == "pp", "warm", ifelse(ECO == "wf", "cool", "cold"))) %>%
+  # mutate(Al_nonCrys = Al_ox - Al_py,
+  #        Fe_Crys = Fe_dc - Fe_ox) %>%
+  select(-PM, -ECO, -pro_name) %>%
+  left_join(sra.ts.all.blk.inc[ , c("pm", "eco", "lyr_bot", "year", "d14c_bulk", "d14c_u_bulk", "d14c_inc", "d14c_u_inc", "d14c_l_inc", "d14c_l_bulk", "blk.inc", "blk.inc.sd")], 
+            ., 
+            by = c("pm", "eco", "lyr_bot")) %>%
+  pivot_longer(cols = c("Al_py", "Al_ox", "Fe_ox", "Fe_dc", 
+                        # "Al_nonCrys", "Fe_Crys"
+                        ), names_to = "min", values_to = "conc")
+
+# save
+save(sra.all.min, file = "sra.all.min.RData")
+```
+
+```{r plot-min-14c}
+# bulk
+sra.all.min %>%
+  mutate(pmEcoDepth = paste0(pm, eco, lyr_bot),
+         ecoYear = paste0(eco, " (", year, ")"),
+         width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+  filter(pmEcoDepth != "granitecold30" & pmEcoDepth != "granitecold20") %>%
+  ggplot(., aes(conc, d14c_bulk)) +
+  geom_point(aes(color = pm, shape = ecoYear, size = depth)) +
+  geom_errorbar(
+    aes(ymin = d14c_l_bulk,
+        ymax = d14c_u_bulk,
+        color = pm,
+        width = width)) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("warm (2001)" = 15, 
+                                "cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "warm (2019)" = 0, 
+                                "cool (2019)" = 1, 
+                                "cold (2019)" = 2)) +
+  scale_size_manual(name = "Depth",
+                    values = (3:5)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# inc
+sra.all.min %>%
+  mutate(pmEcoDepth = paste0(pm, eco, lyr_bot),
+         ecoYear = paste0(eco, " (", year, ")"),
+         width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+  filter(pmEcoDepth != "granitecold30" & pmEcoDepth != "granitecold20") %>%
+  filter(lyr_bot == 30) %>%
+  ggplot(., aes(conc, d14c_inc)) +
+  geom_point(aes(color = pm, shape = ecoYear, size = depth)) +
+  geom_errorbar(
+    aes(ymin = d14c_l_inc,
+        ymax = d14c_u_inc,
+        color = pm,
+        width = width)) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("warm (2001)" = 15, 
+                                "cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "warm (2019)" = 0, 
+                                "cool (2019)" = 1, 
+                                "cold (2019)" = 2)) +
+  scale_size_manual(name = "Depth",
+                    values = (3:5)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# bulk-inc
+sra.all.min %>%
+  mutate(pmEcoDepth = paste0(pm, eco, lyr_bot),
+         ecoYear = paste0(eco, " (", year, ")"),
+         width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+  filter(pmEcoDepth != "granitecold30" & pmEcoDepth != "granitecold20") %>%
+  ggplot(., aes(conc, blk.inc)) +
+  geom_point(aes(color = pm, shape = ecoYear, size = depth)) +
+  geom_errorbar(
+    aes(ymin = blk.inc - blk.inc.sd,
+        ymax = blk.inc + blk.inc.sd,
+        color = pm,
+        width = width)) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("warm (2001)" = 15, 
+                                "cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "warm (2019)" = 0, 
+                                "cool (2019)" = 1, 
+                                "cold (2019)" = 2)) +
+  scale_size_manual(name = "Depth",
+                    values = (3:5)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# Fe_dc alone
+#####
+# warm
+sra.all.min %>%
+  filter(eco == "warm" & min == "Fe_dc") %>%
+  mutate(ecoYear = paste0(eco, " (", year, ")")) %>%
+  ggplot(., aes(conc, blk.inc)) +
+  geom_point(aes(color = pm, shape = ecoYear, size = depth)) +
+  geom_errorbar(
+    aes(ymin = blk.inc - blk.inc.sd,
+        ymax = blk.inc + blk.inc.sd,
+        color = pm),
+        width = 1.5) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("warm (2001)" = 15,
+                                "warm (2019)" = 0)) +
+  scale_size_manual(name = "Depth",
+                    values = (3:5)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+
+# cool + cold
+sra.all.min %>%
+  filter(eco != "warm" & min == "Fe_dc") %>%
+  mutate(pmEcoDepth = paste0(pm, eco, lyr_bot),
+         ecoYear = paste0(eco, " (", year, ")")) %>%
+  filter(pmEcoDepth != "granitecold30" & pmEcoDepth != "granitecold20") %>%
+  ggplot(., aes(conc, blk.inc)) +
+  geom_point(aes(color = pm, shape = ecoYear, size = depth)) +
+  geom_errorbar(
+    aes(ymin = blk.inc - blk.inc.sd,
+        ymax = blk.inc + blk.inc.sd,
+        color = pm),
+        width = .5) +
+  scale_color_manual(name = "Parent material",
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "cool (2019)" = 1, 
+                                "cold (2019)" = 2)) +
+  scale_size_manual(name = "Depth",
+                    values = (3:5)) +
+  facet_wrap(vars(min), scales = "free") +
+  ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Concentration (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+#####
+
+## by depth
+#####
+# # 10 cm
+# sra.all.min %>%
+#   mutate(ecoYear = paste0(eco, " (", year, ")"),
+#          width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+#   filter(lyr_bot == 10) %>%
+#   ggplot(., aes(conc, blk.inc)) +
+#   geom_point(aes(color = pm, shape = ecoYear), size = 3) +
+#   geom_errorbar(
+#     aes(ymin = blk.inc - blk.inc.sd,
+#         ymax = blk.inc + blk.inc.sd,
+#         color = pm,
+#         width = width)) +
+#   scale_color_manual(name = "Parent material",
+#                      values = c("andesite" = andesite,
+#                                 "basalt" = basalt,
+#                                 "granite" = granite)) +
+#   scale_shape_manual(name = "Climate (year)",
+#                      values = c("warm (2001)" = 15, 
+#                                 "cool (2001)" = 16, 
+#                                 "cold (2001)" = 17,
+#                                 "warm (2019)" = 0, 
+#                                 "cool (2019)" = 1, 
+#                                 "cold (2019)" = 2)) +
+#   facet_wrap(vars(min), scales = "free") +
+#   ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+#   xlab(expression('Concentration (g kg'^-1*')')) +
+#   theme_bw() +
+#   theme(panel.grid.minor = element_blank())
+# 
+# # 20 cm
+# sra.all.min %>%
+#   mutate(pmEcoDepth = paste0(pm, eco, lyr_bot),
+#          ecoYear = paste0(eco, " (", year, ")"),
+#          width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+#   filter(pmEcoDepth != "granitecold20") %>%
+#   filter(lyr_bot == 20) %>%
+#   ggplot(., aes(conc, blk.inc)) +
+#   geom_point(aes(color = pm, shape = ecoYear), size = 3) +
+#   geom_errorbar(
+#     aes(ymin = blk.inc - blk.inc.sd,
+#         ymax = blk.inc + blk.inc.sd,
+#         color = pm,
+#         width = width)) +
+#   scale_color_manual(name = "Parent material",
+#                      values = c("andesite" = andesite,
+#                                 "basalt" = basalt,
+#                                 "granite" = granite)) +
+#   scale_shape_manual(name = "Climate (year)",
+#                      values = c("warm (2001)" = 15, 
+#                                 "cool (2001)" = 16, 
+#                                 "cold (2001)" = 17,
+#                                 "warm (2019)" = 0, 
+#                                 "cool (2019)" = 1, 
+#                                 "cold (2019)" = 2)) +
+#   facet_wrap(vars(min), scales = "free") +
+#   ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+#   xlab(expression('Concentration (g kg'^-1*')')) +
+#   theme_bw() +
+#   theme(panel.grid.minor = element_blank())
+# 
+# # 30 cm
+# sra.all.min %>%
+#   mutate(pmEcoDepth = paste0(pm, eco, lyr_bot),
+#          ecoYear = paste0(eco, " (", year, ")"),
+#          width = ifelse(min == "Al_py" | min == "Fe_ox", .3, 1.5)) %>%
+#   filter(pmEcoDepth != "granitecold30") %>%
+#   filter(lyr_bot == 30) %>%
+#   ggplot(., aes(conc, blk.inc)) +
+#   geom_point(aes(color = pm, shape = ecoYear), size = 3) +
+#   geom_errorbar(
+#     aes(ymin = blk.inc - blk.inc.sd,
+#         ymax = blk.inc + blk.inc.sd,
+#         color = pm,
+#         width = width)) +
+#   scale_color_manual(name = "Parent material",
+#                      values = c("andesite" = andesite,
+#                                 "basalt" = basalt,
+#                                 "granite" = granite)) +
+#   scale_shape_manual(name = "Climate (year)",
+#                      values = c("warm (2001)" = 15, 
+#                                 "cool (2001)" = 16, 
+#                                 "cold (2001)" = 17,
+#                                 "warm (2019)" = 0, 
+#                                 "cool (2019)" = 1, 
+#                                 "cold (2019)" = 2)) +
+#   facet_wrap(vars(min), scales = "free") +
+#   ylab(expression('Bulk - Respired '*Delta*''^14*'C (‰)')) +
+#   xlab(expression('Concentration (g kg'^-1*')')) +
+#   theme_bw() +
+#   theme(panel.grid.minor = element_blank())
+```
 
 ```{r ts-stats}
 # function for Tukey HSD tables
@@ -2764,6 +3091,43 @@ lapply(split(sra.01.19.inc.df, sra.01.19.inc.df$ECO), function(df) {
     tukey.table.fx(x, paste0(unique(df$ECO), " 2001 vs. 2019"), "inc", "year")
   })
 })
+```
+
+```{r min-14c-stats}
+sra.01.19.min.reps <- left_join(
+  merge(sra.01.19.bulk.df, sra.01.19.inc.df,
+        by = c("PMeco", "PM", "ECO", "year", "lyr_bot"),
+        suffixes = c("_blk", "_inc")),
+  ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "PM", "ECO", "lyr_bot")],
+  by = c("PM", "ECO", "lyr_bot")) %>%
+  mutate(Year = as.numeric(as.character(year)))
+
+summary(lm(d14c_blk ~ Al_ox + lyr_bot + year, sra.01.19.min.reps))
+sra.01.19.min.reps %>%
+  mutate(eco = ifelse(ECO == "rf", "cold", ifelse(ECO == "wf", "cool", "warm"))) %>%
+  mutate(ecoYear = paste0(eco, " (", year, ")")) %>%
+  # filter(pmEcoDepth != "granitecold30" & pmEcoDepth != "granitecold20") %>%
+  ggplot(., aes(Al_ox, d14c_blk)) +
+  geom_point(aes(color = PM, shape = ecoYear), size = 3) +
+  scale_color_manual(name = "Parent material",
+                     values = c("AN" = andesite,
+                                "BS" = basalt,
+                                "GR" = granite),
+                     labels = c("AN" = "andesite",
+                               "BS" = "basalt",
+                               "GR" = "granite")) + 
+  scale_shape_manual(name = "Climate (year)",
+                     values = c("warm (2001)" = 15, 
+                                "cool (2001)" = 16, 
+                                "cold (2001)" = 17,
+                                "warm (2019)" = 0, 
+                                "cool (2019)" = 1, 
+                                "cold (2019)" = 2)) +
+  facet_wrap(vars(lyr_bot)) +
+  ylab(expression('Bulk '*Delta*''^14*'C (‰)')) +
+  xlab(expression('Oxalate extractable Al (g kg'^-1*')')) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
 ```
 
 ```{r tukey-plots}
