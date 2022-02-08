@@ -1,0 +1,129 @@
+Nearest City	Collection Date	Longitude	Latitude	Elevation (m)	Distance to City (km)	Species	Number of Runs	Delta14C (permil)	Standard Deviation Error Estimateb
+Adin	7/6/05	�120.95785	41.19023	1295	�	Hordeum leporinum	1	57.5	�
+Ahwahnee	7/26/05	�119.32773	37.01615	710	�	unk annual grass	1	55.6	�
+Arcadia	7/9/05	�117.98225	34.14960	177	7	Bromus	1	�3.9	�
+Arvin	2/8/06	�118.84207	35.21518	128	1	Avena	3	36.5	6.6
+Avalon	8/8/05	�118.42117	33.39077	19	11	unk annual grass	1	16.0	�
+Baker	7/12/05	�116.16623	35.46982	208	25	Schizmus barbatus	1	54.3	�
+Barstow	2/9/06	�117.15400	34.74478	902	24	Bromus	1	55.1	�
+Bellflower	8/8/05	�118.12550	33.88620	24	0	Bromus madritensis	1	17.2	�
+Benicia	7/5/05	�122.19520	38.06572	12	�	Avena barbata	1	37.0	�
+Blythe	2/9/06	�114.51695	33.73420	90	19	Schizmus barbatus	1	60.4	�
+Bodfish	2/8/06	�118.53335	35.43045	1050	23	Bromus	1	54.9	�
+Buena Park	8/5/05	�117.99773	33.86045	30	0	unk annual grass	1	26.6	�
+Byron	7/16/05	�121.60000	37.79500	27	7	Avena	1	45.4	�
+Calimesa	8/7/05	�117.05319	33.97124	678	~3	Bromus diandrus	1	51.4	�
+Calimesa	3/5/06	�117.72528	34.25628	876	<	Avena	1	39.6	�
+Cantil	2/8/06	�118.05203	35.23307	721	11	Bromus	1	56.0	�
+Carmel	2/18/06	�121.91424	36.42472	11	16	Avena	1	59.2	�
+Central Weed	8/1/05	�122.37306	41.42806	1093	�	Bromus	1	60.6	�
+Chino	8/9/05	�117.62770	34.01942	230	0	Bromus madritensis	1	60.5	�
+Coalinga	7/10/05	�120.30927	36.21873	293	8	Avena	1	51.8	�
+Coalinga	7/10/05	�120.73930	36.19833	708	47	Avena	1	58.1	�
+Corcoran	2/8/06	�119.51670	36.09868	55	4	Avena	1	50.3	�
+Corona	8/8/05	�117.60380	33.83770	406	1	Bromus madritensis	1	41.8	�
+Corona	7/13/05	�117.47345	33.78400	317	18	Bromus	1	44.3	�
+Covina	2/25/06	�117.86287	34.06223	309	1.6	Avena	1	26.1	�
+Crescent City	7/72005	�124.18452	41.74062	0	1.6 	Avena barbata	1	58.6	�
+Cuyama	7/10/05	�119.66593	34.94375	675	16	Avena	1	54.6	�
+Dana Point	8/8/05	�117.74212	33.51223	101	5	Bromus madritensis	1	51.8	�
+Danville	7/21/05	�121.94862	37.84420	254	8	Avena	1	47.7	�
+~ Essex	2/9/06	�115.45295	34.59003	378	25	Schizmus barbatus	1	55.3	�
+Fallbrook	7/26/05	�119.29540	36.72597	471	�	Avena	1	55.2	�
+Fontana	8/9/05	�117.49133	34.10668	372	0	Avena fatua	1	37.4	�
+Fort Hunter-Liggelt	2/18/06	�121.26952	35.96987	440	8	unknown annual	1	60.3	�
+Fountain Valley	7/9/05	�117.95505	33.71373	9	0	Bromus madritensis	1	26.1	�
+Freeman Jct.	2/8/06	�117.94177	35.61390	1144	5	Schizmus barbatus	1	57.8	�
+in Fresno	7/10/05	�119.79985	36.74405	87	0	Bromus	1	47.1	�
+Glendale	7/9/05	�118.33140	34.14723	154	0	Lolium multiflorum	5	9.0	3.0
+Glendora	2/25/06	�117.83827	34.16668	414	8	bromus	1	25.4	�
+Gorda	2/18/06	�121.31502	35.74208	21	24	Briza maxima	1	61.0	�
+Grapevine	2/8/06	�118.87090	34.93673	397	5	Avena	1	52.2	�
+Happy Camp	7/6/05	�123.33998	41.80170	506	8	Avena sativa	1	54.8	�
+Hatfield	7/6/05	�121.52692	42.00005	1231	8	Bromus	1	56.7	�
+Havilah	2/8/06	�118.59082	35.32653	662	28	Avena	1	50.7	�
+Hemet	4/22/05	�117.06639	33.73925	494	9.6	Bromus madritensis	1	45.8	�
+Hemet	8/7/05	�116.82757	33.67310	943	12	Bromus madritensis	1	54.5	�
+Hemet	8/7/05	�117.06368	33.73693	561	3	Bromus diandrus	1	52.3	�
+Herndon	7/10/05	�119.90795	36.85158	83	3	Bromus	1	49.4	�
+Ione	7/13/05	120.96600	38.43110	171	16	Avena	2	52.3	4.2
+West side of Kaiser Pass	7/26/05	�119.12500	37.28333	2136	�	Taeniatherum caput	1	60.7	�
+East side of Kaiser Pass	7/26/05	�119.06667	37.31667	2427	�	Taeniatherum caput	1	58.9	�
+Laguna Woods	8/9/05	�117.75008	33.59867	146	1	Bromus madritensis	1	47.1	�
+Lake Elsinore	8/7/05	�117.40906	33.68130	553	1	Bromus madritensis	1	51.7	�
+Lake Elsinore	8/8/05	�117.41055	33.73694	388	6	Bromus madritensis	1	39.0	�
+Littlerock	2/9/06	�117.68177	34.49850	1042	29	Bromus	1	56.2	�
+Lodi	7/5/05	�121.21592	38.17407	16	�	Avena barbata	1	50.4	�
+Los Osos	7/10/05	�120.88797	35.27457	4	8	Bromus	5	55.5	2.6
+Ludlow	2/9/06	�116.09282	34.71117	571	4	Schizmus barbatus	1	55.2	�
+Marin 	9/17/05	�122.57284	38.15231	41	�	Avena	1	54.9	�
+Mariposa	7/11/05	�119.96542	37.48633	626	12	Avena	1	47.8	�
+McKinleyville	7/72005	�124.11443	40.99408	0	�	Lolium temulentum	1	58.3	�
+McKittrick	2/8/06	�119.78767	35.55163	182	33	Avena	1	52.7	�
+Mendocino	9/17/05	�123.81073	39.32847	13	�	unknown annual grass	1	58.5	�
+Merced	7/10/05	�120.27475	37.17860	65	26	Hordeum vulgare	1	46.2	�
+Mill Creek	8/12/05	�121.51890	40.34940	1484	5	Bromus japonicus.	1	63.7	�
+Miramar	7/13/05	�117.09843	32.90470	194	0	Avena	1	36.0	�
+Moreno Valley	5/25/05	�117.20012	33.98249	819	6.4	Bromus diandrus	1	62.3	�
+Moreno Valley	3/15/05	�117.27346	33.95076	593	1	Bromus madritensis	1	45.7	�
+Moreno Valley	8/7/05	�117.13974	33.91177	503	1	Bromus diandrus	1	51.0	�
+Morgan Hill	8/31/05	�121.68799	37.19179	132	6.4	Lolium multiflorum	1	45.4	�
+Morgan Hill	8/31/05	�121.67296	37.19321	328	6.4	Lolium multiflorum	1	46.4	�
+Murrieta	8/7/05	�116.84678	33.50103	805	25	Bromus madritensis	1	57.2	�
+Needles	2/9/06	�114.64537	34.88278	158	6	Schizmus barbatus	2	50.7	2.5
+Newport Beach	8/8/05	�117.84613	33.60758	173	1	Bromus madritensis	1	46.0	�
+Norco	8/9/05	�117.54058	33.97418	216	9.6	Bromus madritensis	1	54.4	�
+Norco	8/7/05	�117.52191	33.94940	260	0	Bromus madritensis	1	37.1	�
+Orland	7/7/05	�122.21670	39.74043	73	�	Digitaria sanguinalis	1	62.4	�
+Owens Valley	6/5/05	�118.33158	37.30057	1223	�	unk annual grass	1	56.6	�
+in Owens Valley	8/1/05	�118.39500	37.36333	1263	�	Bromus	1	61.4	�
+Palmdale	2/9/06	�118.16923	34.63108	785	9	Bromus	1	44.7	�
+Palo Verde	2/9/06	�114.72390	33.34572	79	10	Schizmus barbatus	1	62.0	�
+Paramint Springs	7/12/05	�117.45012	36.33752	526	3	Schizmus barbatus	1	55.9	�
+Perris	3/17/05	�117.35351	33.80392	605	�	Amsinckia menziesii	1	54.1	�
+Perris	8/7/05	�117.33371	33.78429	678	8	Bromus madritensis	1	50.3	�
+Perris	8/7/05	�117.30533	33.76430	664	6	Bromus diandrus	1	56.1	�
+Pond	2/8/06	�119.32518	35.71778	83	16	Avena	1	50.0	�
+Portola Valley	9/15/05	�122.22440	37.40468	182	�	Lolium multiflorum	1	49.8	�
+Pt. Reyes Station	8/15/05	�122.94817	38.03357	36	32	unk annual grass	1	56.4	�
+Rancho Mirage	7/13/05	�116.40618	33.78547	97	1	Schizmus barbatus	1	35.4	�
+Racho Santa Margarita	8/8/05	�117.61981	33.65973	343	1	Bromus diandrus	1	37.6	�
+Red Bluff	7/6/05	�122.17752	40.20748	92	�	Avena barbata	1	55.0	�
+Redding	7/6/05	�122.31335	40.59692	180	8	Avena barbata	1	55.6	�
+Redwood City	9/18/05	�122.20008	37.48194	3	�	Lolium multiflorum	1	27.5	�
+Rialto	8/9/05	�117.34072	34.10775	361	0	unk annual grass	1	42.2	�
+Riverside	3/17/05	�117.32154	33.93628	436	�	Bromus madritensis	1	42.9	�
+Rohnerville	7/7/05	�124.11168	40.53955	15	�	Avena barbata	1	62.7	�
+Rosewood	7/72005	�122.48723	40.26228	244	27	Avena barbata	1	56.3	�
+Rubidoux	3/17/05	�117.38766	33.98448	279	�	Avena fatua	1	57.6	�
+Salton City	2/9/06	�115.94055	33.27105	�60	1	Schizmus barbatus	1	56.1	�
+San Bernardino	8/9/05	�117.29637	34.11058	322	0	unk annual grass	1	31.0	�
+San Bernardino	7/13/05	�117.28990	34.10863	312	0	Avena	5	12.9	2.4
+San Clemente	8/8/05	�117.59559	33.41920	112	0	Bromus hordeaceus	1	48.8	�
+San Jose	8/31/05	�121.75235	37.22027	161	�	Lolium multiflorum	1	42.3	�
+San Lucas	7/10/05	�121.01132	36.14435	144	3	Avena	1	54.4	�
+San Miguel	7/10/05	�120.69423	35.74785	181	1	Avena	1	55.6	�
+Santa Barbara	10/14/05	�119.72917	33.99111	214	48	Avena	1	55.1	�
+Santa Barbara	10/14/05	�119.68333	34.01667	5	45	Avena	1	60.3	�
+Santa Clarita	7/9/05	�118.55902	34.35702	419	4	Avena	1	34.2	�
+Santa Maria	7/10/05	�120.40663	34.99782	126	7	Avena	1	53.0	�
+Santee	7/13/05	�116.91053	32.84298	174	9	Avena	1	40.9	�
+Sausalito	7/15/05	�122.52396	37.86028	219	8	Avena fatua	1	57.4	�
+Shaver Lake	7/27/05	�119.31436	37.12405	1242	�	unk annual grass	1	55.7	�
+Sonoma	9/17/05	�123.06633	38.84715	326	�	Avena	1	59.0	�
+South Gate	8/8/05	�118.21920	33.95273	3	0	Bromus madritensis	1	10.3	�
+Stovepipe Wells	7/12/05	�117.04902	36.63032	�29	5	Schizmus barbatus	1	50.9	�
+Taft	2/8/06	�119.50445	35.16392	335	6	Avena	1	42.6	�
+Temecula	7/13/05	�117.16952	33.39142	250	14	Avena	1	45.2	�
+Temecula	8/7/05	�117.20937	33.50553	465	4	Bromus diandrus	1	54.6	�
+Temecula	8/7/05	�117.14887	33.47469	409	2	Bromus madritensis	1	43.8	�
+Tustin	8/8/05	�117.69870	33.75607	270	7	Bromus diandrus	1	40.6	�
+Vernon	8/8/05	�118.23850	33.99487	55	0	Avena fatua	1	�14.3	�
+Vidal Junction	2/9/06	�114.64760	34.26485	374	10	Schizmus barbatus	1	54.3	�
+Warner Springs	7/2/05	�116.56667	33.35000	1484	3.2	Avena	1	58.8	�
+Weldon	2/8/06	�118.36115	35.64758	804	9	Bromus	1	57.3	�
+Westminister	8/5/05	�117.99008	33.76538	17	0	Bromus hordeaceus	1	22.4	�
+Woodside	9/12/05	�122.29592	37.46197	135	�	Lolium multiflorum	1	50.4	�
+Woodside	9/12/05	�122.29138	37.46422	168	3.2	Lolium multiflorum	1	41.7	�
+Woodside	9/12/05	�122.29029	37.46467	172	3.2	Lolium multiflorum	1	25.5	�
+Woodside	9/12/05	�122.28527	37.46197	203	�	Lolium multiflorum	1	47.9	�

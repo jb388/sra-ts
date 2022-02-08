@@ -9,7 +9,7 @@ library(readxl)
 
 read_jena_elm_results <- function(jena_elm_dir, template_file) {
   if(missing(template_file)) {
-    template_file <- "../data/raw/elm_jena_template_2020-10-22/elm_jena_template.xls"
+    template_file <- "../data/raw/elm_jena_template/elm_jena_template.xls"
   }
   
   # start input at column header row (skip 1st row)

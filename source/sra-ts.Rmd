@@ -31,6 +31,7 @@ library(FME)
 library(tidyr)
 library(readxl)
 library(gt)
+library(purrr)
 ```
 
 # Data preparation script for Sierra Nevada time series analysis
@@ -41,6 +42,16 @@ library(gt)
 source("./utilities/jena_ams_ingest.R")
 source("./utilities/jena_iso_ingest.R")
 source("./utilities/jena_elm_ingest.R")
+```
+
+```{r plot-funs}
+# color palettes for ECO & PM
+warm <- "#BF812D"
+cool <- "#80CDC1"
+cold <- "#01665E"
+granite <- "#9daba9"
+andesite <- "#382dbf"
+basalt <- "#bf382d"
 ```
 
 ```{r read-cn-iso-data, include = FALSE}
@@ -219,7 +230,7 @@ soc.2001 <- data.frame(read_excel("../data/external/sra_ras_sum/sierra_data_summ
 
 # create list; remove BS samples deeper than 30 cm
 soc.2001.ls <- lapply(split(soc.2001, soc.2001$PMeco), function(df) {
-  df <- type.convert(df[complete.cases(df), c("ID", "C.", "bd.g.cm3", "PMeco", "pro_rep", "lyr_top", "lyr_bot")])
+  df <- type.convert(df[complete.cases(df), c("ID", "C.", "mass_kgm2", "PMeco", "pro_rep", "lyr_top", "lyr_bot")])
  return(df[which(df$lyr_bot < 36), ])
 })
 
@@ -229,7 +240,7 @@ soc.2001.ls <- lapply(split(soc.2001, soc.2001$PMeco), function(df) {
 d1d2.fx <- function(df) {
   d1d2 <- data.frame(ID = paste(df$PMeco[1], df$pro_rep[1], df$lyr_top[1], df$lyr_bot[2], sep = "_"),
                      C. = sum(df$C.[1] * ((df$lyr_bot[1] - df$lyr_top[1]) / df$lyr_bot[2]), df$C.[2] * ((df$lyr_bot[2] - df$lyr_top[2]) / df$lyr_bot[2])),
-                     bd.g.cm3 = df$bd.g.cm3[1],
+                     mass_kgm2 = sum(df$mass_kgm2[1], df$mass_kgm2[2]),
                      PMeco = df$PMeco[1],
                      pro_rep = df$pro_rep[1],
                      lyr_top = df$lyr_top[1],
@@ -244,7 +255,7 @@ soc.2001.ls.inc$BSrf <- bind_rows(lapply(split(soc.2001.ls$BSrf, soc.2001.ls$BSr
 
 # calculate SOC stocks
 soc.2001.ls <- lapply(soc.2001.ls, function(df) {
-  df$lyr_soc_kgm2 <- df$C. * df$bd.g.cm3 * (df$lyr_bot - df$lyr_top) * 10^-1
+  df$lyr_soc_kgm2 <- df$C. * df$mass_kgm2 * 10^-2
   return(df)
 })
 
@@ -252,7 +263,7 @@ soc.2001.ls <- lapply(soc.2001.ls, function(df) {
 soc.2001.sum <- data.frame(bind_rows(lapply(soc.2001.ls, function(df) {
   df %>%
     mutate(ID2 = paste0(PMeco, "_", lyr_top, "-", lyr_bot)) %>%
-    group_by(ID2, bd.g.cm3, PMeco, lyr_top, lyr_bot) %>%
+    group_by(ID2, PMeco, lyr_top, lyr_bot) %>%
     summarize(c_pct_avg = mean(C.))
 })))
 
@@ -262,7 +273,9 @@ sra.2019.cn.sum <- data.frame(
   mutate(PMeco = sapply(strsplit(ID, "_"), "[", 2),
          depth = sapply(strsplit(ID, "_"), "[", 4)) %>%
   group_by(PMeco, depth) %>%
-  summarize(c_pct_avg = mean(C)))
+  summarize(across(c(C, N), .fns = mean))) %>%
+  rename(c_pct_avg = C,
+         n_pct_avg = N)
 sra.2019.cn.sum$ID2 <- paste(sra.2019.cn.sum$PMeco, sra.2019.cn.sum$depth, sep = "_")
 ```
 
@@ -500,6 +513,7 @@ sra.2001 <- sra.2001[-which(sra.2001$ID == "ANpp_3_6-13"), ]
 
 # make list by PMeco
 sra.2001.ls <- split(sra.2001, sra.2001$PMeco)
+save(sra.2001.ls, file = "sra.2001.ls.RData")
 ```
 
 ```{r merge-iso-data-soil-S19}
@@ -691,10 +705,13 @@ sra.2019.inc_L.sum <- sra.2019.inc_L.df %>%
          pm = factor(ifelse(PM == "AN", "andesite",
                      ifelse(PM == "BS", "basalt", "granite"))),
          Year = factor("2019")) %>%
-  group_by(Year, pm, eco, lyr_top, lyr_bot) %>%
+  group_by(Year, PMeco, pm, eco, lyr_top, lyr_bot) %>%
   summarize(d14c_mean = mean(d14c),
             d14c_u = max(d14c),
-            d14c_l = min(d14c))
+            d14c_l = min(d14c),
+            fm_mean = mean(fm),
+            fm_u = max(fm),
+            fm_l = min(fm))
 
 # plot as cols by climate
 sra.2019.inc_L.sum %>%
@@ -843,25 +860,94 @@ sra.01.sum %>%
 >*Caption:* Mean $\Delta$^14^C by depth for each site in 2001. Error bars show ±1 standard deviation, solid vertical line shows $\Delta$^14^C of the atmosphere in the year of sampling.
 
 ## 2009 radiocarbon profiles
-```{r plot-2009-profiles}
-# 2009 data (from C. Rasmussen)
-ras18.lyr <- read.csv("/Users/jeff/R/14Constraint/ras_2018.csv")
-ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
-# add PMeco col
-ras18.lyr$ECO <- factor(ras18.lyr$MAST, labels = c("rf","wf","pp"))
-ras18.lyr$PMeco <- paste0(ras18.lyr$PM, ras18.lyr$ECO)
+```{r load-2009-data}
+# 2009 summary data (from C. Rasmussen)
+ras18.sum <- read_excel(
+  "../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
+  sheet = "Data_Summary_2018_paper")
+
+# remove empty data rows
+ras18.sum <- ras18.sum[-which(is.na(ras18.sum$`Sample ID`)), ]
 
 # summarize 09 data
-sra.09.sum <- ras18.lyr %>%
-  mutate(eco = factor(ifelse(ECO == "pp", "warm",
-                      ifelse(ECO == "wf", "cool", "cold")),
-                      levels = c("warm", "cool", "cold")),
-         pm = ifelse(PM == "AN", "andesite",
-                     ifelse(PM == "BS", "basalt", "granite")))
+sra.09.sum <- ras18.sum %>%
+  mutate(
+    ECO = ifelse(Biome == "PP", "pp", ifelse(Biome == "WF", "wf", "rf")),
+    PM = ifelse(Parent_Material == "Andesite", "AN", ifelse(Parent_Material == "Basalt", "BS", "GR")),
+    eco = factor(ifelse(ECO == "pp", "warm", ifelse(ECO == "wf", "cool", "cold")),
+                 levels = c("warm", "cool", "cold")),
+    pm = paste0(tolower(substr(Parent_Material, 1, 1)), 
+                substr(Parent_Material, 2, nchar(Parent_Material))),
+    mass_kgm2 = BD_g_cm_3 * Soil_finefraction * (`bottom mineral` - `top mineral`) * 10) %>%
+  mutate(PMeco = paste0(PM, ECO)) %>%
+  rename(d14c = "Δ14C",
+         lyr_bot = "bottom mineral",
+         lyr_top = "top mineral")
+sra.2009.ls <- lapply(split(sra.09.sum, sra.09.sum$PMeco), function(df) {
+  df$lyr_fraction_modern <- calc_fm(df$d14c, 2009)
+  return(data.frame(df))
+})
 
+# 2009 bulk C data
+ras18.blkC <- as.data.frame(read_excel(
+  "../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
+  sheet = "2009_bulk_data"))
+
+# Add PM, ECO, mass_kgm2 vars
+ras18.blkC$ECO <- ifelse(ras18.blkC$Biome == "PP", "pp", ifelse(ras18.blkC$Biome == "RF", "rf", "wf"))
+ras18.blkC$PMeco <- paste0(ras18.blkC$PM, ras18.blkC$ECO)
+ras18.blkC$mass_kgm2 <- ras18.blkC$Thickness_cm * ras18.blkC$BD_g_cm_3 * ras18.blkC$Soil_finefraction * 10
+
+# Calculate SOC stocks
+ras18.blkC$lyr_soc <- ras18.blkC$Thickness_cm * ras18.blkC$BD_g_cm_3 * ras18.blkC$Soil_finefraction * ras18.blkC$C_pct * 10^-1
+
+# Calculate cmtv SOC stocks
+ras18.blkC$lyr_soc_cmtv <- unlist(lapply(split(ras18.blkC, ras18.blkC$pro_name), function(x) {
+  x$lyr_soc_cmtv <- NA
+  for (i in seq(nrow(x))) {
+    if (i == 1) {
+      x$lyr_soc_cmtv[i] <- x$lyr_soc[i]
+    } else {
+      x$lyr_soc_cmtv[i] <- x$lyr_soc[i] + x$lyr_soc_cmtv[i - 1]
+    }
+  }
+  return(x$lyr_soc_cmtv)
+}))
+```
+
+```{r error-BD-pred}
+# LOOCV function, fit = lm mod
+loocv <- function (fit) {
+  h <- lm.influence(fit)$h
+  mean((residuals(fit) / (1-h))^2)
+}
+
+# test function for predicting BD as function of PM, ECO, and C content
+bd.mod <- lm(BD_g_cm_3 ~ PM * ECO + PM * C_pct + `bottom mineral`, ras18.blkC)
+bd.pred <- predict.lm(bd.mod, ras18.blkC, interval = "predict", pred.var = loocv(bd.mod))
+bd.err.df <- ras18.blkC
+bd.err.df$BD_pred <- bd.pred[ , 1]
+bd.err.df$BD_l <- bd.pred[ , 2]
+bd.err.df$BD_u <- bd.pred[ , 3]
+
+# plot
+ggplot(bd.err.df, aes(BD_g_cm_3, BD_pred)) +
+  geom_ribbon(aes(ymin = BD_l, ymax = BD_u), fill = "lightgray") +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "black") +
+  geom_point(aes(color = PM, shape = ECO, size = `bottom mineral`/10)) +
+  scale_color_manual(name = "Parent material",
+                     values = c("AN" = andesite,
+                                "BS" = basalt,
+                                "GR" = granite)) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+```
+
+```{r plot-2009-14c-profiles}
+# plot
 fig.n <- fig.n + 1
 sra.09.sum %>%
-  ggplot(., aes(lyr_14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
+  ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
   geom_vline(xintercept = atm.d14.2009) +
   geom_hline(yintercept = 0) +
   geom_point(size = 3) +
@@ -950,11 +1036,11 @@ sra.19.sum %>%
 sra.01.sum$Year <- 2001
 sra.19.sum$Year <- 2019
 
-sra.all <- rbind(sra.01.sum, sra.19.sum)
-sra.all$Year <- as.factor(sra.all$Year)
+sra.01.19.sum <- rbind(sra.01.sum, sra.19.sum)
+sra.01.19.sum$Year <- as.factor(sra.01.19.sum$Year)
 
 fig.n <- fig.n + 1
-sra.all %>%
+sra.01.19.sum %>%
   mutate(PMeco_year = paste0(PMeco, Year),
          ecoYear = paste0(ECO, Year),
          ecoYear2 = ifelse(ecoYear == "pp2001", "warm (2001)",
@@ -1002,7 +1088,7 @@ sra.all %>%
 sra.2019.inc.df <- bind_rows(sra.2019.inc.ls)
 # add litter inc data and summarize
 sra.2019.inc.sum.df <- data.frame(rbind(
-  sra.2019.inc_L.sum[ , which(names(sra.2019.inc_L.sum) != "lyr_top")],
+  sra.2019.inc_L.sum,
   sra.2019.inc.df %>%
     mutate(eco = factor(ifelse(ECO == "pp", "warm",
                              ifelse(ECO == "wf", "cool", "cold")),
@@ -1012,11 +1098,14 @@ sra.2019.inc.sum.df <- data.frame(rbind(
            # remove GRrf 10-20 "a" point
            d14c = replace(d14c, which(d14c < -300), NA),
            Year = factor(Year)) %>%
-  group_by(Year, pm, eco, lyr_bot, lyr_top) %>%
+  group_by(Year, PMeco, pm, eco, lyr_bot, lyr_top) %>%
   summarize(d14c_mean = mean(d14c, na.rm = TRUE),
             d14c_l = min(d14c, na.rm = TRUE),
-            d14c_u = max(d14c, na.rm = TRUE)) %>%
-    select(-lyr_top)))
+            d14c_u = max(d14c, na.rm = TRUE),
+            fm_mean = mean(fm),
+            fm_l = min(fm),
+            fm_u = max(fm))))
+sra.2019.inc.sum.ls <- split(sra.2019.inc.sum.df, sra.2019.inc.sum.df$PMeco)
 
 # 2001
 sra.2001.inc.df <- bind_rows(sra.2001.inc.ls)
@@ -1109,7 +1198,8 @@ sra.2001.inc.sum.df %>%
 
 ```{r plot-inc-d14c-all}
 # plot together
-sra.inc.all <- rbind(sra.2001.inc.sum.df, sra.2019.inc.sum.df)
+sra.inc.all <- rbind(sra.2001.inc.sum.df, 
+                     sra.2019.inc.sum.df[ , names(sra.2019.inc.sum.df) %in% names(sra.2001.inc.sum.df)])
 
 fig.n <- fig.n + 1 
 sra.inc.all %>%
@@ -1173,7 +1263,7 @@ sra.19.bulk <- sra.19.bulk %>%
                       levels = c("warm", "cool", "cold")),
          PM = NULL,
          ECO = NULL)
-sra.19.inc.blk <- rbind(data.frame(sra.19.inc), data.frame(sra.19.bulk))
+sra.19.inc.blk <- rbind(sra.19.bulk, sra.19.inc[ , names(sra.19.inc) %in% names(sra.19.bulk)])
 save(sra.19.inc.blk, file = "sra.19.inc.blk.RData")
 
 # 2001
@@ -1600,19 +1690,16 @@ sra.19.inc.blk2  %>%
 ## Time series: $\Delta$^14^C by depth (as measured)
 ```{r plot-timeseries-meas-depths}
 # combine '01, '09, '19 data
-sra.01.09.19.raw <- rbind(bind_rows(sra.2001.sum.ls),
-                          bind_rows(sra.2019.sum.ls))
-sra.2009.ls <- split(ras18.lyr, ras18.lyr$PMeco)
-sra.2009.df <- bind_rows(sra.2009.ls)
-colnames(sra.2009.df)[which(colnames(sra.2009.df) == "lyr_14c")] <- "d14c"
-sra.2009.df <- sra.2009.df[ , which(names(sra.2009.df) %in% names(sra.01.09.19.raw))]
+sra.01.19.raw <- rbind(bind_rows(sra.2001.sum.ls),
+                       bind_rows(sra.2019.sum.ls))
+sra.2009.df <- sra.09.sum[ , which(names(sra.09.sum) %in% names(sra.01.19.raw))]
 sra.2009.df <- cbind(sra.2009.df, 
                      fm = NA,
                      d14c_sd = NA,
                      fm_sd = NA,
                      d14c_u = NA,
                      d14c_l = NA)
-sra.01.09.19.raw <- rbind(sra.01.09.19.raw, sra.2009.df)
+sra.01.09.19.raw <- rbind(sra.01.19.raw, sra.2009.df)
 sra.01.09.19.raw$Year <- factor(c(rep(2001, nrow(bind_rows(sra.2001.sum.ls))),
                                   rep(2019, nrow(bind_rows(sra.2019.sum.ls))),
                                   rep(2009, nrow(sra.2009.df))),
@@ -1864,46 +1951,41 @@ sra.2001.inc.fm.sp <- lapply(sra.2001.inc.sum.ls, function(df) {
                 min.var.1cm = min.mps$var.1cm[1:max(df$lyr_bot)],
                 max.var.1cm = max.mps$var.1cm[1:max(df$lyr_bot)]))
   })
+# 2019
+sra.2019.inc.fm.sp <- lapply(sra.2019.inc.sum.ls, function(df) {
+  df <- df[-which(df$lyr_bot == 0), ]
+  depths(df) <- PMeco ~ lyr_top + lyr_bot
+  mean.mps <- mpspline(df, var.name = "fm_mean")
+  min.mps <- mpspline(df, var.name = "fm_l")
+  max.mps <- mpspline(df, var.name = "fm_u")
+  return(list(mean.var.1cm = mean.mps$var.1cm[1:max(df$lyr_bot)],
+              min.var.1cm = min.mps$var.1cm[1:max(df$lyr_bot)],
+              max.var.1cm = max.mps$var.1cm[1:max(df$lyr_bot)]))
+})
 ```
 
 ```{r spline-bd-soc-19, include = FALSE}
-# Need SOC stock data for 2019 samples: use BD from 2009 samples 
-# spline fit for bulk density
-sra.2009.bd.sp <- lapply(sra.2009.ls, function(x) {
-  depths(x) <- pro_name ~ lyr_top + lyr_bot
-  x.mps <- mpspline(x, var.name = "lyr_bd_samp")
-  x.mps$var.1cm <- x.mps$var.1cm[1:100]
-  return(x.mps)
-})
-sra.2009.bd.sp <- lapply(sra.2009.bd.sp, function(ls) {
-  df <- data.frame(ls["var.1cm"])
-  ix <- which(is.na(df$var.1cm))
-  df$var.1cm[ix] <- df$var.1cm[ix[1]-1]
-  return(df)
+# Need SOC stock data for 2019 samples: use mass data from 2009 samples 
+# spline fit for cmtv mass; specify 10cm depths
+sra.2009.mass.sp <- lapply(sra.2009.ls, function(df) {
+  depths(df) <- pro_name ~ lyr_top + lyr_bot
+  df.mps <- mpspline(df, var.name = "mass_kgm2", d = seq(0, max(df$lyr_bot), by = 10))
+  return(df.mps)
 })
 
-# calculate mean of 1cm BD predictions for each depth increment
-bd_pred <- lapply(seq_along(sra.2009.bd.sp), function(i) {
+# calculate mean of 1cm BD predictions for each 2019 depth increment
+mass_pred <- lapply(seq_along(sra.2009.mass.sp), function(i) {
   ls <- split(sra.2019.ls[[i]], sra.2019.ls[[i]]["pro_rep"]) # split each replicate profile
-  ls <- lapply(seq_along(ls), function(df) {
-    d <- ls[[df]][["lyr_bot"]] # depth intervals
-    c <- vector(mode = "list", length = length(d)) # vector for averaging 1 cm bd pred
-    for(j in seq_along(d)) {
-      if(j == 1) {
-        c[[j]] <- mean(sra.2009.bd.sp[[i]][1:d[j], "var.1cm"]) # 1-10
-      } else {
-        c[[j]] <- mean(sra.2009.bd.sp[[i]][(d[j-1]+1):d[j], "var.1cm"]) # 10 cm increments
-      }
-    }
-    return(unlist(c))
+  ls <- lapply(ls, function(df) {
+    t(sra.2009.mass.sp[[i]][["var.std"]])[1:nrow(df)] # mass_kgm2
     })
   return(unsplit(ls, sra.2019.ls[[i]]["pro_rep"]))
 })
 
-# merge predicted bd values with sra.2019.ls
+# merge predicted mass values with sra.2019.ls
 nms <- names(sra.2019.ls)
 sra.2019.ls <- lapply(seq_along(sra.2019.ls), function(df) {
-  cbind(sra.2019.ls[[df]], bd = bd_pred[[df]])
+  cbind(sra.2019.ls[[df]], mass_kgm2 = mass_pred[[df]])
 })
 names(sra.2019.ls) <- nms
 
@@ -1914,27 +1996,31 @@ sra.2019.ls <- lapply(sra.2019.ls, function(df) {
   return(df)
 })
 
-# calculate stocks  
-sra.2019.ls <- lapply(sra.2019.ls, function(df) {
-  df$lyr_soc <- df$bd * df$C # units work out to kg_m2 
-  return(df)
-})
-# calculate cmtv stocks
-sra.2019.ls <- lapply(sra.2019.ls, function(df) {
-  ls <- split(df, df$pro_name)
-  ls <- lapply(ls, function(x) {
-    x$lyr_soc_cmtv <- NA
-    for(i in seq_along(x$lyr_bot)) {
-      if(i == 1) {
-        x$lyr_soc_cmtv[i] <- x$lyr_soc[i]
-      } else {
-        x$lyr_soc_cmtv[i] <- x$lyr_soc[i] + x$lyr_soc_cmtv[i-1] 
+## calculate stocks and cumulative stocks
+cstock.fx <- function(ls, mass, C) {
+  lapply(ls, function(df) {
+    df$lyr_soc <- df[[mass]] * df[[C]] * 10^-2
+    pro_ls <- split(df, df$pro_name)
+    pro_ls <- lapply(pro_ls, function(x) {
+      x$lyr_soc_cmtv <- NA
+      for(i in seq_along(x$lyr_bot)) {
+        if(i == 1) {
+          x$lyr_soc_cmtv[i] <- x$lyr_soc[i]
+        } else {
+          x$lyr_soc_cmtv[i] <- x$lyr_soc[i] + x$lyr_soc_cmtv[i-1] 
+        }
       }
-    }
-    return(x)
+      return(x)
+    })
+    return(unsplit(pro_ls, df$pro_name))
   })
-  return(unsplit(ls, df$pro_name))
-})
+}
+# 2019
+sra.2019.ls <- cstock.fx(sra.2019.ls, "mass_kgm2", "C")
+# 2009
+sra.2009.ls <- cstock.fx(sra.2009.ls, "mass_kgm2", "C_pct")
+
+# save
 save(sra.2019.ls, file = "sra.2019.ls.RData")
 ```
 
@@ -2018,6 +2104,87 @@ sra.2019.oc.sp <- lapply(sra.2019.sp.ls, function(df) {
     depth.spline(x[, c("lyr_bot", "lyr_soc_cmtv")])
   })
 })
+sra.2019.oc.sp.avg <- lapply(sra.2019.oc.sp, function(ls) {
+  bind_rows(ls) %>%
+    group_by(lyr_bot) %>%
+    summarize(lyr_soc = mean(lyr_soc)) %>%
+    data.frame
+})
+```
+
+```{r plot-soc-cmtv}
+# 2001
+sra.2001.soc.df <- bind_rows(lapply(seq_along(sra.2001.oc.sp.avg), function(i) {
+  NM <- names(sra.2001.oc.sp.avg)[i]
+  PM <- substr(NM, 1, 2)
+  ECO <- substr(NM, 3, 4)
+  df <- data.frame(PM = PM, ECO = ECO, lyr_soc_30 = sum(sra.2001.oc.sp.avg[[i]][1:30, "lyr_soc"]))
+  df$ECO <- factor(df$ECO, levels = c("pp", "wf", "rf"))
+  return(df)
+}))
+
+# 2009
+sra.2009.soc.df <- bind_rows(lapply(seq_along(sra.2009.oc.sp), function(i) {
+  NM <- names(sra.2009.oc.sp)[i]
+  PM <- substr(NM, 1, 2)
+  ECO <- substr(NM, 3, 4)
+  df <- data.frame(PM = PM, ECO = ECO, lyr_soc_30 = sum(sra.2009.oc.sp[[i]][1:30, "lyr_soc"]))
+  df$ECO <- factor(df$ECO, levels = c("pp", "wf", "rf"))
+  return(df)
+}))
+
+# 2019
+sra.2019.soc.df <- bind_rows(lapply(seq_along(sra.2019.oc.sp.avg), function(i) {
+  NM <- names(sra.2019.oc.sp.avg)[i]
+  PM <- substr(NM, 1, 2)
+  ECO <- substr(NM, 3, 4)
+  df <- data.frame(PM = PM, ECO = ECO, lyr_soc_30 = sum(sra.2019.oc.sp.avg[[i]][1:30, "lyr_soc"]))
+  df$ECO <- factor(df$ECO, levels = c("pp", "wf", "rf"))
+  return(df)
+}))
+
+ggplot(sra.2019.soc.df, aes(PM, lyr_soc_30, fill = PM)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("AN" = andesite, 
+                               "BS" = basalt,
+                               "GR" = granite)) +
+  facet_grid(cols = vars(ECO)) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+ggplot(sra.2009.soc.df, aes(PM, lyr_soc_30, fill = PM)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("AN" = andesite, 
+                               "BS" = basalt,
+                               "GR" = granite)) +
+  facet_grid(cols = vars(ECO)) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+ggplot(sra.2001.soc.df, aes(PM, lyr_soc_30, fill = PM)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("AN" = andesite, 
+                               "BS" = basalt,
+                               "GR" = granite)) +
+  facet_grid(cols = vars(ECO)) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+# all together
+sra.01.09.19.soc.df <- cbind(rbind(sra.2001.soc.df,
+                                   sra.2009.soc.df,
+                                   sra.2019.soc.df), 
+                             year = rep(c(2001, 2009, 2019), each = 9))
+sra.01.09.19.soc.df %>%
+  mutate(PMyear = paste0(PM, year)) %>%
+  ggplot(., aes(PMyear, lyr_soc_30, fill = PM, alpha = year)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("AN" = andesite, 
+                               "BS" = basalt,
+                               "GR" = granite)) +
+  facet_grid(cols = vars(ECO)) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
 ```
 
 ```{r cwt-d14c-01, include = FALSE}
@@ -2055,7 +2222,20 @@ cwt.01.19 <- lapply(seq_along(sra.2019.oc.sp), function(i) {
   })
 })
 names(cwt.01.19) <- names(sra.2019.oc.sp)
-
+# average cwt '19 samples, '01 depths
+cwt.01.19.avg <- lapply(seq_along(sra.2019.oc.sp.avg), function(i) {
+    d <- sra.2019.sum.ls[[i]][["lyr_bot"]]
+    c <- vector(mode = "list", length = length(d))
+    for(j in seq_along(d)) {
+      if(j == 1) {
+        c[[j]] <- sra.2001.oc.sp.avg[[i]][1:d[j], "lyr_soc"]
+      } else {
+        c[[j]] <- sra.2001.oc.sp.avg[[i]][(d[j-1]+1):d[j], "lyr_soc"] 
+      }
+    }
+    return(unlist(lapply(c, function(x) x/sum(x))))
+})
+names(cwt.01.19.avg) <- names(sra.2019.oc.sp)
 
 ## calculate fm_wts
 ## '01 depths
@@ -2069,6 +2249,7 @@ fm.wt.01.19 <- lapply(seq_along(cwt.01.19), function(i) {
   })
 }) 
 names(fm.wt.01.19) <- names(cwt.01.19)
+
 # 2009
 fm.wt.01.09 <- lapply(seq_along(cwt.01.09), function(i) {
   df <- data.frame(cwt = cwt.01.09[[i]])
@@ -2214,6 +2395,7 @@ fm.wt.19.01 <- lapply(seq_along(cwt.19.01), function(i) {
   })
 })
 names(fm.wt.19.01) <- names(cwt.19.01)
+
 # '01 inc
 fm.wt.19.01.inc <- lapply(seq_along(cwt.19.01.avg), function(j) {
   lapply(sra.2001.inc.fm.sp[[j]], function(fm) {
@@ -2336,6 +2518,217 @@ sra.19.01.09 <- rbind(data.frame(sra.19.01.09[, nms[1:5]],
 sra.19.01.09$d14c <- calc_14c(sra.19.01.09$fm, as.numeric(as.character(sra.19.01.09$Year)))
 sra.19.01.09$d14c_sd <- abs(sra.19.01.09$d14c - calc_14c(sra.19.01.09$fm + sra.19.01.09$fm_sd, as.numeric(as.character(sra.19.01.09$Year))))
 save(sra.19.01.09, file = "sra.19.01.09.RData")
+```
+
+```{r cwt-19-01-0_30cm}
+#### 0-30cm
+### bulk
+## 2019
+# SOC weights
+cwt.19_30 <- lapply(seq_along(sra.2019.oc.sp), function(i) {
+  lapply(sra.2019.oc.sp[[i]], function(df) {
+    d <- 30
+    c <- df[1:d, "lyr_soc"]
+    return(unlist(lapply(c, function(x) x/sum(c))))
+  })
+})
+names(cwt.19_30) <- names(sra.2019.oc.sp)
+# FM wts
+fm.wt.19_30 <- lapply(seq_along(cwt.19_30), function(i) {
+  lapply(seq_along(cwt.19_30[[i]]), function(j) {
+    df <- data.frame(cwt = cwt.19_30[[i]][[j]])
+    df$fm <- sra.2019.fm.sp[[i]][[j]][["var.1cm"]][1:length(cwt.19_30[[i]][[j]])]
+    df$fm_wt <- df$fm * df$cwt
+  return(df)
+  })
+}) 
+names(fm.wt.19_30) <- names(cwt.19_30)
+# summarize over 0-30cm
+sra.19.rep.30.ls <- lapply(seq_along(1:9), function(i) {
+  lapply(seq_along(fm.wt.19_30[[i]]), function(x) {
+    d <- 30
+    f <- sum(fm.wt.19_30[[i]][[x]][1:d, "fm_wt"])
+    return(unlist(f)) 
+  })
+})
+sra.19.avg.30.ls <- lapply(seq_along(sra.2019.sum.ls), function(i) {
+  fm <- lapply(seq_along(sra.19.rep.30.ls[[i]][[1]]), function(z) {
+    data.frame(fm_19_mean = mean(sapply(sra.19.rep.30.ls[[i]], "[", z), na.rm = TRUE),
+               fm_19_sd = sd(sapply(sra.19.rep.30.ls[[i]], "[", z), na.rm = TRUE))
+    })
+  return(bind_rows(fm))
+})
+names(sra.19.avg.30.ls) <- names(fm.wt.19_30)
+
+## 2001
+# SOC weights
+cwt.01_30 <- lapply(sra.2001.oc.sp, function(ls) {
+  lapply(ls, function(df) {
+    d <- 30
+    c <- df[1:d, "lyr_soc"]
+    return(unlist(lapply(c, function(x) x/sum(c))))
+  })
+})
+names(cwt.01_30) <- names(sra.2001.oc.sp)
+# FM wts
+fm.wt.01_30 <- lapply(seq_along(cwt.01_30), function(i) {
+  lapply(seq_along(cwt.01_30[[i]]), function(j) {
+    df <- data.frame(cwt = cwt.01_30[[i]][[j]])
+    df$fm <- sra.2001.fm.sp[[i]][[j]][["var.1cm"]][1:length(cwt.01_30[[i]][[j]])]
+    # linear extrapolation for filling 20-30cm fm data
+    fm_1_30 <- df$fm[1:30] # 0-30cm fm
+    if(length(which(is.na(fm_1_30))) > 0) {
+     ix <- which(is.na(fm_1_30))
+     ix.min <- min(ix) # first is.na(fm)
+     m <- fm_1_30[ix.min-1]-fm_1_30[ix.min-2] # slope at last two measurement points
+     for(i in ix.min:30) {
+      fm_1_30[i] <- fm_1_30[i - 1] + m 
+     }
+     df$fm[1:30] <- fm_1_30 
+    }
+    df$fm_wt <- df$fm * df$cwt
+  return(df)
+  })
+}) 
+names(fm.wt.01_30) <- names(cwt.01_30)
+# summarize over 0-30cm
+sra.01.rep.30.ls <- lapply(seq_along(1:9), function(i) {
+  lapply(seq_along(fm.wt.01_30[[i]]), function(x) {
+    d <- 30
+    f <- sum(fm.wt.01_30[[i]][[x]][1:d, "fm_wt"])
+    return(unlist(f)) 
+  })
+})
+sra.01.avg.30.ls <- lapply(seq_along(1:9), function(i) {
+  fm <- lapply(seq_along(sra.01.rep.30.ls[[i]][[1]]), function(z) {
+    data.frame(fm_01_mean = mean(sapply(sra.01.rep.30.ls[[i]], "[", z), na.rm = TRUE),
+               fm_01_sd = sd(sapply(sra.01.rep.30.ls[[i]], "[", z), na.rm = TRUE))
+    })
+  return(bind_rows(fm))
+})
+names(sra.01.avg.30.ls) <- names(fm.wt.01_30)
+
+### inc
+## 2019
+# SOC weights (site average)
+cwt.19_30.avg <- lapply(cwt.19_30, function(ls) {
+  apply(bind_rows(ls), 1, mean)
+})
+# FM weights
+fm.wt.19.30.inc <- lapply(seq_along(cwt.19_30.avg), function(j) {
+  lapply(sra.2019.inc.fm.sp[[j]], function(fm) {
+    df <- data.frame(cwt = cwt.19_30.avg[[j]])
+    df$fm <- fm
+    df$fm_wt <- df$fm * df$cwt
+  return(df)
+  })
+}) 
+names(fm.wt.19.30.inc) <- names(cwt.19_30.avg)
+# summarize over 0-30cm
+sra.19.30.inc.ls <- lapply(fm.wt.19.30.inc, function(ls) {
+  ls <- lapply(ls, function(df) sum(df$fm_wt))
+  names(ls) <- c("fm_19_mean", "fm_19_min", "fm_19_max")
+  return(data.frame(bind_rows(ls)))
+})
+names(sra.19.30.inc.ls) <- names(cwt.19_30.avg)
+
+## 2001
+# SOC weights (site average)
+cwt.01_30.avg <- lapply(cwt.01_30, function(ls) {
+  apply(bind_rows(ls), 1, mean)
+})
+# FM weights
+fm.wt.01.30.inc <- lapply(seq_along(cwt.01_30.avg), function(j) {
+  lapply(sra.2001.inc.fm.sp[[j]], function(fm) {
+    df <- data.frame(cwt = cwt.01_30.avg[[j]])
+    df$fm <- fm[1:length(cwt.01_30.avg[[j]])]
+    # linear extrapolation for filling 20-30cm fm data
+    fm_1_30 <- df$fm[1:30] # 0-30cm fm
+    if(length(which(is.na(fm_1_30))) > 0) {
+     ix <- which(is.na(fm_1_30))
+     ix.min <- min(ix) # first is.na(fm)
+     m <- fm_1_30[ix.min-1]-fm_1_30[ix.min-2] # slope at last two measurement points
+     for(i in ix.min:30) {
+      fm_1_30[i] <- fm_1_30[i - 1] + m 
+     }
+     df$fm[1:30] <- fm_1_30 
+    }
+    df$fm_wt <- df$fm * df$cwt
+  return(df)
+  })
+}) 
+names(fm.wt.01.30.inc) <- names(cwt.01_30.avg)
+# summarize over 0-30cm
+sra.01.30.inc.ls <- lapply(fm.wt.01.30.inc, function(ls) {
+  ls <- lapply(ls, function(df) sum(df$fm_wt))
+  names(ls) <- c("fm_01_mean", "fm_01_min", "fm_01_max")
+  return(data.frame(bind_rows(ls)))
+})
+names(sra.01.30.inc.ls) <- names(cwt.01_30.avg)
+
+## df for linear modeling
+# bulk
+sra.blk.rep.30.ls <- lapply(seq_along(sra.01.rep.30.ls), function(i) {
+  blk.01 <- data.frame(fm_blk = do.call(rbind, sra.01.rep.30.ls[[i]]),
+                       year = 2001)
+  blk.19 <- data.frame(fm_blk = do.call(rbind, sra.19.rep.30.ls[[i]]),
+                       year = 2019)
+  rbind(blk.01, blk.19) %>%
+    mutate(d14c_blk = calc_14c(fm_blk, year))
+})
+names(sra.blk.rep.30.ls) <- names(sra.01.30.inc.ls)
+sra.blk.rep.30.df <- bind_rows(sra.blk.rep.30.ls, .id = "PMeco")
+# inc
+inc.30.bind.fx <- function(ls, year_xx) {
+  rbind(
+    bind_rows(lapply(ls, "[", 2), .id = "PMeco") %>%
+      rename(fm_inc = paste0("fm_", year_xx, "_min")),
+    bind_rows(lapply(ls, "[", 3), .id = "PMeco") %>%
+      rename(fm_inc = paste0("fm_", year_xx, "_max"))) %>%
+    mutate(year = as.numeric(paste0("20", year_xx))) %>%
+    mutate(d14c_inc = calc_14c(fm_inc, year))
+}
+sra.inc.rep.30.df <- rbind(inc.30.bind.fx(sra.01.30.inc.ls, "01"), 
+                           inc.30.bind.fx(sra.19.30.inc.ls, "19"))
+# combine
+sra.blk.inc.rep.30.df <- merge(sra.blk.rep.30.df, sra.inc.rep.30.df, by = c("year", "PMeco"))
+save(sra.blk.inc.rep.30.df, file = "sra.blk.inc.rep.30.df.RData")
+
+## Combine mean data into a single data frame
+# functions for converting fm to d14c and calculating sd
+blk.14c.sd.fx <- function(df, year_xx) {
+  date <- as.numeric(paste0(20, year_xx))
+  df$fm_u <- df[[paste0("fm_", year_xx, "_mean")]] + df[[paste0("fm_", year_xx, "_sd")]]
+  df$d14c_u <- calc_14c(df$fm_u, date)
+  df[[paste0("d14c_", "mean")]] <- calc_14c(df[[paste0("fm_", year_xx, "_mean")]], date)
+  df[[paste0("d14c_", "sd")]] <- df[[paste0("d14c_", "mean")]] - df$d14c_u
+  df$year <- as.numeric(paste0(20, year_xx))
+  return(df %>% select(c(starts_with("d14c"), year)) %>% select(-d14c_u))
+}
+inc.14c.sd.fx <- function(df, year_xx) {
+  names(df) <- gsub(paste0("fm_", year_xx), "d14c", names(df))
+  df_14c <- calc_14c(df, as.numeric(paste0(20, year_xx)))
+  df_14c[[paste0("d14c_", "sd")]] <- sd(df_14c[ , 2:3])
+  df_14c$year <- as.numeric(paste0(20, year_xx))
+  return(df_14c[ , c(1, 4:5)])
+}
+# run functions and combine lists 
+# 0-30cm data from '01 and '19
+sra.30.blk.inc.ls <- lapply(
+  list(lapply(sra.01.30.inc.ls, inc.14c.sd.fx, year_xx = "01"), 
+       lapply(sra.19.30.inc.ls, inc.14c.sd.fx, year_xx = "19"),
+       lapply(sra.01.avg.30.ls, blk.14c.sd.fx, year_xx = "01"),
+       lapply(sra.19.avg.30.ls, blk.14c.sd.fx, year_xx = "19")),
+  bind_rows, .id = "PMeco")
+# reduce list to data frame, calculate difference of means and sd
+sra.30.blk.inc.df <- rbind(merge(sra.30.blk.inc.ls[[1]],
+                                 sra.30.blk.inc.ls[[3]],
+                                 by = c("PMeco", "year"), suffixes = c("_inc", "_blk")),
+                           merge(sra.30.blk.inc.ls[[2]],
+                                 sra.30.blk.inc.ls[[4]],
+                                 by = c("PMeco", "year"), suffixes = c("_inc", "_blk"))) %>%
+  mutate(blk.inc = d14c_mean_blk - d14c_mean_inc,
+         blk.inc.sd = sqrt(d14c_sd_blk^2/3 + d14c_sd_inc^2/2))
 ```
 
 ```{r plot-01-09-19-14c-profiles}
@@ -2621,21 +3014,137 @@ lapply(split(sra.ts.all, sra.ts.all$depth), plot.ts.fx)
 
 ```{r min-data-ras18}
 # load data
-ras18.min <- read_excel("/Users/jeff/sra-ts/data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
-                        sheet = "Data_Summary_2018_paper")
-ras18.lyr <- read_excel("/Users/jeff/sra-ts/data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
-                        sheet = "2009_bulk_data")
 ras18.frc <- read_excel("/Users/jeff/sra-ts/data/external/sra_ras_sum/sierra_data_summary_2020.xlsx",
                         sheet = "2009_fraction_data")
 
-# join data
-nms <- names(ras18.min)[which(names(ras18.min) %in% names(ras18.lyr))]
-nms <- nms[-which(nms == "ID_sra")]
-ras18.min <- ras18.min[ , -which(names(ras18.min) %in% nms)]
-ras18 <- type.convert(merge(ras18.lyr, ras18.min))
+# select only min cols and pivot longer
+ras18_2 <- ras18.sum %>%
+  select(`Fed (g/kg)`, `Feo (g/kg)`, `Alo (g/kg)`, `Alp (g/kg)`, `top mineral`, `bottom mineral`, pro_name) %>% 
+  rename(lyr_top = `top mineral`,
+         lyr_bot = `bottom mineral`) %>%
+  pivot_longer(cols = c(`Fed (g/kg)`, 
+                        `Feo (g/kg)`, 
+                        `Alo (g/kg)`, 
+                        `Alp (g/kg)`), 
+               names_to = "mins", values_to = "conc") %>%
+  data.frame()
+
+# Calculate min stocks
+ras18_3 <- ras18.sum %>%
+  select(`Fed (g/kg)`, `Feo (g/kg)`, `Alo (g/kg)`, `Alp (g/kg)`, `top mineral`, `bottom mineral`, pro_name, BD_g_cm_3, Soil_finefraction, Thickness_cm) %>% 
+  rename(lyr_top = `top mineral`,
+         lyr_bot = `bottom mineral`) %>%
+  pivot_longer(cols = c(`Fed (g/kg)`, 
+                        `Feo (g/kg)`, 
+                        `Alo (g/kg)`, 
+                        `Alp (g/kg)`), 
+               names_to = "mins", values_to = "conc") %>%
+  mutate(mass = Thickness_cm * BD_g_cm_3 * Soil_finefraction * 10,
+         min_stock = conc * mass * 10^-2) %>%
+  data.frame()
+ras18_3.ls <- lapply(split(ras18_3, ras18_3$mins), function(df) {
+  lapply(split(df, df$pro_name), function(x) {
+    x <- x[order(x$lyr_bot), ]
+    # calc cmtv min stock
+    x$min_stock_cmtv <- NA
+    for(i in seq_along(x$lyr_bot)) {
+      if(i == 1) {
+        x$min_stock_cmtv[i] <- x$min_stock[i]
+      } else {
+        x$min_stock_cmtv[i] <- x$min_stock[i] + x$min_stock_cmtv[i-1] 
+      }
+    }
+    x$mass_cmtv <- NA
+    for(i in seq_along(x$lyr_bot)) {
+      if(i == 1) {
+        x$mass_cmtv[i] <- x$mass[i]
+      } else {
+        x$mass_cmtv[i] <- x$mass[i] + x$mass_cmtv[i-1] 
+      }
+    }
+    return(x)
+  })
+})
+ras18_3.sp.df <- bind_rows(lapply(ras18_3.ls, function(ls) {
+  bind_rows(lapply(ls, function(x) {
+    depths(x) <- pro_name ~ lyr_top + lyr_bot
+    x.mps <- mpspline(x, var.name = "min_stock_cmtv")
+    return(x.mps$var.1cm[30])
+  }), .id = "pro_name") %>%
+    pivot_longer(cols = everything(), names_to = "pro_name", values_to = "min_stock_cmtv")
+}), .id = "min") %>%
+  mutate(min = ifelse(min == "Alo (g/kg)", "Al_ox",
+                      ifelse(min == "Alp (g/kg)", "Al_py",
+                             ifelse(min == "Fed (g/kg)", "Fe_dc", "Fe_ox"))),
+         PMeco = substr(pro_name, 1, 4)) %>%
+  select(-pro_name)
+
+# mass-weighted concentration
+ras18_4.sp.ls <- lapply(ras18_3.ls, function(ls) {
+  conc <- unlist(lapply(ls, function(x) {
+    depths(x) <- pro_name ~ lyr_top + lyr_bot
+    x.mps <- mpspline(x, var.name = "conc")
+    df <- data.frame(conc = x.mps$var.1cm[1:30],
+                     lyr_bot = seq(1, 30),
+                     pro_name = substr(x.mps$idcol, 1, 4))
+    return(split(df, df$pro_name))
+    }), recursive = FALSE)
+  mass <- unlist(lapply(seq_along(ls), function(i) {
+    x <- ls[[i]][ , c("lyr_bot", "mass_cmtv")]
+    t0 <- data.frame(matrix(nrow = 1, ncol = ncol(x)))
+    names(t0) <- names(x)
+    t0 <- 0
+    x <- rbind(t0, x)
+    sp <- spline(x, method = "hyman") # fit monotonic cubic spline
+    sp.ss <- smooth.spline(sp) # convert to class "spline" with smooth.spline fxn
+    std <- seq(0, 30) # depth in cm
+    sp <- predict(sp.ss, std) 
+    df <- data.frame(sp)
+    colnames(df) <- c("lyr_bot", "mass_cmtv")
+    df$pro_name <- substr(names(ls)[i], 1, 4)
+    df <- df[-1, ]
+    return(split(df, df$pro_name))
+  }), recursive = FALSE)
+  return(mapply(merge,
+                mass,
+                conc,
+                SIMPLIFY = FALSE))
+})
+
+# calculate mass-weighted conc for 0-30cm
+ras18_4.sp.df <- bind_rows(lapply(ras18_4.sp.ls, function(ls) {
+  bind_rows(lapply(ls, function(df) {
+    df <- df[order(df$lyr_bot), ]
+    df$mass <- NA
+    for (i in seq_along(df$mass)) {
+      if (i == 1) {
+        df$mass[i] <- df$mass_cmtv[i]
+      } else {
+        df$mass[i] <- df$mass_cmtv[i] - df$mass_cmtv[i-1]
+      }
+    }
+    df$mass_wt <- df$mass/sum(df$mass)
+    df$conc_30_wtd <- df$mass_wt * df$conc
+    return(sum(df$conc_30_wtd))
+  }), .id = "pro_name")
+}), .id = "min") %>% 
+  pivot_longer(!min, names_to = "PMeco", values_to = "conc") %>%
+  mutate(min = ifelse(min == "Alo (g/kg)", "Al_ox", 
+                      ifelse(min == "Alp (g/kg)", "Al_py",
+                             ifelse(min == "Fed (g/kg)", "Fe_dc", "Fe_ox"))))
+
+# merge w/ 14C data
+sra.all.30.min.conc.wtd <- merge(sra.30.blk.inc.df, ras18_4.sp.df, by = "PMeco") %>%
+  mutate(pm = ifelse(substr(PMeco, 1, 2) == "AN", "andesite", 
+                     ifelse(substr(PMeco, 1, 2) == "BS", "basalt", "granite")),
+         eco = ifelse(substr(PMeco, 3, 4) == "pp", "warm", 
+                      ifelse(substr(PMeco, 3, 4) == "wf", "cool", "cold")))
+save(sra.all.30.min.conc.wtd, file = "sra.all.30.min.conc.wtd.RData")
 
 # spline fits
-ras18.split <- split(ras18_2, ras18_2$mins)[c(1, 3:5)]
+# (should be mass-weighted...)
+# also calculate for 0-30cm
+ras18.split <- split(ras18_2, ras18_2$mins)
 ras18.sp <- lapply(ras18.split, function(df) {
   ls <- lapply(split(df, df$pro_name), function(x) {
     depths(x) <- pro_name ~ lyr_top + lyr_bot
@@ -2648,7 +3157,7 @@ ras18.sp <- lapply(ras18.split, function(df) {
 names(ras18.sp) <- c("Al_ox", "Al_py", "Fe_dc", "Fe_ox")
 ras18.sp.df <- data.frame(reduce(lapply(seq_along(ras18.sp), function(i) {
     df <- data.frame(t(bind_rows(ras18.sp[[i]])))
-    names(df) <- unique(ras18$pro_name)
+    names(df) <- unique(ras18.sum$pro_name)
     df$depth <- rownames(df)
     return(df %>%
              pivot_longer(!depth, names_to = "pro_name", values_to = names(ras18.sp)[i]))
@@ -2672,7 +3181,7 @@ sra.ts.all.blk.inc <- merge(sra.ts.all[sra.ts.all$Type == "bulk", ],
                             suffixes = c("_bulk", "_inc")) %>%
   filter(year != 2009) %>%
   mutate(blk.inc = d14c_bulk - d14c_inc,
-         blk.inc.sd = sqrt((d14c_u_bulk - d14c_bulk)^2 + apply(cbind(d14c_inc, d14c_u_inc, d14c_l_inc), 1, var)))
+         blk.inc.sd = sqrt((d14c_u_bulk - d14c_bulk)^2 + apply(cbind(d14c_u_inc, d14c_l_inc), 1, var)))
 
 # join w/ d14c
 sra.all.min <- ras18.sp.df %>%
@@ -2688,8 +3197,17 @@ sra.all.min <- ras18.sp.df %>%
                         # "Al_nonCrys", "Fe_Crys"
                         ), names_to = "min", values_to = "conc")
 
+# Create min/14c df w/ 0-30cm 14C data
+sra.all.30.min <- merge(sra.30.blk.inc.df, ras18_3.sp.df, by = "PMeco") %>%
+  mutate(pm = ifelse(substr(PMeco, 1, 2) == "AN", "andesite", 
+                     ifelse(substr(PMeco, 1, 2) == "BS", "basalt", "granite")),
+         eco = ifelse(substr(PMeco, 3, 4) == "pp", "warm", 
+                      ifelse(substr(PMeco, 3, 4) == "wf", "cool", "cold")))
+
+
 # save
 save(sra.all.min, file = "sra.all.min.RData")
+save(sra.all.30.min, file = "sra.all.30.min.RData")
 ```
 
 ```{r plot-min-14c}
@@ -3883,8 +4401,7 @@ mod.fits.fx <- function(mod, pars, In, sub, lag = 0, upper, lower, cost) {
     cat(paste0("time: ", end - start, "\n"))
     
     # Return fitted parameters and sensitivity
-    return(list(modfit = fit, 
-                sens = Sfun))
+    return(list(modfit = fit, sens = Sfun))
   }) 
 }
 
@@ -3946,6 +4463,31 @@ mod.sens.fits.2ps <- mod.fits.fx(mod = "2ps",
 names(mod.sens.fits.2ps) <- names(pars.i.2ps)[ix.10]
 save(mod.sens.fits.2ps, file = paste0("../data/derived/modFit_pars/", "mod.fits.2ps", "_", Sys.Date(), ".Rdata"))
 mod.fits.2ps <- lapply(mod.sens.fits.2ps, function(x) x[[1]])
+
+# par range [0, 1] for all pars, stocks + 14C, w/ estimated inputs
+# 10
+mod.sens.fits.2ps5.10 <- mod.fits.fx(mod = "2ps",
+                                     pars = pars.i.2ps, 
+                                     sub = ix.10,
+                                     In = in.est,
+                                     upper = c(1, 1, 1),
+                                     lower = c(0, 0, 0),
+                                     cost = "14C + cStock")
+names(mod.sens.fits.2ps5.10) <- names(pars.i.2ps)[ix.10]
+save(mod.sens.fits.2ps5.10, file = paste0("../data/derived/modFit_pars/", "mod.sens.fits.2ps5.10", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps5.10 <- lapply(mod.sens.fits.2ps5.10, function(x) x[[1]])
+# 20
+mod.sens.fits.2ps5.20 <- mod.fits.fx(mod = "2ps",
+                                     pars = pars.i.2ps, 
+                                     sub = ix.20,
+                                     In = in.est,
+                                     upper = c(1, 1, 1),
+                                     lower = c(0, 0, 0),
+                                     cost = "14C + cStock")
+names(mod.sens.fits.2ps5.20) <- names(pars.i.2ps)[ix.20]
+save(mod.sens.fits.2ps5.20, file = paste0("../data/derived/modFit_pars/", "mod.sens.fits.2ps5.20", "_", Sys.Date(), ".Rdata"))
+mod.fits.2ps5.20 <- lapply(mod.sens.fits.2ps5.20, function(x) x[[1]])
+
 # 20-30
 mod.sens.fits.2ps.30 <- mod.fits.fx(mod = "2ps",
                                     pars = pars.i.2ps, 

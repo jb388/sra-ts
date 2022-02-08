@@ -32,12 +32,12 @@ con.df <- con.df.fx(PMeco_depth)
 # initial pars
 soc <- csoc.19.0_30[[PMeco_depth]][ , "lyr_soc"]
 In <- in.est[[PMeco_depth]]
-ks <- c(.18, .008)
-tc <- .1 # transfer coef 
+ks <- c(.1, .004)
+tc <- .05 # transfer coef 
 pars <- c(ks, tc)
 
 # evaluate pars
-ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
+ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps", lag = 0)
 
 # plot
 C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
@@ -122,6 +122,7 @@ ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
 C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
+# C14.2p.plot.fx(par.fx(pars = mod.fits.2ps5.10$`ANrf_0-10`$par, In = In, mod = "2ps"), con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
 pars.i.2ps[[PMeco_depth]] <- pars 
@@ -203,6 +204,9 @@ ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
 C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
+# C14.2p.plot.fx(par.fx(mod.fits.2ps5.10$`ANwf_0-10`$par,
+#                       In = In,
+#                       mod = "2ps"), con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
 pars.i.2ps[[PMeco_depth]] <- pars
@@ -608,6 +612,7 @@ ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
 C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
+# C14.2p.plot.fx(par.fx(pars = mod.fits.2ps5.10$`GRrf_0-10`$par, In = In, mod = "2ps"), con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
 pars.i.2ps[[PMeco_depth]] <- pars 
@@ -689,6 +694,7 @@ ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
 C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
+# C14.2p.plot.fx(par.fx(pars = mod.fits.2ps5.10$`GRwf_0-10`$par, In = In, mod = "2ps"), con.df, mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
 pars.i.2ps[[PMeco_depth]] <- pars

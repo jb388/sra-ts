@@ -1,0 +1,11 @@
+Files: "elm_jena_template.xlsx"
+Source: A. Steinhof <steinhof@bgc-jena.mpg.de>
+Curator: J. Beem-Miller <jbeem@bgc-jena.mpg.de>
+Date: 09-Sep-2020
+Contents:
+  - template for C and N results from Jena facility (ROMA)
+Notes:
+  - used to check inputs for automated file reading script when ingesting Jena CN data
+  - template column "Probenname" changed to "ID" 5-Nov-20
+  - removed date extenion from dir name on 5-Nov-21
+References:
