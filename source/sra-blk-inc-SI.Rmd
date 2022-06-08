@@ -1,0 +1,1755 @@
+---
+title: Supplemental information for Parent material and climate interact to control soil C dynamics through the development of poorly crystalline minerals
+shorttitle: Supplemental information
+author:
+  - name: Jeffrey Beem-Miller
+    affiliation: '1'
+    address: Hans-Knoell-Str. 10, 07745 Jena, Germany
+    corresponding: yes
+    email: jbeem@bgc-jena.mpg.de
+  - name: Craig Rasmussen
+    affiliation: '2'
+  - name: Alison M. Hoyt
+    affiliation: '1,3'
+  - name: Marion Schrumpf
+    affiliation: '1'
+  - name: Georg Guggenberger
+    affiliation: '4'
+  - name: Susan Trumbore
+    affiliation: '1'
+affiliation:
+  - id: '1'
+    institution: Department of Biogeochemical Processes, Max Planck Institute for Biogeochemistry, Jena, Germany
+  - id: '2'
+    institution: Department of Environmental Science, The University of Arizona, Tucson, AZ, USA
+  - id: '3'
+    institution: Department of Earth System Science Science, Stanford University, Stanford, CA, USA
+  - id: '4'
+    institution: Institute of Soil Science, Leibniz University Hannover, Hannover, Germany
+output: 
+  pdf_document: papaja::apa6_pdf
+  word_document:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
+  html_notebook:
+    css: "custom.css"
+    toc: yes
+    toc_depth: 2
+figurelist: yes
+floatsintext: no
+footnotelist: no
+linenumbers: yes
+figsintext: yes
+mask: no
+classoption: man
+tablelist: yes
+header_includes:
+- \usepackage[utf8]{inputenc}
+- \usepackage{float}
+- \usepackage{booktabs}
+- \usepackage{longtable}
+---
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.align = 'center', dev = c('cairo_pdf', 'png'))
+options(scipen = 5)
+```
+
+```{r setup, include = FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(SoilR)
+library(readxl)
+library(ISRaD)
+library(emmeans)
+library(gt)
+library(GSIF)
+library(aqp)
+library(cowplot)
+library(kableExtra)
+library(grid)
+library(gridExtra)
+library(purrr)
+```
+
+```{r col-pals}
+# color palettes for ECO & PM
+warm <- "#BF812D"
+cool <- "#80CDC1"
+cold <- "#01665E"
+granite <- "#9daba9"
+andesite <- "#382dbf"
+basalt <- "#bf382d"
+```
+
+```{r atm-14c}
+load("atm.14c.RData")
+atm.14c <- atm.14c %>% rename(Year = year) %>% mutate(Type = "atmosphere")
+slope.atm14c.01.19 <- round(summary(lm(d14c ~ Year, atm.14c))$coef[2,1],2)
+```
+
+```{r load-min}
+load("ras18.sp.df.RData")
+```
+
+```{r ingest-fxs, include=FALSE}
+source("./utilities/jena_ams_ingest.R")
+source("./utilities/jena_elm_ingest.R")
+```
+
+```{r emmeans-output-fxs}
+# bold sig. trend function
+trendCIform.fx <- function(trend, l, u) {
+  cell_spec(trend, "latex", bold = ifelse(u < 0 | l > 0, TRUE, FALSE))
+}
+
+# format pvalues function
+pvalForm.fx <- function(p) {
+  cell_spec(ifelse(p < 0.001, "< .001", round(p, 3)),
+              "latex", bold = ifelse(p > 0.05, FALSE, TRUE))
+}
+
+# sig contrasts fx
+sig.cts.fx <- function(df) {
+  df <- df[which(df$p.value < 0.1), ]
+} 
+```
+
+```{r load-C-data}
+# 2001
+sra.01.blkC <- read_excel("../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx", sheet = "2001_bulk_data") %>% type.convert(., as.is = TRUE) %>% data.frame
+
+# 2009
+sra.09.blkC <- read_excel("../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx", sheet = "2009_bulk_data") %>% type.convert(., as.is = TRUE) %>% data.frame
+
+# 2019
+elm_results_dir <- list.files("../data/raw", pattern = "elm_jena_results", full.names = TRUE)
+elm_results_ls <- suppressMessages(lapply(seq_along(elm_results_dir), function(i) {
+  read_jena_elm_results(elm_results_dir[i], verbose = FALSE)
+}))
+names(elm_results_ls) <- list.files("../data/raw", pattern = "elm_jena_results")
+```
+
+```{r define-C-spline-fx}
+# depth spline for C percent, where d = vector of layer bottom depths
+Cspline.fx <- function(df, var.name, d = c(10, 20, 30)) {
+  bind_rows(lapply(split(df, df$pro_name), function(x) {
+    depths(x) <- pro_name ~ lyr_top + lyr_bot
+    x.mps <- mpspline(x, var.name = var.name, d = t(c(0, d)))
+    x.std <- t(x.mps$var.std)
+    df <- data.frame(c_pct = x.std, depth = row.names(x.std))
+    df$depth <- gsub(" [^ ]*$", "", df$depth)
+    return(df[1:length(d), ])
+  }), .id = "pro_name")
+}
+```
+
+```{r summarize-C-data, include=FALSE}
+## 2001
+# remove oak sites and sites w/o C data
+sra.01.blkC <- sra.01.blkC[c(which(grepl("AN", sra.01.blkC$ID)), which(grepl("BS", sra.01.blkC$ID)), which(grepl("GR", sra.01.blkC$ID))), ]
+sra.01.blkC <- sra.01.blkC[which(!is.na(sra.01.blkC$C.)), ]
+
+# convert lyr_top to numeric and add pro_name col
+sra.01.blkC$lyr_top <- as.numeric(sra.01.blkC$lyr_top)
+
+# Need to account for different depth increments among profiles: depth spline C.
+# split by profile and spline
+sra.01.blkC$pro_name <- paste0(sra.01.blkC$PMeco, sra.01.blkC$pro_rep)
+sra.01.blkC.sp <- Cspline.fx(sra.01.blkC, var.name = "C.")
+sra.01.blkC.sp.reps <- sra.01.blkC.sp
+sra.01.blkC.sp.reps$PMeco <- substr(sra.01.blkC.sp.reps$pro_name, 1, 4)
+sra.01.blkC.sp.reps$year <- 2001
+# summarize
+sra.01.blkC.sum <- data.frame(
+  sra.01.blkC.sp %>%
+    mutate(PMeco = substr(pro_name, 1, 4)) %>%
+    group_by(PMeco, depth) %>%
+    summarize(across(c_pct, .fns = c(mean = mean, sd = sd)))
+)
+
+## 2009
+# spline
+sra.09.blkC.sp <- Cspline.fx(
+  sra.09.blkC %>% 
+    rename(lyr_bot = bottom.mineral, lyr_top = top.mineral), 
+  var.name = "C_pct")
+sra.09.blkC.sp.reps <- sra.09.blkC.sp
+sra.09.blkC.sp.reps$PMeco <- substr(sra.09.blkC.sp.reps$pro_name, 1, 4)
+sra.09.blkC.sp.reps$year <- 2009
+
+# summarize
+sra.09.blkC.sum <- data.frame(
+  sra.09.blkC.sp %>%
+    mutate(PMeco = substr(pro_name, 1, 4)) %>%
+    group_by(PMeco, depth) %>%
+    summarize(across(c_pct, .fns = c(mean = mean, sd = sd)))
+)
+
+## 2019
+# reps
+sra.19.blkC.reps <- bind_rows(unlist(elm_results_ls, recursive = FALSE)) %>%
+  mutate(PMeco = sapply(strsplit(ID, "_"), "[", 2),
+         depth = sapply(strsplit(ID, "_"), "[", 4),
+         year = 2019)
+sra.19.blkC.reps.30 <- bind_rows(
+  lapply(split(sra.19.blkC.reps, sra.19.blkC.reps$PMeco), function(df) {
+    df$lyr_bot <- as.numeric(unlist(lapply(strsplit(df$depth, "-"), "[[", 2)))
+    df <- df[df$lyr_bot < 31, ]
+    df$rep <- rep(seq(1, 3), each = 3)
+    df$pro_name <- paste(df$PMeco, df$rep, sep = "_")
+    names(df)[which(names(df) == "C")] <- "c_pct"
+    return(df[ , names(df) %in% names(sra.09.blkC.sp.reps)])
+  }))
+
+# summary
+sra.19.blkC.sum <- data.frame(
+  bind_rows(unlist(elm_results_ls, recursive = FALSE)) %>%
+  mutate(PMeco = sapply(strsplit(ID, "_"), "[", 2),
+         depth = sapply(strsplit(ID, "_"), "[", 4)) %>%
+  group_by(PMeco, depth) %>%
+  summarize(across(c(C, N), .fns = c(mean = mean, sd = sd))) %>%
+  rename(c_pct_mean = C_mean,
+         c_pct_sd = C_sd))
+# extract < 31 cm
+sra.19.blkC.sum.30 <- bind_rows(
+  lapply(split(sra.19.blkC.sum, sra.19.blkC.sum$PMeco), function(df) df[1:3, ]))
+```
+
+```{r bulk-data-wrangling}
+# load data
+load("sra.19.01.09.RData")
+load("sra.19.01.rep.ls.RData")
+load("sra.2019.ls.RData")
+load("sra.2001.ls.RData")
+
+## change over time
+# merge '01 and '19 data
+sra.19.01.d <- merge(sra.19.01.09[sra.19.01.09$Year == 2001 & sra.19.01.09$lyr_bot, ],
+                     sra.19.01.09[sra.19.01.09$Year == 2019 & sra.19.01.09$lyr_bot < 31, ],
+                     by = c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot"),
+                     suffixes = c("_01", "_19")) 
+sra.19.01.d$dd14c_01_19 <- sra.19.01.d$d14c_01 - sra.19.01.d$d14c_19
+sra.19.01.d$sd14c_01_19 <- sqrt(sra.19.01.d$d14c_sd_01^2/3 + sra.19.01.d$d14c_sd_19^2/3)
+
+## summarize change '01-'19
+# PM
+sra.19.01.dsum.PM <-
+  sra.19.01.d %>%
+  filter(lyr_bot < 31) %>%
+  group_by(PM, lyr_bot) %>%
+  summarize(across(dd14c_01_19, .fn = list(mean = mean, sd = sd), na.rm = TRUE))
+# ECO
+sra.19.01.dsum.ECO <-
+  sra.19.01.d %>%
+  filter(lyr_bot < 31) %>%
+  group_by(ECO, lyr_bot) %>%
+  summarize(across(dd14c_01_19, .fn = list(mean = mean, sd = sd), na.rm = TRUE))
+
+## make long data frame of rep data
+# 2001 = sra.19.01.rep.ls (splined to '19 depths)
+sra.19.01.rep.df <- bind_rows(lapply(sra.19.01.rep.ls, function(PMeco) {
+  df <- bind_rows(lapply(PMeco, function(r) {
+    fm <- r[!is.na(r)]
+    lyr_bot <- seq(10, length(fm) * 10, by = 10)
+    return(data.frame(fm = fm, lyr_bot = lyr_bot))
+    }), .id = "PMeco_rep")
+  df$pro_rep <- substr(df$PMeco_rep, nchar(df$PMeco_rep), nchar(df$PMeco_rep))
+  return(df[ , c("fm", "lyr_bot", "pro_rep")])
+}), .id = "PMeco")
+sra.19.01.rep.df$Year <- 2001
+sra.19.01.rep.df$PM <- substr(sra.19.01.rep.df$PMeco, 1, 2)
+sra.19.01.rep.df$ECO <- substr(sra.19.01.rep.df$PMeco, 3, 4)
+# 2019 = sra.2019.ls
+sra.2019.rep.df <- bind_rows(sra.2019.ls, .id = "PMeco")
+sra.2019.rep.df <- sra.2019.rep.df[sra.2019.rep.df$lyr_bot < 31, ]
+
+# 2009 (splined to '19 depths)
+sra.09.19.df <- sra.19.01.09[sra.19.01.09$Year == "2009", 
+                             c("PMeco", "fm", "lyr_bot", "Year", "PM", "ECO")] %>%
+  mutate(pro_rep = 1) %>%
+  filter(lyr_bot < 31)
+
+# merge
+sra.01.09.19.d.df <- rbind(
+  sra.2019.rep.df[ , match(names(sra.19.01.rep.df), names(sra.2019.rep.df))],
+  sra.09.19.df,
+  sra.19.01.rep.df) %>%
+  left_join(., ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "lyr_bot", "PM", "ECO")], 
+  by = c("lyr_bot", "PM", "ECO")) %>%
+  mutate(PM = factor(recode(PM, `AN` = "andesite", `BS` = "basalt", `GR` = "granite")),
+         ECO = factor(recode(ECO, `pp` = "warm", `wf` = "cool", `rf` = "cold"),
+                      levels = c("warm", "cool", "cold")),
+         year = as.numeric(Year) - 2000,
+         Year = as.numeric(Year))
+sra.01.09.19.d.df$d14c <- convert_fm_d14c(fm = sra.01.09.19.d.df$fm,
+                                          obs_date_y = sra.01.09.19.d.df$Year, verbose = FALSE)
+
+# by depth
+sra.01.09.19.d.10df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 10, ]
+sra.01.09.19.d.20df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 20, ]
+sra.01.09.19.d.30df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 30, ]
+
+# extract GRrf data for referencing extreme values
+sra.01.blk.GRrf.df  <- sra.19.01.d %>% filter(PMeco == "GRrf")
+```
+
+```{r resp-data-wrangling}
+# load data
+load("sra.19.01.inc.df.RData")
+load("sra.2019.inc.df.RData")
+load("sra.2001.inc.df2.RData")
+load("sra.2019.inc.df2.RData")
+load("sra.2001.inc.ls.RData")
+load("soc.2001.inc.sum.RData")
+load("sra.2019.cn.sum.RData")
+
+# bind raw 2001 inc data to df for referencing extreme values
+sra.01.inc.raw.df <- bind_rows(sra.2001.inc.ls, .id = "PMeco")
+sra.01.inc.GRrf.df <- sra.01.inc.raw.df %>% filter(PMeco == "GRrf")
+
+# make df of '19 inc data from GRrf for referencing extreme values
+sra.19.inc.GRrf.df <- sra.2019.inc.df2 %>% filter(PMeco == "GRrf")
+
+# rbind '01 and '19 data
+sra.01.19.inc.d.df <- rbind(cbind(sra.2001.inc.df2, 
+                                  rep = rep(c("a", "b"), each = 27),
+                                  Year = 2001),
+                            sra.2019.inc.df2[ , c("PM", "ECO", "rep", "lyr_bot", "Year", "d14c")]) %>%
+  left_join(., ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "lyr_bot", "PM", "ECO")], 
+  by = c("lyr_bot", "PM", "ECO")) %>%
+  mutate(PM = factor(recode(PM, `AN` = "andesite", `BS` = "basalt", `GR` = "granite")),
+         ECO = factor(recode(ECO, `pp` = "warm", `wf` = "cool", `rf` = "cold"),
+                      levels = c("warm", "cool", "cold")),
+         year = Year - 2000)
+
+## change over time
+# merge '01 and '19 data
+sd.inc.fx <- function(df) {
+  apply(df[ , c("d14c_min", "d14c_max")], 1, sd)
+}
+sra.19.01.inc.d.df <- merge(
+  cbind(sra.19.01.inc.df, sd = sd.inc.fx(sra.19.01.inc.df))[ , c("PM", "ECO", "PMeco", "lyr_bot", "d14c", "sd")],
+  cbind(sra.2019.inc.df, sd = sd.inc.fx(sra.2019.inc.df))[ , c("PM", "ECO", "PMeco", "lyr_bot", "d14c", "sd")],
+  by = c("PM", "ECO", "PMeco", "lyr_bot"),
+  suffixes = c("_01", "_19"))
+sra.19.01.inc.d.df$dd14c_01_19 <- sra.19.01.inc.d.df$d14c_01 - sra.19.01.inc.d.df$d14c_19
+sra.19.01.inc.d.df$sd14c_01_19 <- sqrt(
+  sra.19.01.inc.d.df$sd_01^2/2 + sra.19.01.inc.d.df$sd_19^2/2)
+
+## filter outliers
+sra.01.19.inc.d.df <- sra.01.19.inc.d.df[-which(sra.01.19.inc.d.df$d14c < -200), ]
+
+# df by depth
+sra.01.19.inc.d.10.df <- sra.01.19.inc.d.df[sra.01.19.inc.d.df$lyr_bot == 10, ]
+sra.01.19.inc.d.20.df <- sra.01.19.inc.d.df[sra.01.19.inc.d.df$lyr_bot == 20, ]
+sra.01.19.inc.d.30.df <- sra.01.19.inc.d.df[sra.01.19.inc.d.df$lyr_bot == 30, ]
+```
+
+```{r emmip-plot-fx}
+# plot function for timeseries (combines bulk and respired data)
+emmip.plot.all.fx <- function(var, split_var, depths, Type) {
+  
+  # define plot vars
+  quo_var <- sym(var)
+  brks <- c(2001, 2009, 2019)
+  
+  # set color scales
+  if (var == "PM") {
+    cvals <- c("andesite" = andesite, "basalt" = basalt, "granite" = granite)
+  } else {
+    cvals <- c("warm" = warm, "cool" = cool, "cold" = cold)
+  }
+  
+  # emmip fx
+  emmip.df.fx <- function(dat, var, Type) {
+    
+    # mod list
+    mod.ls <- lapply(dat, function(lyr_bot) {
+      lm(d14c ~ PM * Year * ECO, lyr_bot)
+    })
+    
+    # set breaks
+    if (Type == "respired") {
+      brks <- c(2001, 2019)
+    }
+    
+    # emmip fx
+    emmip.fx <- function(mod, var) {
+      if (var == "PM") {
+        emmip(mod, PM ~ Year | ECO, CIs = TRUE, at = list(Year = brks))$data
+      } else {
+        emmip(mod, ECO ~ Year | PM, CIs = TRUE, at = list(Year = brks))$data
+      }
+    }
+    
+    # return emmip ls
+    return(lapply(mod.ls, function(mod) {
+      emmip.df <- emmip.fx(mod, var)
+      emmip.df$Type <- Type
+      return(emmip.df)
+    }))
+  }
+  
+  # plot fn
+  plot.fx <- function(ls, data, Type) {
+    
+    # run loop
+    lapply(seq_along(ls), function(i) {
+
+      # plot
+      ggplot(ls[[i]], aes(xvar, yvar)) +
+        geom_line(aes(color = !! quo_var, linetype = Type), size = .8, show.legend = FALSE) +
+        geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = !! quo_var, linetype = Type), alpha = .1, show.legend = FALSE) +
+        geom_point(data = data[[i]],
+          aes(Year, d14c, color = !! quo_var, shape = ecoType), size = 1.5, alpha = .8) +
+        # atm
+        geom_line(data = atm.14c, aes(Year, d14c, linetype = Type), color = "black") +
+        scale_linetype_manual(name = NULL, 
+                              limits = c("bulk soil", "respired", "atmosphere"),
+                              values = c("bulk soil" = 1,
+                                         "respired" = 2,
+                                         "atmosphere" = 3)) +
+        scale_shape_manual(name = NULL,
+                           limits = c("warm (bulk soil)", "cool (bulk soil)", "cold (bulk soil)",
+                                      "warm (respired)", "cool (respired)", "cold (respired)"),
+                           values = c("warm (bulk soil)" = 15, 
+                                      "cool (bulk soil)" = 17, 
+                                      "cold (bulk soil)" = 16,
+                                      "warm (respired)" = 0, 
+                                      "cool (respired)" = 2, 
+                                      "cold (respired)" = 1)) +  
+        scale_color_manual(name = NULL,
+                           values = cvals) +
+        scale_fill_manual(name = NULL,
+                          values = cvals) +
+        scale_x_continuous(limits = c(2000, 2020), 
+                           breaks = brks, expand = expansion(add = 2)) +
+        coord_cartesian(ylim = c(-110, 170)) +
+        theme_bw() +
+        theme(panel.grid = element_blank(),
+              axis.title = element_blank(),
+              axis.text.x = element_text(size = 7),
+              strip.background = element_blank(),
+              strip.text.x = element_blank(),
+              plot.margin = unit(rep(0, 4), "cm"),
+              legend.position = "none")
+    })
+  }
+  
+  # data prep fx
+  data.ls.fx <- function(data.df) {
+    lapply(split(data.df, data.df$lyr_bot), function(df) {
+        df$Type <- Type
+        df$ecoType <- paste0(df$ECO, " (", df$Type, ")")
+        return(df)
+    })[depths]
+  }
+  
+  # extract data by Type
+  if (Type == "respired") {
+    data.ls <- data.ls.fx(sra.01.19.inc.d.df)
+  } else {
+    data.ls <- data.ls.fx(sra.01.09.19.d.df)
+  }
+  
+  # run emip
+  emip.ls <- emmip.df.fx(data.ls, var, Type)
+  
+  # list split fx
+  split.fx <- function(ls, split_var) {
+    lapply(ls, function(df) {
+      split(df, df[[split_var]])
+    })
+  }
+  
+  # split data and emip lists by split_var
+  emip.ls.sp <- split.fx(emip.ls, split_var)
+  data.ls.sp <- split.fx(data.ls, split_var)
+  
+  # plot list
+  p.ls <- lapply(seq_along(data.ls.sp), function(j) {
+    p <- plot.fx(data = data.ls.sp[[j]], ls = emip.ls.sp[[j]], Type = Type)
+    names(p) <- names(data.ls.sp[[j]])
+    return(p)
+  })
+  
+  # add names and return p.ls
+  names(p.ls) <- names(emip.ls.sp)
+  return(p.ls)
+}
+```
+
+# Soil carbon
+
+```{r soil-C-stats, include = FALSE}
+# reps df
+sra.01.09.19.blkC.reps <- rbind(sra.01.blkC.sp.reps, sra.09.blkC.sp.reps, sra.19.blkC.reps.30)
+sra.01.09.19.blkC.reps$Year <- factor(sra.01.09.19.blkC.reps$year)
+sra.01.09.19.blkC.reps$PM <- substr(sra.01.09.19.blkC.reps$PMeco, 1, 2)
+sra.01.09.19.blkC.reps$ECO <- factor(
+  substr(sra.01.09.19.blkC.reps$PMeco, 3, 4),
+  levels = c("pp", "wf", "rf"), 
+  labels = c("warm", "cool", "cold")
+)
+
+# Conf. int excludes zero fx (returns matching data frame rows)
+confint.X0.fx <- function(df, l, u) {
+  df[which(df[[l]] > 0 | df[[u]] < 0), ]
+} 
+
+# 0-10
+blkC.ts.10.lm <- lm(c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$depth == "0-10", ])
+blkC.ts.10.emt <- emtrends(blkC.ts.10.lm, pairwise ~ PMeco, var = "year")
+# -ANpp, +ANrf, -BSrf
+
+# 10-20
+blkC.ts.20.lm <- lm(c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$depth == "10-20", ])
+blkC.ts.20.emt <- emtrends(blkC.ts.20.lm, pairwise ~ PMeco, var = "year")
+# +ANrf, +GRpp
+
+# 20-30
+blkC.ts.30.lm <- lm(c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$depth == "20-30", ])
+blkC.ts.30.emt <- emtrends(blkC.ts.30.lm, pairwise ~ PMeco, var = "year")
+# +ANrf
+
+# table of significant changes
+blkC.ts.sig.df <- bind_rows(lapply(
+  list(data.frame(blkC.ts.10.emt$emtrends),
+       data.frame(blkC.ts.20.emt$emtrends),
+       data.frame(blkC.ts.30.emt$emtrends)), function(df) {
+         confint.X0.fx(df, "lower.CL", "upper.CL")
+       }), .id = "Depth") %>%
+  mutate(Depth = ifelse(Depth == 1, "0-10cm", 
+                        ifelse(Depth == 2, "10-20cm", "20-30cm")),
+         across(c("year.trend", "SE", "lower.CL", "upper.CL"), ~ round(., 2)),
+         Site = ifelse(PMeco == "ANpp", "andesite (warm)",
+                       ifelse(PMeco == "ANrf", "andesite (cold)",
+                              ifelse(PMeco == "BSrf", "basalt (cold)", "granite (warm)")))) %>%
+  select(c(Depth, Site, year.trend, SE, df, lower.CL, upper.CL))
+```
+
+We did not observe clear trends in soil carbon concentration over time for the majority of sites, making us confident that most sites are at steady-state with regards to carbon stock changes (**Fig. \@ref(fig:plot-C-timeseries)**). Although we did observe substantial variation in some sites, this is likely due to spatial heterogeneity in soil C concentration that cannot be avoided when destructively resampling the same sites over time (**Fig. \@ref(fig:plot-C-timeseries)**). However, we did observe significant trends in soil C concentration with time for a a few of the sites when considered by specific depth increments. However, a caveat here is that we did not account for potential differences in the mass of soil sampled over time, as we only considered depth-based increments. We observed the most significant changes at the soil surface, at three of the 9 sites, but only two sites showed significant changes at the 10-20cm depth, and only one of the soils showed changes at the deepest depth (**Table \@ref(tab:pct-C-change-tbl)**). The soil at the cold climate andesite site was an outlier in that the soil C concentration showed a consistently significant increase for all depths over the study period (**Table \@ref(tab:pct-C-change-tbl)**).
+
+(ref:pct-C-change-tbl-cap) Changes in soil C concentration (%), 2001-2019. (Only signficant trends shown).
+
+```{r pct-C-change-tbl}
+# print table
+kable(blkC.ts.sig.df,
+      col.names = c(
+        "Depth",
+        "Site",
+        "Trend",
+        "$SE$",
+        "df",
+        "$lower$",
+        "$upper$"),
+      escape = FALSE,    
+      longtable = TRUE,
+      booktabs = TRUE,
+      caption = "(ref:pct-C-change-tbl-cap)") %>%
+    collapse_rows(1, latex_hline = "major", valign = "top") %>%
+    add_header_above(c(" " = 5, "95% CI" = 2)) %>%
+    kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+    kable_styling(latex_options = c("repeat_header"),
+                  font_size = 10)
+```
+
+(ref:plot-ts-C-SI-cap) Changes in soil C concentration, 2001-2019. Points show replicate profiles (n = 3); lines show marginal mean estimates of linear trends in soil C concentration with time; ribbons show 95% CIs around trend estimates.  
+
+```{r plot-C-timeseries, fig.cap="(ref:plot-ts-C-SI-cap)"}
+# generate emmip objs
+brks <- c(2001, 2009, 2019)
+emmip.blkC.df <- rbind(
+  emmip(blkC.ts.10.lm, PMeco ~ year, CIs = TRUE, at = list(year = brks))$data,
+  emmip(blkC.ts.20.lm, PMeco ~ year, CIs = TRUE, at = list(year = brks))$data,
+  emmip(blkC.ts.30.lm, PMeco ~ year, CIs = TRUE, at = list(year = brks))$data) %>%
+  mutate(PM = substr(PMeco, 1, 2),
+         ECO = factor(substr(PMeco, 3, 4), 
+                      levels = c("pp", "wf", "rf"), 
+                      labels = c("warm", "cool", "cold")),
+         depth = rep(c("0-10", "10-20", "20-30"), each = 27))
+
+# plot marginal mean trends
+ggplot(emmip.blkC.df, aes(xvar, yvar)) +
+  geom_line(aes(color = PM), size = 1.5) +
+  geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = PM), 
+              alpha = .1, show.legend = FALSE) +
+  geom_point(data = sra.01.09.19.blkC.reps, 
+             aes(year, c_pct, color = PM, shape = ECO),
+             size = 3, alpha = .8) +
+  scale_color_manual(name = NULL,
+                     values = c("AN" = andesite, 
+                                "BS" = basalt, 
+                                "GR" = granite),
+                     labels = c("AN" = "andesite", 
+                                "BS" = "basalt", 
+                                "GR" = "granite")) +
+  scale_fill_manual(name = NULL,
+                    values = c("AN" = andesite, 
+                               "BS" = basalt, 
+                               "GR" = granite)) +
+  scale_shape_manual(name = NULL, 
+                     values = c("warm" = 15, 
+                                "cool" = 17,
+                                "cold" = 16)) +
+  scale_x_continuous(limits = c(2000, 2020), 
+                     breaks = brks, 
+                     expand = expansion(add = 2)) +
+  ylab("%C") +
+  facet_grid(rows = vars(depth), cols = vars(ECO)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank(),
+        axis.title.x = element_blank(),
+        text = element_text(size = 14))
+```
+
+# Respiration fluxes
+
+**SI Figs. \@ref(fig:plot-cmtv-flx-rates)** and **\@ref(fig:plot-C-resp-rates-ts)**.
+
+```{r read-resp-ts}
+## read in timeseries of CO2 release from incubations
+# 2019
+sra.19a.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19a_CO2_flux_2021-01-19.csv")
+sra.19b.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19b_CO2_flux_2021-01-19.csv")
+
+# 2001
+sra.01.1.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_1_CO2_flux_2021-01-27.csv")
+sra.01.2.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_2_CO2_flux_2021-01-27.csv")
+
+## Test that required names are present
+nms <- c("PMeco", "ID", "dw_g", "timepoint_cmtv",  "time_d", "mgCO2_jar")
+invisible(lapply(list(sra.19a.co2.ts,
+                      sra.19b.co2.ts,
+                      sra.01.1.co2.ts,
+                      sra.01.2.co2.ts),
+       function(x) {
+         ifelse(!is.na(match(nms, names(x))), "yes", "no")
+       }
+       ))
+
+# combine all data, remove time points without CO2 measurements, and add year and rep 
+ts <- bind_rows(sra.19a.co2.ts[ , nms], 
+                sra.19b.co2.ts[ , nms], 
+                sra.01.1.co2.ts[ , nms],
+                sra.01.2.co2.ts[ , nms])
+if (length(which(is.na(ts$mgCO2_jar))) > 0) {
+  ts <- ts[-which(is.na(ts$mgCO2_jar)), ]
+}
+ts$year <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 3)
+ts$rep <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 4)
+ts$depth <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 2)
+ts$ID2 <- paste(ts$PMeco, ts$depth, sep = "_")
+
+# add C content
+ts[which(ts$year == 2001), "gC_gS"] <- soc.2001.inc.sum[match(ts[which(ts$year == 2001), "ID2"], soc.2001.inc.sum$ID2), "c_pct_avg"] * 10^-2
+ts[which(ts$year == 2019), "gC_gS"] <- sra.2019.cn.sum[match(ts[which(ts$year == 2019), "ID2"], sra.2019.cn.sum$ID2), "c_pct_avg"] * 10^-2
+
+# calculate per unit carbon fluxes
+ts$mgCO2_gC <- ts$gC_gS * ts$dw_g * ts$mgCO2_jar * (12/44)
+ts$mgCO2_gC_d <- ts$mgCO2_gC / ts$time_d
+
+# add depth index
+t1 <- ts[ts$timepoint_cmtv == 1, ]
+t1 <- data.frame(
+  bind_rows(
+    lapply(split(t1, t1$year), function(df) {
+      bind_rows(lapply(split(df, df$PMeco), function(x) {
+        x <- x[x$rep == "a", ]
+        x$lyr_top <- as.numeric(sapply(strsplit(x$depth, "-"), "[", 1))
+        x <- x[order(x$lyr_top), ]
+        x$depth_index <- seq(1, nrow(x))
+        return(x)
+      }))
+    })))
+ts$depth_index <- t1[match(ts$ID2, t1$ID2), "depth_index"]
+
+# average reps for plotting time series
+ts.avg <- ts %>%
+  group_by(PMeco, year, depth_index, timepoint_cmtv) %>%
+  summarize(time_d = mean(time_d),
+            mgCO2_gC_d_avg = mean(mgCO2_gC_d),
+            mgCO2_gC_d_max = max(mgCO2_gC_d),
+            mgCO2_gC_d_min = min(mgCO2_gC_d),
+            mgCO2_gC_avg = mean(mgCO2_gC),
+            mgCO2_gC_max = max(mgCO2_gC),
+            mgCO2_gC_min = min(mgCO2_gC), .groups = "keep")
+```
+
+```{r plot-cmtv-flx-rates, fig.cap="(ref:plot-cmtv-flx-rates-cap)"}
+# plot mean flux rate for all timepoints
+# ts.avg.cmtv <- bind_rows(lapply(split(ts.avg, ts.avg$PMeco_depth_year), function(df) {
+#   df[which(df$timepoint_cmtv == max(df$timepoint_cmtv)), ]
+# }), .id = "PMeco_depth_year")
+ts.avg.cmtv <- ts %>% 
+  group_by(PMeco, year, depth_index) %>%
+  summarize(mgCO2_gC_d_avg = mean(mgCO2_gC_d),
+            mgCO2_gC_d_sd = sd(mgCO2_gC_d),
+            n = n(), .groups = "keep") %>%
+  mutate(mgCO2_gC_d_se = mgCO2_gC_d_sd / n)
+
+# plot fx
+plot.cmtv.flx <- function(ts.df, year) {
+  ts.df[which(ts.df$year == year), ] %>%
+    filter(year == year) %>%
+    mutate(PM = ifelse(substr(PMeco, 1, 2) == "AN", "andesite", 
+                       ifelse(substr(PMeco, 1, 2) == "BS", "basalt", "granite")),
+           eco = factor(ifelse(substr(PMeco, 3, 4) == "pp", "warm",
+                               ifelse(substr(PMeco, 3, 4) == "wf", "cool", "cold")),
+                        levels = c("warm", "cool", "cold"))) %>%
+    ggplot(., aes(eco, mgCO2_gC_d_avg, fill = PM)) +
+    geom_col(position = position_dodge(preserve = "single")) +
+    geom_errorbar(
+      aes(ymin = mgCO2_gC_d_avg - mgCO2_gC_d_se, 
+          ymax = mgCO2_gC_d_avg + mgCO2_gC_d_se),
+      width = .2,
+      position = position_dodge(preserve = "single", width = .9)) +
+    scale_fill_manual(name = "",
+                      values = c("andesite" = andesite,
+                                 "basalt" = basalt,
+                                 "granite" = granite)) +
+    ylab(NULL) +
+    xlab(NULL) +
+    theme_bw() +
+    theme(panel.grid = element_blank())
+}
+
+# whiteout x-axis fx from plots 1, 2 of ls
+x.axis.white.fx <- function(ls) {
+  lapply(seq_along(ls), function(i) {
+    if (i == 3) {
+      ls[[i]]
+    } else {
+      ls[[i]] <-  ls[[i]] + theme(axis.text.x = element_text(color = "white"))
+    }
+  })
+}
+
+# y-axis
+resp.y.grob <- textGrob(expression('Flux rate (mgCO'[2]*'-C gC'^-1*' d'^-1*')'), 
+                        gp = gpar(fontface = "bold", fontsize = 12), rot = 90)
+
+# plot
+resp.19 <- plot_grid(
+  plotlist = x.axis.white.fx(
+    lapply(split(ts.avg.cmtv, ts.avg.cmtv$depth_index), function(df) {
+      plot.cmtv.flx(df, "2019") + theme(legend.position = "none")
+   })), ncol = 1, labels = paste0(letters[1:3], ")"), 
+  label_x = .92, hjust = 0, vjust = 2.2, label_size = 10)
+resp.01 <- plot_grid(
+  plotlist = x.axis.white.fx(
+    lapply(split(ts.avg.cmtv, ts.avg.cmtv$depth_index), function(df) {
+      plot.cmtv.flx(df, "2001") + theme(legend.position = "none")
+   })
+   ), ncol = 1, labels = paste0(letters[4:6], ")"), 
+  label_x = .92, hjust = 0, vjust = 2.2, label_size = 10)
+
+pg.resp <- arrangeGrob(plot_grid(resp.19, resp.01, ncol = 2), left = resp.y.grob)
+
+resp.lg <- get_legend(
+  plot.cmtv.flx(ts.avg.cmtv, "2019") +
+    guides(fill = guide_legend(nrow = 1)) +
+    theme(legend.position = "bottom",
+          legend.text = element_text(size = 9))
+)
+plot_grid(pg.resp, resp.lg, ncol = 1, rel_heights = c(1, .2))
+```
+
+(ref:plot-cmtv-flx-rates-cap) Heterotrophic respiration rates from incubations of 2019 and 2001 samples. Panels a-c show 2019 data, and panels d-f show 2001 data. Panels in the top row (a, d) show the first depth increment for each year, middle row shows the second depth increment (b, e), and the bottom row shows the third depth increment (c, f). Columns show means for laboratory duplicates averaged over the whole incubation period; error bars ± 1 standard error of the mean. NB: Total CO~2~ respired was controlled to be within 10,000 ppm (±1,000 ppm) for all samples; incubation duration varied between 4 and 40 days.
+
+```{r plot-C-resp-rates-ts, fig.cap="(ref:plot-C-resp-rates-ts-cap)"}
+# function for plotting ts
+ts.plot.fx <- function(df, yr, increment, legend.pos = "none", 
+                       ylab = FALSE, cumulative = FALSE) {
+  
+  # ylab
+  if (ylab) {
+    if (cumulative) {
+     ylab <- expression('Cumulative flux (mgCO'[2]*'-C gC'^-1*')') 
+    } else {
+     ylab <- expression('Respiration Rate (mgCO'[2]*'-C gC'^-1*'d'^-1*')')
+    }
+  } else {
+    ylab <- ""
+  }
+  
+  # filter and mutate
+  df <- df %>%
+    filter(year == yr & depth_index == increment) %>%
+    mutate(PM = ifelse(grepl("AN", PMeco), "AN",
+                       ifelse(grepl("BS", PMeco), "BS", "GR")),
+           eco = factor(ifelse(grepl("rf", PMeco), "rf",
+                               ifelse(grepl("wf", PMeco), "wf", "pp")),
+                        levels = c("pp", "wf", "rf")))
+  
+  # set facet labels
+  f_labs <- paste0(letters[1:18], ")")
+  if (yr == "2019") {
+    f_labs <- f_labs[c(1:3, 7:9, 13:15)]
+  } else {
+    f_labs <- f_labs[c(4:6, 10:12, 16:18)]
+  }
+  if (increment == "1") {
+    ix <- 1:3
+  } else if (increment == "2") {
+    ix <- 4:6
+  } else {
+    ix <- 7:9
+  }
+  f_labs <- c("pp" = f_labs[ix][1],
+              "wf" = f_labs[ix][2],
+              "rf" = f_labs[ix][3])
+  
+  # plot fxs
+  if (cumulative) {
+    p <- ggplot(df, aes(time_d, mgCO2_gC_avg, 
+                        color = PM, fill = PM, shape = eco)) +
+      geom_ribbon(aes(ymin = mgCO2_gC_max, ymax = mgCO2_gC_min),
+                  alpha = 0.2, linetype = 0, show.legend = FALSE) +
+      geom_point(aes(time_d, mgCO2_gC_max), size = 1) +
+      geom_point(aes(time_d, mgCO2_gC_min), size = 1)
+  } else {
+    p <- ggplot(df, aes(time_d, mgCO2_gC_d_avg, 
+                        color = PM, fill = PM, shape = eco)) +
+      geom_ribbon(aes(ymin = mgCO2_gC_d_max, ymax = mgCO2_gC_d_min), 
+                  alpha = 0.2, linetype = 0, show.legend = FALSE) +
+      geom_point(aes(time_d, mgCO2_gC_d_max), size = 1) +
+      geom_point(aes(time_d, mgCO2_gC_d_min), size = 1)
+  }
+    p <- p +
+      geom_line(size = .8) +
+      scale_x_continuous(limits = c(0, 30)) +
+      scale_y_continuous(breaks = scales::breaks_pretty(n = 3),
+                         labels = scales::number_format(accuracy = 0.01)) +
+      scale_color_manual(name = "",
+                         labels = c("AN" = "andesite",
+                                    "BS" = "basalt",
+                                    "GR" = "granite"),
+                         values = c("AN" = andesite, 
+                                    "BS" = basalt, 
+                                    "GR" = granite)) +
+      scale_shape_manual(name = "",
+                         labels = c("rf" = "cold",
+                                    "wf" = "cool",
+                                    "pp" = "warm"),
+                         values = c("pp" = 15, 
+                                    "rf" = 16, 
+                                    "wf" = 17)) +
+      scale_fill_manual(values = c("AN" = andesite, 
+                                   "BS" = basalt, 
+                                   "GR" = granite)) +
+      facet_grid(rows = vars(eco), 
+                 labeller = labeller(eco = f_labs)) +
+      ylab(ylab) +
+      theme_bw() +
+      theme(panel.grid = element_blank(),
+            strip.background = element_blank(),
+            strip.text.y = element_text(
+              face = "bold", angle = 0, hjust = 0, vjust = 1, size = 10),
+            axis.title.x = element_blank(),
+            plot.margin = unit(c(.1, 0, 0, 0), "cm"),
+            legend.position = legend.pos)
+}
+
+## plot flux rates
+ts.flx.rates.p.ls <- plot_grid(
+  plotlist = list(
+    ts.plot.fx(ts.avg, yr = "2019", increment = "1"),
+    ts.plot.fx(ts.avg, yr = "2019", increment = "2"),
+    ts.plot.fx(ts.avg, yr = "2019", increment = "3"),
+    ts.plot.fx(ts.avg, yr = "2001", increment = "1"),
+    ts.plot.fx(ts.avg, yr = "2001", increment = "2"),
+    ts.plot.fx(ts.avg, yr = "2001", increment = "3")))
+
+# add common labels for axes
+y.grob <- textGrob(expression('Respiration Rate (mgCO'[2]*'-C gC'^-1*'d'^-1*')'), 
+                   gp = gpar(fontface = "bold", fontsize = 12), rot = 90)
+x.grob <- textGrob(expression('Time (days)'), 
+                   gp = gpar(fontface = "bold", fontsize = 12))
+pg <- arrangeGrob(ts.flx.rates.p.ls, left = y.grob, bottom = x.grob)
+
+# get legend
+lg <- get_legend(
+  ts.plot.fx(ts.avg, yr = "2019", increment = "1", legend.pos = "bottom") +
+    guides(color = guide_legend(nrow = 1, order = 3),
+           shape = guide_legend(nrow = 1),
+           fill = "none"))
+
+# plot
+plot_grid(pg, lg, ncol = 1, rel_heights = c(1, .08))
+```
+
+(ref:plot-C-resp-rates-ts-cap) Time series of heterotrophic respiration rates from incubations by depth and year (i.e. samples from the same year and depth interval are plotted on the same scale). Rows correspond to climate zones, columns correspond to depths; leftmost column shows top depth, rightmost column shows deepest depth. Top set of panels (a-c, g-i, and m-o) show 2019 data, bottom set of panels (d-f, j-l, p-r) show 2001 data. Lines show means for laboratory duplicates; ribbon shows minimum and maximum of laboratory duplicates. NB: Total CO~2~ respired was controlled to be within 10,000 ppm (±1,000 ppm) for all samples.
+
+# Radiocarbon depth profiles: 2001 data
+
+Depth profiles of $\Delta$^14^C~*bulk*~ were similar in 2001 (**SI Fig. \@ref(fig:plot-d14c-pro-01)**) as to what we observed in 2019. We observed the most depleted ^14^C overall in the cool climate sites, where we also observed the clearest differences among parent materials. Parent material differences were least apparent for the cold climate sites, as we also observed in 2019. Within climate zones andesitic soils tended be most depleted and the granitic soils most enriched, with the basaltic parent material intermediate between the other two. 
+
+```{r bulk-inc-plot-data}
+# 2019
+load("sra.19.inc.blk.RData")
+# 2001
+load("sra.01.inc.blk.RData")
+
+# atm 14c
+atm.01.19 <- data.frame(d14c = atm.14c[atm.14c$Year == 2001.5 | atm.14c$Year == 2019.5, "d14c"],
+                        Year = c("2001", "2019"),
+                        Type = "atmosphere")
+
+# plot 2001 by climate, bulk and inc separated
+# make df
+sra.blk.inc.01.df <- sra.01.inc.blk %>%
+  mutate(Type = ifelse(Type == "inc", "respired", "bulk soil"),) %>%
+  mutate(ECOtype = factor(paste0(eco, " (", Type, ")"),
+                          levels = c("warm (bulk soil)",
+                                     "cool (bulk soil)",
+                                     "cold (bulk soil)",
+                                     "warm (respired)",
+                                     "cool (respired)",
+                                     "cold (respired)"))) %>%
+  filter(lyr_bot > 0)
+
+# make list, split by desired facet (Type)
+sra.blk.inc.01.ls <- split(sra.blk.inc.01.df, sra.blk.inc.01.df$Type)
+
+# plot fx
+sra.blk.inc.pro.p.fx2 <- function(df) {
+  
+  # labels
+  f_labs <- data.frame(eco = c("warm", "cool", "cold"))
+  if (grepl("bulk soil", unique(df$Type))) {
+    f_labs$label <- paste0(letters[1:3], ") ", f_labs$eco)
+    xlab <- expression(Delta*''^14*'C'[italic(bulk)]*' (‰)')
+  } else {
+    f_labs$label <- paste0(letters[4:6], ") ", f_labs$eco)
+    xlab <- expression(Delta*''^14*'C'[italic(respired)]*' (‰)')
+  }
+  
+  # plot
+  ggplot(df, aes(d14c_mean, lyr_bot)) +
+    geom_vline(data = atm.01.19[atm.01.19$Year == "2001", ], 
+               aes(xintercept = d14c, linetype = Type), color = "darkgray", show.legend = FALSE) +
+    geom_hline(yintercept = 0) +
+    geom_point(size = 2, aes(color = pm, shape = ECOtype)) +
+    geom_errorbarh(
+      aes(xmin = d14c_l, 
+          xmax = d14c_u,
+          color = pm), 
+      height = .6, show.legend = FALSE) +
+    geom_path(aes(color = pm, linetype = Type)) +
+    scale_y_reverse() +
+    scale_color_manual(name = NULL,
+                       values = c("andesite" = andesite, 
+                                  "basalt" = basalt, 
+                                  "granite" = granite)) +
+    scale_shape_manual(name = NULL,
+                       limits = c("warm (bulk soil)", 
+                                  "cool (bulk soil)", 
+                                  "cold (bulk soil)",
+                                  "warm (respired)", 
+                                  "cool (respired)", 
+                                  "cold (respired)"),
+                       values = c("warm (bulk soil)" = 15, 
+                                  "cool (bulk soil)" = 17, 
+                                  "cold (bulk soil)" = 16,
+                                  "warm (respired)" = 0, 
+                                  "cool (respired)" = 2, 
+                                  "cold (respired)" = 1)) +
+    scale_linetype_manual(name = NULL,
+                          limits = c("bulk soil", 
+                                     "respired",
+                                     "atmosphere"),
+                          values = c("bulk soil" = 1, 
+                                     "respired" = 2,
+                                     "atmosphere" = 3)) +
+    coord_cartesian(
+      xlim = c(-100, 200), 
+      ylim = c(44, 0),
+      expand = FALSE) +
+    scale_x_continuous(breaks = c(-100, -50, 0, 50, 100)) +
+    facet_grid(cols = vars(eco)) +
+    geom_text(data = f_labs, aes(x = -95, y = 4, label = label), 
+              size = .36 * 12, fontface = "bold", hjust = "left") +
+    xlab(xlab) +
+    theme_bw() +
+    theme(panel.grid = element_blank(),
+          strip.text = element_blank(),
+          strip.background = element_blank(),
+          axis.text = element_text(size = 11),
+          axis.text.y = element_text(size = 12),
+          axis.title.y = element_blank(),
+          legend.position = "none")
+}
+```
+
+(ref:plot-d14c-pro-01-cap) Depth profiles of $\Delta$^14^C~bulk~ and $\Delta$^14^C~respired~ for 2001 data. Top panels show bulk data, bottom panels respired data. Panels (a) and (d) show data from the warm climate sites, (b) and (e) from the cool climate sites, and (c) and (f) from the cold climate sites. Dotted vertical lines show $\Delta$^14^C of the atmosphere in the year of sampling. Points show the mean of three replicate profiles for bulk soil, and the mean of laboratory duplicates for respired CO~2~. Error bars show ±1 SD for bulk soils and the minimum and maximum for respired CO~2~. Respired CO~2~ from the cold granite site (panel c) was extremely depleted in $\Delta$^14^C and thus is excluded for display purposes.
+
+```{r plot-d14c-pro-01, fig.cap="(ref:plot-d14c-pro-01-cap)", fig.height=5}
+# plot list 
+sra.blk.inc.pro.p.ls2 <- lapply(sra.blk.inc.01.ls, sra.blk.inc.pro.p.fx2)
+
+# plot grid
+sra.blk.inc.pro.p.g2 <- plot_grid(plotlist = sra.blk.inc.pro.p.ls2, nrow = 2)
+
+# add common labels for axes
+y.grob <- textGrob("Depth (cm)", 
+                   gp = gpar(fontface = "bold", fontsize = 12), rot = 90)
+pg <- arrangeGrob(sra.blk.inc.pro.p.g2, left = y.grob)
+
+# get legend
+blk.inc.pro.legend <- get_legend(
+    sra.blk.inc.pro.p.ls2[[1]] +
+      theme(legend.box.margin = margin(0, 0, 0, 12),
+            legend.position = "right"))
+
+# plot
+plot_grid(pg, blk.inc.pro.legend, rel_widths = c(4, 1))
+```
+
+# Temporal trend analysis
+
+
+```{r models-blk-sum-con, include = FALSE}
+# contrasts fx
+sra.PMeco.con.fx <- function(data, Year, con, out = "contrasts") {
+  dat <- data[data$Year == Year, ]
+  if (con == "PM | ECO") {
+    emm <- emmeans(lm(d14c ~ PM * ECO, dat), pairwise ~ PM | ECO) 
+  } else {
+    emm <- emmeans(lm(d14c ~ PM * ECO, dat), pairwise ~ ECO | PM) 
+  }
+  
+  # out
+  if (out == "atm") {
+    em.df <- data.frame(emm$emmeans)
+    em.df$atm <- atm.01.19[atm.01.19$Year == Year, "d14c"]
+    em.df$atm.return <- ifelse(
+      em.df$atm < em.df$lower.CL, "enriched",
+      ifelse(em.df$atm > em.df$upper.CL, "depleted", "equal"))
+    em.df[ , c(1, 2, 9)]
+  } else if (out == "contrasts") {
+    emm$contrasts
+  } else if (out == "emmeans") {
+    emm$emmeans
+  } else {
+    emm
+  }
+}
+
+## 0-10
+# mod
+blk.PMeco.10.lm <- lm(d14c ~ PM * ECO * year, sra.01.09.19.d.10df)
+summary(blk.PMeco.10.lm)
+# trends
+blk.PMeco.10.et <- emtrends(blk.PMeco.10.lm, pairwise ~ PM * ECO, var = "year")
+# ordered trends
+# c(-6.1, -5, -2.8, -2.3, -2.1, -1.9, -.3, .1, .8)
+# contrasts
+sra.PMeco.con.fx(sra.01.09.19.d.10df, 2001, "PM | ECO")
+sra.PMeco.con.fx(sra.01.09.19.d.10df, 2001, "ECO | PM")
+sra.PMeco.con.fx(sra.01.09.19.d.10df, 2019, "PM | ECO")
+sra.PMeco.con.fx(sra.01.09.19.d.10df, 2019, "ECO | PM")
+# atm
+sra.PMeco.con.fx(sra.01.09.19.d.10df, 2001, "PM | ECO", out = "atm")
+sra.PMeco.con.fx(sra.01.09.19.d.10df, 2019, "PM | ECO", out = "atm")
+
+## 10-20
+# mod
+blk.PMeco.20.lm <- lm(d14c ~ PM * ECO * year, sra.01.09.19.d.20df)
+summary(blk.PMeco.20.lm)
+# trends
+blk.PMeco.20.et <- emtrends(blk.PMeco.20.lm, pairwise ~ PM * ECO, var = "year")
+# ordered trends
+# c(-3.7, -3.7, -2.1, -1.1, -.3, -.2, .42, .43, 2.1)
+# contrasts
+sra.PMeco.con.fx(sra.01.09.19.d.20df, 2001, "PM | ECO")
+sra.PMeco.con.fx(sra.01.09.19.d.20df, 2001, "ECO | PM")
+sra.PMeco.con.fx(sra.01.09.19.d.20df, 2019, "PM | ECO")
+sra.PMeco.con.fx(sra.01.09.19.d.20df, 2019, "ECO | PM")
+# atm
+sra.PMeco.con.fx(sra.01.09.19.d.20df, 2001, "PM | ECO", out = "atm")
+sra.PMeco.con.fx(sra.01.09.19.d.20df, 2019, "PM | ECO", out = "atm")
+
+## 20-30
+# mod
+blk.PMeco.30.lm <- lm(d14c ~ PM * ECO * year, sra.01.09.19.d.30df)
+summary(blk.PMeco.30.lm)
+# trends
+blk.PMeco.30.et <- emtrends(blk.PMeco.30.lm, pairwise ~ PM * ECO, var = "year")
+# ordered trends
+# c(-6.4, -3.6, -1, .2, .3, .3, .3, 1.1, 1.6)
+# contrasts
+sra.PMeco.con.fx(sra.01.09.19.d.30df, 2001, "PM | ECO")
+sra.PMeco.con.fx(sra.01.09.19.d.30df, 2001, "ECO | PM")
+sra.PMeco.con.fx(sra.01.09.19.d.30df, 2019, "PM | ECO")
+sra.PMeco.con.fx(sra.01.09.19.d.30df, 2019, "ECO | PM")
+# atm
+sra.PMeco.con.fx(sra.01.09.19.d.30df, 2001, "PM | ECO", out = "atm")
+sra.PMeco.con.fx(sra.01.09.19.d.30df, 2019, "PM | ECO", out = "atm")
+```
+
+```{r models-inc-10-sum-con, include = FALSE}
+# 0-10cm
+inc.PMeco.10.lm <- lm(d14c ~ PM * ECO * year, sra.01.19.inc.d.10.df)
+summary(inc.PMeco.10.lm)
+inc.PMeco.10.et <- emtrends(inc.PMeco.10.lm, pairwise ~ PM * ECO, var = "year")
+# ordered trends
+# c(-6.2 ANpp, -4.9 GRpp, -3.9 BSrf, -3.7 BSwf, -3.1 GRwf, -2.9 ANrf, -2.3 BSpp, -1.4 ANwf, .1 GRrf)
+# ggplot(data.frame(inc.PMeco.10.et$emtrends), aes(ECO, year.trend)) + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL, color = ECO), width = .2) + geom_col(aes(fill = ECO), position = "dodge") + scale_fill_manual(values = c("warm" = warm, "cool" = cool, "cold" = cold)) + scale_color_manual(values = c("warm" = warm, "cool" = cool, "cold" = cold)) + scale_y_reverse() + facet_grid(cols = vars(PM)) + theme_bw()
+
+# contrasts
+sra.PMeco.con.fx(sra.01.19.inc.d.10.df, 2001, "PM | ECO")
+sra.PMeco.con.fx(sra.01.19.inc.d.10.df, 2001, "ECO | PM")
+sra.PMeco.con.fx(sra.01.19.inc.d.10.df, 2019, "PM | ECO")
+sra.PMeco.con.fx(sra.01.19.inc.d.10.df, 2019, "ECO | PM")
+# atm
+sra.PMeco.con.fx(sra.01.19.inc.d.10.df, 2001, "PM | ECO", out = "atm")
+sra.PMeco.con.fx(sra.01.19.inc.d.10.df, 2019, "PM | ECO", out = "atm")
+
+# mean trends
+inc.PMeco.10.et.ECO.sum <- data.frame(inc.PMeco.10.et$emtrends) %>% 
+  group_by(ECO) %>% 
+  summarize(across(year.trend, .fns = c(mean = mean, sd = sd)))
+
+# 10-20
+inc.PMeco.20.lm <- lm(d14c ~ PM * ECO * year, sra.01.19.inc.d.20.df)
+summary(inc.PMeco.20.lm)
+inc.PMeco.20.et <- emtrends(inc.PMeco.20.lm, pairwise ~ PM * ECO, var = "year")
+# ordered trends
+# c(-5.9, -4.3, -3.9, -2.2, -1.1, -1, -.8, 1.4, 4.8)
+# contrasts
+sra.PMeco.con.fx(sra.01.19.inc.d.20.df, 2001, "PM | ECO")
+sra.PMeco.con.fx(sra.01.19.inc.d.20.df, 2001, "ECO | PM")
+sra.PMeco.con.fx(sra.01.19.inc.d.20.df, 2019, "PM | ECO")
+sra.PMeco.con.fx(sra.01.19.inc.d.20.df, 2019, "ECO | PM")
+# atm
+sra.PMeco.con.fx(sra.01.19.inc.d.20.df, 2001, "PM | ECO", out = "atm")
+sra.PMeco.con.fx(sra.01.19.inc.d.20.df, 2019, "PM | ECO", out = "atm")
+
+# 20-30
+inc.PMeco.30.lm <- lm(d14c ~ PM * ECO * year, sra.01.19.inc.d.30.df)
+summary(inc.PMeco.30.lm)
+inc.PMeco.30.et <- emtrends(inc.PMeco.30.lm, pairwise ~ PM * ECO, var = "year")
+# ordered trends
+# c(-7.8, -3.5, -1.5, .1, .5, 1.4, 1.5, 2.8, 9.7)
+# contrasts
+sra.PMeco.con.fx(sra.01.19.inc.d.30.df, 2001, "PM | ECO")
+sra.PMeco.con.fx(sra.01.19.inc.d.30.df, 2001, "ECO | PM")
+sra.PMeco.con.fx(sra.01.19.inc.d.30.df, 2019, "PM | ECO")
+sra.PMeco.con.fx(sra.01.19.inc.d.30.df, 2019, "ECO | PM")
+# atm
+sra.PMeco.con.fx(sra.01.19.inc.d.30.df, 2001, "PM | ECO", out = "atm")
+sra.PMeco.con.fx(sra.01.19.inc.d.30.df, 2019, "PM | ECO", out = "atm")
+```
+
+```{r alt-emmip-plot-fx}
+# plot function for timeseries (combines bulk and respired data)
+emmip.plot.all.fx <- function(var, split_var, depths, Type) {
+  
+  # define plot vars
+  quo_var <- sym(var)
+  brks <- c(2001, 2009, 2019)
+  
+  # set color scales
+  if (var == "PM") {
+    cvals <- c("andesite" = andesite, "basalt" = basalt, "granite" = granite)
+  } else {
+    cvals <- c("warm" = warm, "cool" = cool, "cold" = cold)
+  }
+  
+  # emmip fx
+  emmip.df.fx <- function(dat, var, Type) {
+    
+    # mod list
+    mod.ls <- lapply(dat, function(lyr_bot) {
+      lm(d14c ~ PM * Year * ECO, lyr_bot)
+    })
+    
+    # set breaks
+    if (Type == "respired") {
+      brks <- c(2001, 2019)
+    }
+    
+    # emmip fx
+    emmip.fx <- function(mod, var) {
+      if (var == "PM") {
+        emmip(mod, PM ~ Year | ECO, CIs = TRUE, at = list(Year = brks))$data
+      } else {
+        emmip(mod, ECO ~ Year | PM, CIs = TRUE, at = list(Year = brks))$data
+      }
+    }
+    
+    # return emmip ls
+    return(lapply(mod.ls, function(mod) {
+      emmip.df <- emmip.fx(mod, var)
+      emmip.df$Type <- Type
+      return(emmip.df)
+    }))
+  }
+  
+  # plot fn
+  plot.fx <- function(ls, data, Type) {
+    
+    # run loop
+    lapply(seq_along(ls), function(i) {
+
+      # plot
+      ggplot(ls[[i]], aes(xvar, yvar)) +
+        geom_line(aes(color = !! quo_var, linetype = Type), size = 1.5, show.legend = FALSE) +
+        geom_ribbon(aes(ymin = LCL, ymax = UCL, fill = !! quo_var, linetype = Type), alpha = .1, show.legend = FALSE) +
+        geom_point(data = data[[i]],
+          aes(Year, d14c, color = !! quo_var, shape = ecoType), size = 2.5, alpha = .8) +
+        # atm
+        geom_line(data = atm.14c, aes(Year, d14c, linetype = Type), color = "black") +
+        scale_linetype_manual(name = NULL, 
+                              limits = c("bulk soil", "respired", "atmosphere"),
+                              values = c("bulk soil" = 1,
+                                         "respired" = 2,
+                                         "atmosphere" = 3)) +
+        scale_shape_manual(name = NULL,
+                           limits = c("warm (bulk soil)", "cool (bulk soil)", "cold (bulk soil)",
+                                      "warm (respired)", "cool (respired)", "cold (respired)"),
+                           values = c("warm (bulk soil)" = 15, 
+                                      "cool (bulk soil)" = 17, 
+                                      "cold (bulk soil)" = 16,
+                                      "warm (respired)" = 0, 
+                                      "cool (respired)" = 2, 
+                                      "cold (respired)" = 1)) +  
+        scale_color_manual(name = NULL,
+                           values = cvals) +
+        scale_fill_manual(name = NULL,
+                          values = cvals) +
+        scale_x_continuous(limits = c(2000, 2020), 
+                           breaks = brks, expand = expansion(add = 2)) +
+        coord_cartesian(ylim = c(-110, 170)) +
+        theme_bw() +
+        theme(panel.grid = element_blank(),
+              axis.title = element_blank(),
+              text = element_text(size = 12),
+              strip.background = element_blank(),
+              strip.text.x = element_blank(),
+              legend.position = "none")
+    })
+  }
+  
+  # data prep fx
+  data.ls.fx <- function(data.df) {
+    lapply(split(data.df, data.df$lyr_bot), function(df) {
+        df$Type <- Type
+        df$ecoType <- paste0(df$ECO, " (", df$Type, ")")
+        return(df)
+    })[depths]
+  }
+  
+  # extract data by Type
+  if (Type == "respired") {
+    data.ls <- data.ls.fx(sra.01.19.inc.d.df)
+  } else {
+    data.ls <- data.ls.fx(sra.01.09.19.d.df)
+  }
+  
+  # run emip
+  emip.ls <- emmip.df.fx(data.ls, var, Type)
+  
+  # list split fx
+  split.fx <- function(ls, split_var) {
+    lapply(ls, function(df) {
+      split(df, df[[split_var]])
+    })
+  }
+  
+  # split data and emip lists by split_var
+  emip.ls.sp <- split.fx(emip.ls, split_var)
+  data.ls.sp <- split.fx(data.ls, split_var)
+  
+  # plot list
+  p.ls <- lapply(seq_along(data.ls.sp), function(j) {
+    p <- plot.fx(data = data.ls.sp[[j]], ls = emip.ls.sp[[j]], Type = Type)
+    names(p) <- names(data.ls.sp[[j]])
+    return(p)
+  })
+  
+  # add names and return p.ls
+  names(p.ls) <- names(emip.ls.sp)
+  return(p.ls)
+}
+```
+
+## Trends
+
+Please see the main text for discussion of the temporal trends in both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*bulk*~. See SI tables **\@ref(tab:blk-trend-stats)** and **\@ref(tab:inc-trend-stats)** for statistics.
+
+```{r trend-stats-fxs}
+# table plot fx
+trend.tbl.fx <- function(emt1, emt2, emt3, caption) {
+  # bind into combined data frame
+  emt.df <- bind_rows(lapply(
+    list(emt1$emtrends, emt2$emtrends, emt3$emtrends),
+    function(x) {
+      data.frame(x)
+    }), .id = "depth") %>%
+    mutate(Depth = ifelse(depth == 1, "0-10cm", ifelse(depth == 2, "10-20cm", "20-30cm"))) %>%
+    mutate(across(where(is.numeric), round, 1)) %>%
+    mutate(year.trend = trendCIform.fx(year.trend, lower.CL, upper.CL)) %>%
+    select(Depth, ECO, PM, year.trend, SE)
+  # rearrange for printing
+  emt.tbl <- split(emt.df, emt.df$Depth) %>% 
+    reduce(right_join, by = c("ECO", "PM")) %>%
+    select(-starts_with("Depth"))
+  # print kable
+  kable(emt.tbl,
+        col.names = c(
+          "Climate",
+          "Parent material",
+          "Trend",
+          "$SE$",
+          "Trend",
+          "$SE$",
+          "Trend",
+          "$SE$"),
+        escape = FALSE,    
+        longtable = TRUE,
+        booktabs = TRUE,
+        caption = caption) %>%
+    collapse_rows(1:2, latex_hline = "major", valign = "top") %>%
+    add_header_above(c(" " = 2, "0-10cm" = 2, "10-20cm" = 2, "20-30cm" = 2)) %>%
+    kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+    kable_styling(latex_options = c("repeat_header"),
+                  font_size = 10)
+}
+```
+
+(ref:blk-trend-stats-cap) Change in $\Delta$^14^C~*bulk*~, 2001-2019. Degrees of freedom = 44; confidence level used = 0.95.
+
+```{r blk-trend-stats}
+# run emtrends
+emt.blk.PMeco.10 <- emtrends(blk.PMeco.10.lm, pairwise ~ PM | ECO, var = "year")
+emt.blk.PMeco.20 <- emtrends(blk.PMeco.20.lm, pairwise ~ PM | ECO, var = "year")
+emt.blk.PMeco.30 <- emtrends(blk.PMeco.30.lm, pairwise ~ PM | ECO, var = "year")
+
+# print kable
+trend.tbl.fx(emt.blk.PMeco.10, emt.blk.PMeco.20, emt.blk.PMeco.30, "(ref:blk-trend-stats-cap)")
+```
+
+(ref:inc-trend-stats-cap) Change in $\Delta$^14^C~*respired*~, 2001-2019. Degrees of freedom = 44; confidence level used = 0.95.
+
+```{r inc-trend-stats}
+# run emtrends
+emt.inc.PMeco.10 <- emtrends(inc.PMeco.10.lm, pairwise ~ PM | ECO, var = "year")
+emt.inc.PMeco.20 <- emtrends(inc.PMeco.20.lm, pairwise ~ PM | ECO, var = "year")
+emt.inc.PMeco.30 <- emtrends(inc.PMeco.30.lm, pairwise ~ PM | ECO, var = "year")
+
+# print kable
+trend.tbl.fx(emt.inc.PMeco.10, emt.inc.PMeco.20, emt.inc.PMeco.30, "(ref:inc-trend-stats-cap)")
+```
+
+## Contrasts
+
+We saw more significant contrasts for $\Delta$^14^C~*respired*~ than we did for $\Delta$^14^C~*bulk*~ (**SI Fig. \@ref(tab:blk-inc-contrasts)**). When considered within climate zones, the basaltic and granitic soils were more similar to one another overall than were either to the andesitic soils. We observed parent material contrasts more commonly in the cool and cold climate sites than in the warm sites; however we only observed significant contrasts for the cold climate sites in the $\Delta$^14^C~*respired*~ data, and not for $\Delta$^14^C~*bulk*~. When considered within parent materials, we saw more siginificant contrasts for the granitic and basaltic soils than for the andesitic soils (**SI Fig. \@ref(tab:blk-inc-contrasts)**). 
+
+
+```{r contrast-fxs}
+# contrasts kable fx
+# table plot fx
+trdCts.tbl.fx <- function(emtPMeco.1, emtECOpm.1, 
+                          emtPMeco.2, emtECOpm.2,
+                          emtPMeco.3, emtECOpm.3, caption) {
+  # bind into combined data frame
+  emtC.df <- rapply(list(
+  list(emtPMeco.1$contrasts, emtECOpm.1$contrasts),
+  list(emtPMeco.2$contrasts, emtECOpm.2$contrasts),
+  list(emtPMeco.3$contrasts, emtECOpm.3$contrasts)), function(x) {
+    df <- sig.cts.fx(data.frame(x))
+    names(df)[2] <- "Group"
+    return(df)
+  }, how = "list")
+  names(emtC.df) <- c("0-10cm", "10-20cm", "20-30cm")
+  
+  # rearrange for printing
+  return(
+    bind_rows(emtC.df, .id = "id") %>%
+      mutate(Depth = ifelse(id < 3, "0-10cm", ifelse(id < 5, "10-20cm", "20-30cm")),
+             across(p.value, function(x) {
+               case_when(!is.na(x) ~ pvalForm.fx(x))}),
+             across(c(estimate, SE), ~ round(., 1))) %>%
+      select(Depth, Group, contrast, estimate, SE, p.value))
+}
+```
+
+(ref:blk-inc-contrasts-cap) Contrasts for bulk and respired $\Delta$^14^C temporal trends. P value adjustment: Tukey method for comparing a family of 3 estimates.
+
+```{r blk-inc-contrasts}
+# ecoPM contrasts
+# bulk
+emt.blk.ecoPM.10 <- emtrends(blk.PMeco.10.lm, pairwise ~ ECO | PM, var = "year")
+emt.blk.ecoPM.20 <- emtrends(blk.PMeco.20.lm, pairwise ~ ECO | PM, var = "year")
+emt.blk.ecoPM.30 <- emtrends(blk.PMeco.30.lm, pairwise ~ ECO | PM, var = "year")
+# inc
+emt.inc.ecoPM.10 <- emtrends(inc.PMeco.10.lm, pairwise ~ ECO | PM, var = "year")
+emt.inc.ecoPM.20 <- emtrends(inc.PMeco.20.lm, pairwise ~ ECO | PM, var = "year")
+emt.inc.ecoPM.30 <- emtrends(inc.PMeco.30.lm, pairwise ~ ECO | PM, var = "year")
+
+# print kable
+emt.cts.blk <- trdCts.tbl.fx(emt.blk.PMeco.10, emt.blk.ecoPM.10,
+                             emt.blk.PMeco.20, emt.blk.ecoPM.20,
+                             emt.blk.PMeco.30, emt.blk.ecoPM.30, "bulk contrasts")
+
+emt.cts.inc <- trdCts.tbl.fx(emt.inc.PMeco.10, emt.inc.ecoPM.10, 
+                             emt.inc.PMeco.20, emt.inc.ecoPM.20, 
+                             emt.inc.PMeco.30, emt.inc.ecoPM.30, "inc contrasts")
+
+# join
+emt.cts <- merge(emt.cts.blk, emt.cts.inc, by = c("Depth", "Group", "contrast"), all = TRUE)
+
+# set NA to blank
+options(knitr.kable.NA = '')
+
+# print kable
+kable(emt.cts,
+      col.names = c(
+        "Depth",
+        "Group",
+        "Contrast",
+        "Est.",
+        "$SE$",
+        "$p$",
+        "Est.",
+        "$SE$",
+        "$p$"),
+      escape = FALSE,    
+      longtable = TRUE,
+      booktabs = TRUE,
+      caption = "(ref:blk-inc-contrasts-cap)") %>%
+  collapse_rows(1, latex_hline = "major", valign = "top") %>%
+  # row_spec(which(emt.cts$Group == "andesite" |
+  #                  emt.cts$Group == "granite" |
+  #                  emt.cts$Group == "basalt"), background = "gray") %>%
+  add_header_above(c(" " = 3, "Bulk" = 3, "Respired" = 3)) %>%
+  kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+  kable_styling(latex_options = "repeat_header",
+                font_size = 10)
+  # kable_styling(latex_options = c("repeat_header", "striped"),
+  #               stripe_index = c(5:8, 15:18, 24:28),
+  #               font_size = 10)
+```
+
+# Mineral assemblages
+
+**SI Figs. \@ref(fig:min-all-blk-inc-plot)**, **\@ref(fig:min-blk30-plot)**, and **\@ref(fig:min-inc30-plot)**.
+
+```{r min-stats, include = FALSE}
+# load data
+load("sra.all.30.min.conc.wtd.RData")
+load("sra.blk.inc.rep.30.df.RData")
+
+## linear models
+# dif (uses means; could use all combos...?)
+sra.all.30.min.conc.wtd.wide <- sra.all.30.min.conc.wtd %>%
+  filter(PMeco != "GRrf") %>%
+  pivot_wider(names_from = min, values_from = conc)
+# NB: year not significant as additive or interaction term
+summary(lm(blk.inc ~ Al_ox, sra.all.30.min.conc.wtd.wide)) # R2 = 0.49, p = 0.0015
+summary(lm(blk.inc ~ Al_py, sra.all.30.min.conc.wtd.wide)) # R2 = 0.55, p = 0.0006
+summary(lm(blk.inc ~ Fe_ox, sra.all.30.min.conc.wtd.wide)) # R2 = 0.53, p = 0.0008
+summary(lm(blk.inc ~ Fe_dc, sra.all.30.min.conc.wtd.wide)) # ns
+summary(lm(blk.inc ~ Fe_dc, sra.all.30.min.conc.wtd.wide[sra.all.30.min.conc.wtd.wide$eco != "warm", ])) 
+# R2 = 0.47, p = 0.017
+sra.all.30.min.conc.wtd.wide %>%
+  mutate(FeCrys = Fe_dc - Fe_ox) %>%
+  lm(blk.inc ~ FeCrys, .) %>%
+  summary() # ns
+sra.all.30.min.conc.wtd.wide %>%
+  mutate(NonCrys = Al_ox + .5 * Fe_ox) %>%
+  lm(blk.inc ~ NonCrys, .) %>%
+  summary() # R2 = 0.51 (less than Al_ox or Fe_ox alone), p = 0.0013
+
+# reps
+load("sra.blk.inc.rep.30.df.RData")
+sra.blk.inc.rep.min.30.df <- merge(
+  sra.blk.inc.rep.30.df,
+  sra.all.30.min.conc.wtd[sra.all.30.min.conc.wtd$year == 2001, c("PMeco", "min", "conc")] %>%
+    pivot_wider(names_from = min, values_from = conc)) %>%
+  mutate(NonCrys = Al_ox + .5 * Fe_ox,
+         Fe_cr = Fe_dc - Fe_ox,
+         Year = factor(year), 
+         inc.blk = d14c_inc - d14c_blk)
+
+# mods
+# non-crystalline
+NonCrys.inc.blk.mod <- lm(inc.blk ~ NonCrys + Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
+NonCrys.blk.mod <- lm(d14c_blk ~ NonCrys + Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
+NonCrys.inc.mod <- lm(d14c_inc ~ NonCrys + Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
+
+# crystalline
+crys.inc.blk.mod <- lm(inc.blk ~ Fe_cr + Year,
+     sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
+crys.blk.mod <- lm(d14c_blk ~ Fe_cr + Year, sra.blk.inc.rep.min.30.df)
+crys.inc.mod <- lm(d14c_inc ~ Fe_cr + Year,
+     sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
+
+# pval fxs
+p.coef.fx <- function(lm, r, c) {
+  p <- summary(lm)$coefficients[r, c]
+  return(ifelse(p < .001, "<0.001", round(p, 3)))
+}
+p.mod.fx <- function(lm, print = TRUE) {
+  p <- pf(summary(lm)$fstatistic[1],
+     summary(lm)$fstatistic[2],
+     summary(lm)$fstatistic[3],
+     lower.tail=FALSE)
+  if (print) {
+    ifelse(p < 0.001, "<0.001", p)
+  }
+}
+
+
+# bulk
+summary(lm(d14c_blk ~ Al_ox + Year, sra.blk.inc.rep.min.30.df))
+summary(lm(d14c_blk ~ Al_py + Year, sra.blk.inc.rep.min.30.df))
+summary(lm(d14c_blk ~ Fe_ox + Year, sra.blk.inc.rep.min.30.df))
+summary(lm(d14c_blk ~ Fe_dc + Year, 
+           sra.blk.inc.rep.min.30.df[-grep("pp", sra.blk.inc.rep.min.30.df$PMeco), ]))
+
+# inc 
+# NB: 1) no Fe_dc due to GRrf issues
+#     2) Year interaction sig. for Al_py, Fe_ox; 2001 slope flat for those mins
+summary(lm(d14c_inc ~ Al_ox + Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])) # R2 = 0.68, p < 0.0001
+summary(lm(d14c_inc ~ Al_py * Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])) # R2 = 0.69, p < 0.0001
+summary(lm(d14c_inc ~ Fe_ox * Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])) # R2 = 0.68, p < 0.0001
+```
+
+```{r min-30-blk-inc-plot-setup}
+# plot fx (for reps df)
+blk.inc.min.30.plot.fx <- function(df, d14c_var, 
+                                   min_in = NULL,
+                                   min_smooth = TRUE,
+                                   eco_in = NULL,
+                                   eco_out = NULL,
+                                   PMeco_filter = NULL,
+                                   lg.pos) {
+  
+  # variables
+  d14c_quo <- sym(d14c_var)
+  
+  # plot df
+  plot.df <- df %>%
+    pivot_longer(cols = which(names(df) %in% min_in), 
+                 names_to = "min", values_to = "conc") %>%
+    mutate(ECO = substr(PMeco, 3, 4),
+           PM = substr(PMeco, 1, 2),
+           min = factor(min, levels = min_in)) %>%
+    mutate(eco = factor(ifelse(ECO == "pp", "warm",
+                               ifelse(ECO == "wf", "cool", "cold")),
+                        levels = c("warm", "cool", "cold")),
+           pm = ifelse(PM == "AN", "andesite",
+                       ifelse(PM == "BS", "basalt", "granite"))) %>%
+    mutate(ecoYear = paste0(eco, " (", Year, ")"))
+  
+  # filter/select
+  if (!is.null(eco_in)) {
+    plot.df <- plot.df %>%
+      filter(eco == eco_in)
+  }
+  if (!is.null(eco_out)) {
+    plot.df <- plot.df %>%
+      filter(eco != eco_out)
+    }
+  if (!is.null(PMeco_filter)) {
+    plot.df <- plot.df %>%
+      filter(PMeco != PMeco_filter)
+  }
+  
+  # plot
+  p <- ggplot(plot.df, aes(conc, !! d14c_quo)) +
+    geom_point(aes(color = pm, shape = ecoYear), size = 2, alpha = .5) +
+    scale_color_manual(name = NULL,
+                       values = c("andesite" = andesite,
+                                  "basalt" = basalt,
+                                  "granite" = granite)) +
+    scale_shape_manual(name = NULL,
+                       limits = c("warm (2001)", 
+                                  "cool (2001)", 
+                                  "cold (2001)",
+                                  "warm (2019)", 
+                                  "cool (2019)", 
+                                  "cold (2019)"),
+                       values = c("warm (2001)" = 15, 
+                                  "cool (2001)" = 17, 
+                                  "cold (2001)" = 16,
+                                  "warm (2019)" = 0, 
+                                  "cool (2019)" = 2, 
+                                  "cold (2019)" = 1)) +
+    scale_linetype_manual(name = NULL,
+                          values = c("2001" = 1, "2019" = 2)) +
+    guides(linetype = guide_legend(override.aes = list(size = .5))) +
+    scale_y_continuous(expand = expansion(mult = c(0, .15))) +
+    theme_bw() +
+    theme(panel.grid = element_blank(),
+          axis.title = element_blank(),
+          strip.background = element_blank(),
+          strip.text = element_blank(),
+          legend.position = lg.pos)
+  
+  # add geom_smooth
+  if (min_smooth) {
+    p +
+      geom_smooth(data = filter(plot.df, min == min_in),
+                  aes(conc, !! d14c_quo, linetype = Year),
+                  method = "lm", formula = y ~ x, se = TRUE, 
+                  color = "black", fill = "gray90")
+  } else {
+    p
+  }
+}
+```
+
+(ref:min-all-blk-inc-plot-cap) Relationship of selectively dissolved iron and alumnimum to the difference between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ ($\Delta$^14^C~*respired-bulk*~). ^a)^ Oxalate-extractable aluminum,  ^b)^ Pyrophosphate-extractable aluminum, ^c)^ Oxalate-extractable iron) ^d)^ Dithionite-extractable iron. Points show mass-weighted mineral concentrations and carbon-weighted values of $\Delta$^14^C~*respired-bulk*~ for 0-30cm profiles. Lines show linear model fits from **Eq. 5**.
+
+```{r min-all-blk-inc-plot, fig.cap="(ref:min-all-blk-inc-plot-cap)"}
+# make plot list
+blk.min30.all.p.ls <- list(
+  blk.inc.min.30.plot.fx(
+    sra.blk.inc.rep.min.30.df[-which(sra.blk.inc.rep.min.30.df$PMeco == "GRrf"), ],
+    d14c_var = "inc.blk",
+    min_in = "Al_ox",
+    lg.pos = "none"),
+  blk.inc.min.30.plot.fx(
+    sra.blk.inc.rep.min.30.df[-which(sra.blk.inc.rep.min.30.df$PMeco == "GRrf"), ],
+    d14c_var = "inc.blk",
+    min_in = "Al_py",
+    lg.pos = "none") +
+    theme(axis.text.y = element_text(color = "white")),
+  blk.inc.min.30.plot.fx(
+    sra.blk.inc.rep.min.30.df[-which(sra.blk.inc.rep.min.30.df$PMeco == "GRrf"), ],
+    d14c_var = "inc.blk",
+    min_in = "Fe_ox",
+    lg.pos = "none"),
+  blk.inc.min.30.plot.fx(
+    sra.blk.inc.rep.min.30.df[-which(sra.blk.inc.rep.min.30.df$PMeco == "GRrf"), ],
+    d14c_var = "inc.blk",
+    min_in = "Fe_dc",
+    lg.pos = "none") +
+    theme(axis.text.y = element_text(color = "white")))
+
+# common y axis label
+x.grob <- textGrob(expression('Mineral concentration (g kg'^-2*')'),
+                   gp = gpar(fontface = "bold", fontsize = 14))
+y.grob <- textGrob(expression(Delta*''^14*'C'[italic(respired)]- Delta*''^14*'C'[italic(bulk)]*' (‰)'),
+                   gp = gpar(fontface = "bold", fontsize = 14), rot = 90)
+
+# add labels
+pg <- arrangeGrob(
+  plot_grid(plotlist = blk.min30.all.p.ls, nrow = 2, ncol = 2, 
+            labels = paste0(letters[1:4], ")"), 
+            vjust = , hjust = -1, label_size = 12),
+  left = y.grob, bottom = x.grob)
+
+# add legend
+blk.30.lg <- get_legend(
+  blk.min30.all.p.ls[[1]] +
+    guides(linetype = guide_legend(override.aes = list(size = .5, fill = NA), 
+                                   ncol = 1, order = 1),
+           shape = guide_legend(override.aes = list(alpha = 1),
+                                ncol = 2, order = 2),
+           color = guide_legend(override.aes = list(alpha = 1),
+                                ncol = 1, order = 3)) +
+    theme(legend.position = "bottom")
+)
+
+# plot
+plot_grid(pg, blk.30.lg, nrow = 2, rel_heights = c(1, .25))
+```
+
+(ref:min-blk30-plot-cap) Relationship of poorly crystalline and crystalline minerals to $\Delta$^14^C~*bulk*~. ^a)^ Poorly crystalline mineral content (oxalate-extractable aluminum + 1/2 oxalate-extractable iron), ^b)^ Crystalline mineral content (dithionite-extractable iron - oxalate-extractable iron). Points show mass-weighted mineral concentrations and carbon-weighted values of $\Delta$^14^C~*bulk*~ for 0-30cm profiles. Lines show linear model fits from **Eq. 5**.
+
+```{r min-blk30-plot, fig.cap="(ref:min-blk30-plot-cap)"}
+# make plot list
+blk.min30.p.ls <- list(
+  blk.inc.min.30.plot.fx(
+    sra.blk.inc.rep.min.30.df,
+    d14c_var = "d14c_blk",
+    min_in = "NonCrys",
+    lg.pos = "none"),
+  blk.inc.min.30.plot.fx(
+    sra.blk.inc.rep.min.30.df,
+    d14c_var = "d14c_blk",
+    min_in = "Fe_cr",
+    lg.pos = "none") +
+  theme(axis.text.y = element_text(color = "white")))
+
+# common y axis label
+x.grob <- textGrob(expression('Mineral concentration (g kg'^-2*')'),
+                   gp = gpar(fontface = "bold", fontsize = 14))
+y.grob <- textGrob(expression(Delta*''^14*'C'[italic(bulk)]*' (‰)'),
+                   gp = gpar(fontface = "bold", fontsize = 14), rot = 90)
+
+# add labels
+pg <- arrangeGrob(
+  plot_grid(plotlist = blk.min30.p.ls, nrow = 1, labels = c("a)", "b)"),
+            label_size = 12),
+  left = y.grob, bottom = x.grob)
+
+# add legend
+blk.30.lg <- get_legend(
+  blk.min30.p.ls[[1]] +
+    guides(linetype = guide_legend(override.aes = list(size = .5, fill = NA), 
+                                   ncol = 1, order = 1),
+           shape = guide_legend(override.aes = list(alpha = 1),
+                                ncol = 2, order = 2),
+           color = guide_legend(override.aes = list(alpha = 1),
+                                ncol = 1, order = 3)) +
+    theme(legend.position = "bottom")
+)
+
+# plot
+plot_grid(pg, blk.30.lg, nrow = 2, rel_heights = c(1, .25))
+```
+
+(ref:min-inc30-plot-cap) Relationship of poorly crystalline and crystalline minerals to $\Delta$^14^C~*respired*~. ^a)^ Poorly crystalline mineral content (oxalate-extractable aluminum + 1/2 oxalate-extractable iron), ^b)^ Crystalline mineral content (dithionite-extractable iron - oxalate-extractable iron). Points show mass-weighted mineral concentrations and carbon-weighted values of $\Delta$^14^C~*respired*~ for 0-30cm profiles. Lines show linear model fits from **Eq. 5**.
+
+```{r min-inc30-plot, fig.cap="(ref:min-inc30-plot-cap)"}
+# make plot list
+inc.min30.p.ls <- list(
+  blk.inc.min.30.plot.fx(
+    sra.blk.inc.rep.min.30.df[-which(sra.blk.inc.rep.min.30.df$PMeco == "GRrf"), ],
+    d14c_var = "d14c_inc",
+    min_in = "NonCrys",
+    lg.pos = "none"),
+  blk.inc.min.30.plot.fx(
+    sra.blk.inc.rep.min.30.df[-which(sra.blk.inc.rep.min.30.df$PMeco == "GRrf"), ],
+    d14c_var = "d14c_inc",
+    min_in = "Fe_cr",
+    lg.pos = "none") +
+  theme(axis.text.y = element_text(color = "white")))
+
+# common y axis label
+x.grob <- textGrob(expression('Mineral concentration (g kg'^-2*')'),
+                   gp = gpar(fontface = "bold", fontsize = 14))
+y.grob <- textGrob(expression(Delta*''^14*'C'[italic(respired)]*' (‰)'),
+                   gp = gpar(fontface = "bold", fontsize = 14), rot = 90)
+
+# add labels
+pg <- arrangeGrob(
+  plot_grid(plotlist = inc.min30.p.ls, nrow = 1, labels = c("a)", "b)"),
+            label_size = 12),
+  left = y.grob, bottom = x.grob)
+
+# add legend
+inc.30.lg <- get_legend(
+  inc.min30.p.ls[[1]] +
+    guides(linetype = guide_legend(override.aes = list(size = .5, fill = NA), 
+                                   ncol = 1, order = 1),
+           shape = guide_legend(override.aes = list(alpha = 1),
+                                ncol = 2, order = 2),
+           color = guide_legend(override.aes = list(alpha = 1),
+                                ncol = 1, order = 3)) +
+    theme(legend.position = "bottom")
+)
+
+# plot
+plot_grid(pg, inc.30.lg, nrow = 2, rel_heights = c(1, .25))
+```
