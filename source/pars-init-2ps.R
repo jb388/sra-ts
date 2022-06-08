@@ -260,7 +260,12 @@ pars <- c(ks, tc)
 ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, pool_fltr = "all", mod = "2ps", PMeco_depth = PMeco_depth) +
+  theme(axis.text = element_text(size = 12),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 14))
 
 # save pars
 pars.i.2ps[[PMeco_depth]] <- pars
@@ -503,7 +508,7 @@ pars <- c(ks, tc)
 ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", pool_fltr = "all", PMeco_depth = PMeco_depth)
 
 # save pars
 pars.i.2ps[[PMeco_depth]] <- pars 
@@ -740,15 +745,15 @@ con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.est[[PMeco_depth]]
-ks <- c(.4, .004) # fast, slow
-tc <- .9 # transfer coef 
+ks <- c(.01, .01) # fast, slow
+tc <- .0011 # transfer coef 
 pars <- c(ks, tc)
 
 # evaluate pars
 ini.2ps.C14.df <- par.fx(pars = pars, In = In, mod = "2ps")
 
 # plot
-C14.2p.plot.fx(ini.2ps.C14.df, con.df, mod = "2ps", PMeco_depth = PMeco_depth)
+C14.2p.plot.fx(ini.2ps.C14.df, con.df, pool_fltr = "all", mod = "2ps", PMeco_depth = PMeco_depth)
 
 # save pars
 pars.i.2ps[[PMeco_depth]] <- pars

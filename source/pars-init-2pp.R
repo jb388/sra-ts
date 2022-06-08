@@ -707,14 +707,21 @@ con.df <- con.df.fx(PMeco_depth)
 
 # initial pars
 In <- in.i[[PMeco_depth]]
-ks <- c(.01, .003) # fast, slow
-gam <- .5 # partitioning coef (constrain to 0.7 to 0.95)
+ks <- c(.25, .002) # fast, slow
+gam <- .99 # partitioning coef (constrain to 0.7 to 0.95)
 
 # evaluate pars
 ini.2pp.C14.df <- par.fx(pars = c(ks, gam), In = In, mod = "2pp")
 
 # plot
-C14.2p.plot.fx(ini.2pp.C14.df, con.df, mod = "2pp")
+C14.2p.plot.fx(ini.2pp.C14.df, con.df, pool_fltr = "all", mod = "2pp", PMeco_depth = PMeco_depth) 
+# +
+#   theme(axis.text.x = element_text(size = 12),
+#         axis.text.y = element_text(size = 12),
+#         axis.title.x = element_blank(),
+#         axis.title.y = element_text(size = 14, color = "white"),
+#         legend.text = element_text(size = 12),
+#         legend.title = element_text(size = 14))
 
 # save pars
 pars.i.2pp[[PMeco_depth]] <- c(ks, gam)

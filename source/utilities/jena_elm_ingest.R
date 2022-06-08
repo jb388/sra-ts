@@ -7,7 +7,7 @@
 
 library(readxl)
 
-read_jena_elm_results <- function(jena_elm_dir, template_file) {
+read_jena_elm_results <- function(jena_elm_dir, template_file, verbose = TRUE) {
   if(missing(template_file)) {
     template_file <- "../data/raw/elm_jena_template/elm_jena_template.xls"
   }
@@ -22,8 +22,10 @@ read_jena_elm_results <- function(jena_elm_dir, template_file) {
   
   # check that row 2 column names match the template
   for(i in seq_along(data_files)) {
-    if(any(is.na(match(names(read_excel(data_files[i], sheet = "Pivot", skip = 1))[1:3], names(template)[1:3])))) {
-      cat("Row 2 of ", data_files[i], " does not contain proper column names")
+    if (verbose) {
+      if(any(is.na(match(names(read_excel(data_files[i], sheet = "Pivot", skip = 1))[1:3], names(template)[1:3])))) {
+        cat("Row 2 of ", data_files[i], " does not contain proper column names")
+      }
     }
   }
   

@@ -32,6 +32,7 @@ library(tidyr)
 library(readxl)
 library(gt)
 library(purrr)
+library(emmeans)
 ```
 
 # Data preparation script for Sierra Nevada time series analysis
@@ -251,7 +252,38 @@ d1d2.fx <- function(df) {
 # Run d1d2.fx for BSrf, GRrf
 soc.2001.ls.inc <- soc.2001.ls 
 soc.2001.ls.inc$GRrf <- bind_rows(lapply(split(soc.2001.ls$GRrf, soc.2001.ls$GRrf$pro_rep), d1d2.fx))
-soc.2001.ls.inc$BSrf <- bind_rows(lapply(split(soc.2001.ls$BSrf, soc.2001.ls$BSrf$pro_rep), d1d2.fx))
+
+# also need weighted %C for flux weighting
+BSrf_comp_01_pctC <- soc.2001.ls.inc$BSrf[which(soc.2001.ls.inc$BSrf$lyr_bot < 9), ]
+if (any(c(grepl("BSrf_2_0", BSrf_comp_01_pctC$ID), grepl("BSrf_3_0", BSrf_comp_01_pctC$ID)))) {
+  BSrf_comp_01_pctC <- BSrf_comp_01_pctC[-which(BSrf_comp_01_pctC$ID == "BSrf_3_0-3" | BSrf_comp_01_pctC$ID == "BSrf_2_0-3"), ]
+}
+BSrf_comp_01_pctC$mass_wt <- c(15 / 30, rep((5 / 30), 3))
+BSrf_comp_01_pctC$c_pct_wtd <- BSrf_comp_01_pctC$C. * BSrf_comp_01_pctC$mass_wt
+
+# summarize SOC
+soc.2001.sum <- data.frame(bind_rows(lapply(soc.2001.ls, function(df) {
+  df %>%
+    mutate(ID2 = paste0(PMeco, "_", lyr_top, "-", lyr_bot)) %>%
+    group_by(ID2, PMeco, lyr_top, lyr_bot) %>%
+    dplyr::summarize(c_pct_avg = mean(C.))
+})))
+if (length(which(soc.2001.sum$ID2 == "BSrf_0-3" | soc.2001.sum$ID2 == "BSrf_3-8")) == 2) {
+  soc.2001.sum2 <- soc.2001.sum[-which(soc.2001.sum$ID2 == "BSrf_0-3" | soc.2001.sum$ID2 == "BSrf_3-8"), ]
+  soc.2001.sum2 <- rbind(
+    soc.2001.sum2,
+    c("BSrf_0-8", "BSrf", 0, 8, sum(BSrf_comp_01_pctC$c_pct_wtd)))
+}
+
+
+# summarize inc
+soc.2001.inc.sum <- data.frame(bind_rows(lapply(soc.2001.ls.inc, function(df) {
+  df %>%
+    mutate(ID2 = paste0(PMeco, "_", lyr_top, "-", lyr_bot)) %>%
+    group_by(ID2, PMeco, lyr_top, lyr_bot) %>%
+    dplyr::summarize(c_pct_avg = mean(C.))
+})))
+save(soc.2001.inc.sum, file = "soc.2001.inc.sum.RData")
 
 # calculate SOC stocks
 soc.2001.ls <- lapply(soc.2001.ls, function(df) {
@@ -259,219 +291,18 @@ soc.2001.ls <- lapply(soc.2001.ls, function(df) {
   return(df)
 })
 
-# summarize [note that soc stocks are dropped]
-soc.2001.sum <- data.frame(bind_rows(lapply(soc.2001.ls, function(df) {
-  df %>%
-    mutate(ID2 = paste0(PMeco, "_", lyr_top, "-", lyr_bot)) %>%
-    group_by(ID2, PMeco, lyr_top, lyr_bot) %>%
-    summarize(c_pct_avg = mean(C.))
-})))
-
 # 2019 data
 sra.2019.cn.sum <- data.frame(
   bind_rows(unlist(elm_results_ls, recursive = FALSE)) %>%
   mutate(PMeco = sapply(strsplit(ID, "_"), "[", 2),
          depth = sapply(strsplit(ID, "_"), "[", 4)) %>%
   group_by(PMeco, depth) %>%
-  summarize(across(c(C, N), .fns = mean))) %>%
+  dplyr::summarize(across(c(C, N), .fns = mean))) %>%
   rename(c_pct_avg = C,
          n_pct_avg = N)
 sra.2019.cn.sum$ID2 <- paste(sra.2019.cn.sum$PMeco, sra.2019.cn.sum$depth, sep = "_")
+save(sra.2019.cn.sum, file = "sra.2019.cn.sum.RData")
 ```
-
-```{r read-resp-ts}
-## read in timeseries of CO2 release from incubations
-# 2019
-sra.19a.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19a_CO2_flux_2021-01-19.csv")
-sra.19b.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19b_CO2_flux_2021-01-19.csv")
-
-# 2001
-sra.01.1.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_1_CO2_flux_2021-01-27.csv")
-sra.01.2.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_2_CO2_flux_2021-01-27.csv")
-
-## Test that required names are present
-nms <- c("PMeco", "ID", "dw_g", "timepoint_cmtv",  "time_d", "mgCO2_jar")
-invisible(lapply(list(sra.19a.co2.ts,
-                      sra.19b.co2.ts,
-                      sra.01.1.co2.ts,
-                      sra.01.2.co2.ts),
-       function(x) {
-         ifelse(!is.na(match(nms, names(x))), "yes", "no")
-       }
-       ))
-
-# combine all data, remove time points without CO2 measurements, and add year and rep 
-ts <- bind_rows(sra.19a.co2.ts[ , nms], 
-                sra.19b.co2.ts[ , nms], 
-                sra.01.1.co2.ts[ , nms],
-                sra.01.2.co2.ts[ , nms])
-if(length(which(is.na(ts$mgCO2_jar))) > 0) {
-  ts <- ts[-which(is.na(ts$mgCO2_jar)), ]
-}
-ts$year <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 3)
-ts$rep <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 4)
-ts$depth <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 2)
-ts$ID2 <- paste(ts$PMeco, ts$depth, sep = "_")
-
-# add C content
-ts[which(ts$year == 2001), "gC_gS"] <- soc.2001.sum[match(ts[which(ts$year == 2001), "ID2"], soc.2001.sum$ID2), "c_pct_avg"] * 10^-2
-ts[which(ts$year == 2019), "gC_gS"] <- sra.2019.cn.sum[match(ts[which(ts$year == 2019), "ID2"], sra.2019.cn.sum$ID2), "c_pct_avg"] * 10^-2
-
-# calculate per unit carbon fluxes
-ts$mgCO2_gC <- ts$gC_gS * ts$dw_g * ts$mgCO2_jar * (12/44)
-ts$mgCO2_gC_d <- ts$mgCO2_gC / ts$time_d
-
-# average reps
-ts.avg <- ts %>%
-  group_by(PMeco, year, depth, timepoint_cmtv) %>%
-  summarize(time_d = mean(time_d),
-            mgCO2_gC_d_avg = mean(mgCO2_gC_d),
-            mgCO2_gC_d_max = max(mgCO2_gC_d),
-            mgCO2_gC_d_min = min(mgCO2_gC_d),
-            mgCO2_gC_avg = mean(mgCO2_gC),
-            mgCO2_gC_max = max(mgCO2_gC),
-            mgCO2_gC_min = min(mgCO2_gC)) %>%
-  mutate(PMeco_depth_year = paste(PMeco, depth, year, sep = "_"))
-
-# add depth index
-t1 <- ts.avg[ts.avg$timepoint_cmtv == 1, ]
-t1 <- data.frame(
-  bind_rows(
-    lapply(split(t1, t1$year), function(df) {
-      bind_rows(lapply(split(df, df$PMeco), function(x) {
-        x$lyr_top <- as.numeric(sapply(strsplit(x$depth, "-"), "[", 1))
-        x <- x[order(x$lyr_top), ]
-        x$depth_index <- seq(1, nrow(x))
-        return(x)
-      }))
-    })))
-ts.avg$depth_index <- t1[match(ts.avg$PMeco_depth_year, t1$PMeco_depth_year), "depth_index"]
-```
-
-```{r plot-resp-rates}
-fig.n <- 1
-# function for plotting
-ts.plot.fx <- function(df, yr, increment, cumulative = TRUE) {
-      if (cumulative) {
-        df %>%
-          filter(year == yr & depth_index == increment) %>%
-          mutate(PM = ifelse(grepl("AN", PMeco), "AN",
-                             ifelse(grepl("BS", PMeco), "BS", "GR")),
-                 eco = factor(ifelse(grepl("rf", PMeco), "rf", 
-                                     ifelse(grepl("wf", PMeco), "wf", "pp")),
-                              levels = c("pp", "wf", "rf"))) %>%
-          ggplot(., aes(time_d, mgCO2_gC_avg, color = PM, shape = eco)) +
-          geom_ribbon(aes(ymin = mgCO2_gC_max, ymax = mgCO2_gC_min, fill = PM, linetype = eco, alpha = 0.2), show.legend = FALSE) +
-          geom_point(aes(time_d, mgCO2_gC_max, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
-          geom_point(aes(time_d, mgCO2_gC_min, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
-          geom_line(aes(color = PM, linetype = eco), size = 1.2) +
-          facet_grid(rows = vars(eco),
-                     labeller = labeller(eco = c("rf" = "cold", "wf" = "cool", "pp" = "warm"))) +
-          scale_x_continuous(limits = c(0,30)) +
-          scale_color_manual(name = "Parent material",
-                             labels = c("AN" = "andesite",
-                                        "BS" = "basalt",
-                                        "GR" = "granite"),
-                             values = c("AN" = "blue", 
-                                        "BS" = "red", 
-                                        "GR" = "darkgray")) +
-          scale_shape_manual(name = "Climate",
-                             labels = c("rf" = "cold",
-                                        "wf" = "cool",
-                                        "pp" = "warm"),
-                             values = c("pp" = 21, 
-                                        "rf" = 22, 
-                                        "wf" = 24)) +
-          scale_fill_manual(values =c("AN" = "blue",
-                                      "BS" = "red",
-                                      "GR" = "darkgray")) +
-          scale_linetype_manual(name = "Climate",
-                                values = c("rf" = "dotted",
-                                           "wf" = "dashed",
-                                           "pp" = "solid"),
-                                labels = c("rf" = "cold",
-                                        "wf" = "cool",
-                                        "pp" = "warm")) +
-          ylab(expression('Cumulative flux (mgCO'[2]*'-C gC'^-1*')')) +
-          xlab("Time (days)") +
-          guides(color = guide_legend(order = 1),
-                 shape = guide_legend(order = 3)) +
-          ggtitle(paste("Cumulative flux, ", yr, "depth ", increment)) +
-          theme_bw() +
-          theme(panel.grid = element_blank())
-    } else {
-       df %>%
-        filter(year == yr & depth_index == increment) %>%
-        mutate(PM = ifelse(grepl("AN", PMeco), "AN",
-                           ifelse(grepl("BS", PMeco), "BS", "GR")),
-              eco = factor(ifelse(grepl("rf", PMeco), "rf",
-                                  ifelse(grepl("wf", PMeco), "wf", "pp")),
-                           levels = c("pp", "wf", "rf"))) %>%
-        ggplot(., aes(time_d, mgCO2_gC_d_avg, color = PM, shape = eco)) +
-        geom_ribbon(aes(ymin = mgCO2_gC_d_max, ymax = mgCO2_gC_d_min, fill = PM, linetype = eco, alpha = 0.2), show.legend = FALSE) +
-          geom_point(aes(time_d, mgCO2_gC_d_max, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
-          geom_point(aes(time_d, mgCO2_gC_d_min, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
-        geom_line(aes(color = PM, linetype = eco), size = 1.2) +
-        facet_grid(rows = vars(eco),
-                   labeller = labeller(eco = c("rf" = "cold", "wf" = "cool", "pp" = "warm"))) +
-        scale_x_continuous(limits = c(0,30)) +
-        scale_color_manual(name = "Parent material",
-                           labels = c("AN" = "andesite",
-                                      "BS" = "basalt",
-                                      "GR" = "granite"),
-                           values = c("AN" = "blue", 
-                                      "BS" = "red", 
-                                      "GR" = "darkgray")) +
-        scale_shape_manual(name = "Climate",
-                           labels = c("rf" = "cold",
-                                      "wf" = "cool",
-                                      "pp" = "warm"),
-                           values = c("pp" = 21, 
-                                      "rf" = 22, 
-                                      "wf" = 24)) +
-        scale_fill_manual(values =c("AN" = "blue",
-                                    "BS" = "red",
-                                    "GR" = "darkgray")) +
-        scale_linetype_manual(name = "Climate",
-                              values = c("rf" = "dotted",
-                                         "wf" = "dashed",
-                                         "pp" = "solid"),
-                              labels = c("rf" = "cold",
-                                      "wf" = "cool",
-                                      "pp" = "warm")) +
-        ylab(expression('Respiration Rate (mgCO'[2]*'-C gC'^-1*'d'^-1*')')) +
-        xlab("Time (days)") +
-        guides(color = guide_legend(order = 1),
-               shape = guide_legend(order = 3)) +
-        ggtitle(paste("Flux rate", yr, "depth ", increment)) +
-        theme_bw() +
-        theme(panel.grid = element_blank())
-    }
-}
-
-## cumulative flux
-# 2019
-ts.plot.fx(ts.avg, yr = "2019", increment = "1")
-ts.plot.fx(ts.avg, yr = "2019", increment = "2")
-ts.plot.fx(ts.avg, yr = "2019", increment = "3")
-# 2001
-ts.plot.fx(ts.avg, yr = "2001", increment = "1")
-ts.plot.fx(ts.avg, yr = "2001", increment = "2")
-ts.plot.fx(ts.avg, yr = "2001", increment = "3")
-
-## flux rates
-# 2019
-ts.plot.fx(ts.avg, yr = "2019", increment = "1", cumulative = FALSE)
-ts.plot.fx(ts.avg, yr = "2019", increment = "2", cumulative = FALSE)
-ts.plot.fx(ts.avg, yr = "2019", increment = "3", cumulative = FALSE)
-# 2001
-ts.plot.fx(ts.avg, yr = "2001", increment = "1", cumulative = FALSE)
-ts.plot.fx(ts.avg, yr = "2001", increment = "2", cumulative = FALSE)
-ts.plot.fx(ts.avg, yr = "2001", increment = "3", cumulative = FALSE)
-```
->**Fig. `r {fig.n}`. Respiration data from incubations of 2019 and 2001 bulk soils. **
-
->*Caption:* Points show measured CO~2~ production of laboratory duplicates as cumulative fluxes or daily flux rates by depth, lines show the means, and the ribbon represents the range. 
 
 *Merge templates with 14C, C, and N data*
 
@@ -513,7 +344,6 @@ sra.2001 <- sra.2001[-which(sra.2001$ID == "ANpp_3_6-13"), ]
 
 # make list by PMeco
 sra.2001.ls <- split(sra.2001, sra.2001$PMeco)
-save(sra.2001.ls, file = "sra.2001.ls.RData")
 ```
 
 ```{r merge-iso-data-soil-S19}
@@ -636,6 +466,9 @@ sra.2019.inc.ls <- bind_rows(
   })
 )
 sra.2019.inc.ls <- split(sra.2019.inc.ls, sra.2019.inc.ls$PMeco)
+# save inc list
+save(sra.2019.inc.ls, file = "sra.2019.inc.ls.RData")
+
 # 2001
 sra.2001.inc.ls <- bind_rows(
   lapply(split(sra.2001.inc.df, sra.2001.inc.df$lyr_name), function(df) {
@@ -647,6 +480,8 @@ sra.2001.inc.ls <- bind_rows(
 )
 sra.2001.inc.ls <- split(sra.2001.inc.ls, sra.2001.inc.ls$PMeco)
 
+# save inc list
+save(sra.2001.inc.ls, file = "sra.2001.inc.ls.RData")
 
 # litter CO2
 sra.2019.inc_L <- sra.2019.inc_L[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
@@ -696,7 +531,6 @@ atm.fm.2019 <- calc_fm(atm.d14.2019, 2019)
 ```
 
 ```{r plot-litter-14c}
-fig.n <- fig.n + 1
 # summarize litter inc data
 sra.2019.inc_L.sum <- sra.2019.inc_L.df %>%
   mutate(eco = factor(ifelse(eco == "pp", "warm",
@@ -827,7 +661,6 @@ sra.01.sum <- bind_rows(sra.2001.sum.ls) %>%
                      ifelse(PM == "BS", "basalt", "granite")))
 
 # plot
-fig.n <- fig.n + 1
 sra.01.sum %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
   geom_vline(xintercept = atm.d14.2001) +
@@ -945,7 +778,7 @@ ggplot(bd.err.df, aes(BD_g_cm_3, BD_pred)) +
 
 ```{r plot-2009-14c-profiles}
 # plot
-fig.n <- fig.n + 1
+
 sra.09.sum %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
   geom_vline(xintercept = atm.d14.2009) +
@@ -997,7 +830,7 @@ sra.19.sum <- bind_rows(sra.2019.sum.ls) %>%
                      ifelse(PM == "BS", "basalt", "granite"))) 
 
 # plot
-fig.n <- fig.n + 1
+ 
 sra.19.sum %>%
   ggplot(., aes(d14c, lyr_bot, color = pm, shape = eco, group = PMeco)) +
   geom_vline(xintercept = atm.d14.2019) +
@@ -1039,7 +872,7 @@ sra.19.sum$Year <- 2019
 sra.01.19.sum <- rbind(sra.01.sum, sra.19.sum)
 sra.01.19.sum$Year <- as.factor(sra.01.19.sum$Year)
 
-fig.n <- fig.n + 1
+ 
 sra.01.19.sum %>%
   mutate(PMeco_year = paste0(PMeco, Year),
          ecoYear = paste0(ECO, Year),
@@ -1131,7 +964,7 @@ sra.2001.inc.sum.df <- sra.2001.inc.sum.df[ , !(names(sra.2001.inc.sum.df) %in% 
 
 ```{r plot-inc-d14c-2019}
 # 2019
-fig.n <- fig.n + 1
+ 
 sra.2019.inc.sum.df[order(sra.2019.inc.sum.df$lyr_bot), ] %>%
   ggplot(., aes(d14c_mean, lyr_bot, color = pm, shape = eco)) +
   geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
@@ -1164,7 +997,7 @@ sra.2019.inc.sum.df[order(sra.2019.inc.sum.df$lyr_bot), ] %>%
 
 ```{r plot-inc-d14c-2001}
 # plot 2001 data
-fig.n <- fig.n + 1
+ 
 sra.2001.inc.sum.df %>%
   ggplot(., aes(d14c_mean, lyr_bot, color = pm, shape = eco)) +
   geom_vline(xintercept = atm.d14.2001) +
@@ -1200,8 +1033,9 @@ sra.2001.inc.sum.df %>%
 # plot together
 sra.inc.all <- rbind(sra.2001.inc.sum.df, 
                      sra.2019.inc.sum.df[ , names(sra.2019.inc.sum.df) %in% names(sra.2001.inc.sum.df)])
+save(sra.inc.all, file = "sra.inc.all.RData")
 
-fig.n <- fig.n + 1 
+  
 sra.inc.all %>%
   filter(lyr_bot > 0) %>%
   mutate(PMeco_year = paste0(pm, eco, Year),
@@ -1298,7 +1132,7 @@ sra.2001.ls2$GRrf <- bind_rows(
 #    - problem here is that only one pro_rep has 0-3 cm data
 #    - so, need to calculate weighted SOC, then calculate weighted 14C
 #    - composite 0-8 = 15g BSrf_1_0-3 + 5 g from each pro_rep BSrf_3-8
-BSrf_comp_01_i <- sra.2001.ls2$BSrf[which(sra.2001.ls$BSrf$lyr_bot < 9), ]
+BSrf_comp_01_i <- sra.2001.ls2$BSrf[which(sra.2001.ls2$BSrf$lyr_bot < 9), ]
 BSrf_comp_01_i$soc_wt <- c(15 / 30, rep(5 / 30, 3))
 BSrf_comp_01_i$soc_wtd <- BSrf_comp_01_i$lyr_soc_kgm2 * BSrf_comp_01_i$soc_wt
 
@@ -1361,9 +1195,207 @@ sra.01.inc.blk <- rbind(data.frame(sra.01.inc), sra.01.sum)
 save(sra.01.inc.blk, file = "sra.01.inc.blk.RData")
 ```
 
+```{r read-resp-ts}
+## read in timeseries of CO2 release from incubations
+# 2019
+sra.19a.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19a_CO2_flux_2021-01-19.csv")
+sra.19b.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19b_CO2_flux_2021-01-19.csv")
+
+# 2001
+sra.01.1.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_1_CO2_flux_2021-01-27.csv")
+sra.01.2.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_2_CO2_flux_2021-01-27.csv")
+
+## Test that required names are present
+nms <- c("PMeco", "ID", "dw_g", "timepoint_cmtv",  "time_d", "mgCO2_jar")
+invisible(lapply(list(sra.19a.co2.ts,
+                      sra.19b.co2.ts,
+                      sra.01.1.co2.ts,
+                      sra.01.2.co2.ts),
+       function(x) {
+         ifelse(!is.na(match(nms, names(x))), "yes", "no")
+       }
+       ))
+
+# combine all data, remove time points without CO2 measurements, and add year and rep 
+ts <- bind_rows(sra.19a.co2.ts[ , nms], 
+                sra.19b.co2.ts[ , nms], 
+                sra.01.1.co2.ts[ , nms],
+                sra.01.2.co2.ts[ , nms])
+if(length(which(is.na(ts$mgCO2_jar))) > 0) {
+  ts <- ts[-which(is.na(ts$mgCO2_jar)), ]
+}
+ts$year <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 3)
+ts$rep <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 4)
+ts$depth <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 2)
+ts$ID2 <- paste(ts$PMeco, ts$depth, sep = "_")
+
+# add C content
+ts[which(ts$year == 2001), "gC_gS"] <- as.numeric(soc.2001.sum2[match(ts[which(ts$year == 2001), "ID2"], soc.2001.sum2$ID2), "c_pct_avg"]) * 10^-2
+ts[which(ts$year == 2019), "gC_gS"] <- sra.2019.cn.sum[match(ts[which(ts$year == 2019), "ID2"], sra.2019.cn.sum$ID2), "c_pct_avg"] * 10^-2
+
+# calculate per unit carbon fluxes
+ts$mgCO2_gC <- ts$gC_gS * ts$dw_g * ts$mgCO2_jar * (12/44)
+ts$mgCO2_gC_d <- ts$mgCO2_gC / ts$time_d
+
+# average reps
+ts.avg <- ts %>%
+  group_by(PMeco, year, depth, timepoint_cmtv) %>%
+  summarize(time_d = mean(time_d),
+            mgCO2_gC_d_avg = mean(mgCO2_gC_d),
+            mgCO2_gC_d_max = max(mgCO2_gC_d),
+            mgCO2_gC_d_min = min(mgCO2_gC_d),
+            mgCO2_gC_avg = mean(mgCO2_gC),
+            mgCO2_gC_max = max(mgCO2_gC),
+            mgCO2_gC_min = min(mgCO2_gC)) %>%
+  mutate(PMeco_depth_year = paste(PMeco, depth, year, sep = "_"))
+
+# add depth index
+t1 <- ts.avg[ts.avg$timepoint_cmtv == 1, ]
+t1 <- data.frame(
+  bind_rows(
+    lapply(split(t1, t1$year), function(df) {
+      bind_rows(lapply(split(df, df$PMeco), function(x) {
+        x$lyr_top <- as.numeric(sapply(strsplit(x$depth, "-"), "[", 1))
+        x <- x[order(x$lyr_top), ]
+        x$depth_index <- seq(1, nrow(x))
+        return(x)
+      }))
+    })))
+ts.avg$depth_index <- t1[match(ts.avg$PMeco_depth_year, t1$PMeco_depth_year), "depth_index"]
+
+# cumulative flux rates
+ts.avg.cmtv <- bind_rows(
+  lapply(split(ts.avg, ts.avg$PMeco_depth_year), function(x) x[nrow(x), ]), 
+  .id = "PMeco_depth_year")
+```
+
+```{r plot-resp-rates}
+# function for plotting
+ts.plot.fx <- function(df, yr, increment, cumulative = TRUE) {
+      if (cumulative) {
+        df %>%
+          filter(year == yr & depth_index == increment) %>%
+          mutate(PM = ifelse(grepl("AN", PMeco), "AN",
+                             ifelse(grepl("BS", PMeco), "BS", "GR")),
+                 eco = factor(ifelse(grepl("rf", PMeco), "rf", 
+                                     ifelse(grepl("wf", PMeco), "wf", "pp")),
+                              levels = c("pp", "wf", "rf"))) %>%
+          ggplot(., aes(time_d, mgCO2_gC_avg, color = PM, shape = eco)) +
+          geom_ribbon(aes(ymin = mgCO2_gC_max, ymax = mgCO2_gC_min, fill = PM, linetype = eco, alpha = 0.2), show.legend = FALSE) +
+          geom_point(aes(time_d, mgCO2_gC_max, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
+          geom_point(aes(time_d, mgCO2_gC_min, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
+          geom_line(aes(color = PM, linetype = eco), size = 1.2) +
+          facet_grid(rows = vars(eco),
+                     labeller = labeller(eco = c("rf" = "cold", "wf" = "cool", "pp" = "warm"))) +
+          scale_x_continuous(limits = c(0,30)) +
+          scale_color_manual(name = "Parent material",
+                             labels = c("AN" = "andesite",
+                                        "BS" = "basalt",
+                                        "GR" = "granite"),
+                             values = c("AN" = "blue", 
+                                        "BS" = "red", 
+                                        "GR" = "darkgray")) +
+          scale_shape_manual(name = "Climate",
+                             labels = c("rf" = "cold",
+                                        "wf" = "cool",
+                                        "pp" = "warm"),
+                             values = c("pp" = 21, 
+                                        "rf" = 22, 
+                                        "wf" = 24)) +
+          scale_fill_manual(values =c("AN" = "blue",
+                                      "BS" = "red",
+                                      "GR" = "darkgray")) +
+          scale_linetype_manual(name = "Climate",
+                                values = c("rf" = "dotted",
+                                           "wf" = "dashed",
+                                           "pp" = "solid"),
+                                labels = c("rf" = "cold",
+                                        "wf" = "cool",
+                                        "pp" = "warm")) +
+          ylab(expression('Cumulative flux (mgCO'[2]*'-C gC'^-1*')')) +
+          xlab("Time (days)") +
+          guides(color = guide_legend(order = 1),
+                 shape = guide_legend(order = 3)) +
+          ggtitle(paste("Cumulative flux, ", yr, "depth ", increment)) +
+          theme_bw() +
+          theme(panel.grid = element_blank())
+    } else {
+       df %>%
+        filter(year == yr & depth_index == increment) %>%
+        mutate(PM = ifelse(grepl("AN", PMeco), "AN",
+                           ifelse(grepl("BS", PMeco), "BS", "GR")),
+              eco = factor(ifelse(grepl("rf", PMeco), "rf",
+                                  ifelse(grepl("wf", PMeco), "wf", "pp")),
+                           levels = c("pp", "wf", "rf"))) %>%
+        ggplot(., aes(time_d, mgCO2_gC_d_avg, color = PM, shape = eco)) +
+        geom_ribbon(aes(ymin = mgCO2_gC_d_max, ymax = mgCO2_gC_d_min, fill = PM, linetype = eco, alpha = 0.2), show.legend = FALSE) +
+          geom_point(aes(time_d, mgCO2_gC_d_max, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
+          geom_point(aes(time_d, mgCO2_gC_d_min, fill = PM, shape = eco), color = "black", size = 3, stroke = 1) +
+        geom_line(aes(color = PM, linetype = eco), size = 1.2) +
+        facet_grid(rows = vars(eco),
+                   labeller = labeller(eco = c("rf" = "cold", "wf" = "cool", "pp" = "warm"))) +
+        scale_x_continuous(limits = c(0,30)) +
+        scale_color_manual(name = "Parent material",
+                           labels = c("AN" = "andesite",
+                                      "BS" = "basalt",
+                                      "GR" = "granite"),
+                           values = c("AN" = "blue", 
+                                      "BS" = "red", 
+                                      "GR" = "darkgray")) +
+        scale_shape_manual(name = "Climate",
+                           labels = c("rf" = "cold",
+                                      "wf" = "cool",
+                                      "pp" = "warm"),
+                           values = c("pp" = 21, 
+                                      "rf" = 22, 
+                                      "wf" = 24)) +
+        scale_fill_manual(values =c("AN" = "blue",
+                                    "BS" = "red",
+                                    "GR" = "darkgray")) +
+        scale_linetype_manual(name = "Climate",
+                              values = c("rf" = "dotted",
+                                         "wf" = "dashed",
+                                         "pp" = "solid"),
+                              labels = c("rf" = "cold",
+                                      "wf" = "cool",
+                                      "pp" = "warm")) +
+        ylab(expression('Respiration Rate (mgCO'[2]*'-C gC'^-1*'d'^-1*')')) +
+        xlab("Time (days)") +
+        guides(color = guide_legend(order = 1),
+               shape = guide_legend(order = 3)) +
+        ggtitle(paste("Flux rate", yr, "depth ", increment)) +
+        theme_bw() +
+        theme(panel.grid = element_blank())
+    }
+}
+
+## cumulative flux
+# 2019
+ts.plot.fx(ts.avg, yr = "2019", increment = "1")
+ts.plot.fx(ts.avg, yr = "2019", increment = "2")
+ts.plot.fx(ts.avg, yr = "2019", increment = "3")
+# 2001
+ts.plot.fx(ts.avg, yr = "2001", increment = "1")
+ts.plot.fx(ts.avg, yr = "2001", increment = "2")
+ts.plot.fx(ts.avg, yr = "2001", increment = "3")
+
+## flux rates
+# 2019
+ts.plot.fx(ts.avg, yr = "2019", increment = "1", cumulative = FALSE)
+ts.plot.fx(ts.avg, yr = "2019", increment = "2", cumulative = FALSE)
+ts.plot.fx(ts.avg, yr = "2019", increment = "3", cumulative = FALSE)
+# 2001
+ts.plot.fx(ts.avg, yr = "2001", increment = "1", cumulative = FALSE)
+ts.plot.fx(ts.avg, yr = "2001", increment = "2", cumulative = FALSE)
+ts.plot.fx(ts.avg, yr = "2001", increment = "3", cumulative = FALSE)
+```
+>**Fig. `r {fig.n}`. Respiration data from incubations of 2019 and 2001 bulk soils. **
+
+>*Caption:* Points show measured CO~2~ production of laboratory duplicates as cumulative fluxes or daily flux rates by depth, lines show the means, and the ribbon represents the range. 
+
 ```{r plot-inc-blk-2019}
 # plot 2019
-fig.n <- fig.n + 1
+ 
 # p <-
 sra.19.inc.blk %>%
   mutate(ECOtype = paste0(eco, " (", Type, ")")) %>%
@@ -1403,7 +1435,7 @@ sra.19.inc.blk %>%
 
 ```{r plot-inc-blk-2001}
 # plot 2001
-fig.n <- fig.n + 1
+ 
 sra.01.inc.blk %>%
   mutate(ECOtype = paste0(eco, " (", Type, ")")) %>%
   ggplot(., aes(d14c_mean, lyr_bot, color = pm, shape = ECOtype, linetype = Type)) +
@@ -1554,8 +1586,13 @@ sra.all.sum.df <- left_join(
   mutate(PM = substring(PMeco, 1, 2),
          eco = substring(PMeco, 3, 4))
 
-# simple linear regression of means
-summary(lm(d14c_mean.inc ~ d14c_mean.bulk * PM, sra.all.sum.df[sra.all.sum.df$d14c_mean.inc > -200, ]))
+# Trend for means
+# NB Year only, depth only models do not show significant interactions
+# PM only model
+emtrends(lm(d14c_mean.inc ~ d14c_mean.bulk * PM, sra.all.sum.df[sra.all.sum.df$d14c_mean.inc > -200, ]), pairwise ~ PM, var = "d14c_mean.bulk")
+# ECO only model
+emtrends(lm(d14c_mean.inc ~ d14c_mean.bulk * eco, sra.all.sum.df[sra.all.sum.df$d14c_mean.inc > -200, ]), pairwise ~ eco, var = "d14c_mean.bulk")
+
 
 # lapply(split(sra.all.sum.df, sra.all.sum.df$eco), function(df) {
 #   summary(lm(d14c_mean.inc ~ d14c_mean.bulk * PM, df))
@@ -1568,7 +1605,7 @@ summary(lm(d14c_mean.inc ~ d14c_mean.bulk * PM, sra.all.sum.df[sra.all.sum.df$d1
 # })
 
 # all depths and years together, by PM
-fig.n <- fig.n + 1
+ 
 sra.19.inc.blk2  %>%
   bind_rows(., sra.01.inc.blk2[ , which(names(sra.19.inc.blk2) %in% names(sra.01.inc.blk2))]) %>%
   mutate(depth = factor(lyr_bot),
@@ -1593,9 +1630,50 @@ sra.19.inc.blk2  %>%
         color = pm), 
     width = 1.5) +
   scale_color_manual(name = "Parent material",
-                     values = c("andesite" = "blue",
-                                "basalt" = "red",
-                                "granite" = "darkgray")) +
+                     values = c("andesite" = andesite,
+                                "basalt" = basalt,
+                                "granite" = granite)) +
+  scale_shape_manual(name = "Ecosystem (year)",
+                     values = c("warm (2019)" = 0,
+                                "cool (2019)" = 2,
+                                "cold (2019)" = 1,
+                                "warm (2001)" = 15,
+                                "cool (2001)" = 17,
+                                "cold (2001)" = 16)) +
+  coord_fixed(xlim = c(-100, 200), ylim = c(-100, 200)) +
+  xlab(expression('Bulk soil '*Delta*''^14*'C (‰)')) +
+  ylab(expression('Incubation '*Delta*''^14*'C (‰)')) +
+  # facet_grid(rows = vars(depth)) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+sra.19.inc.blk2  %>%
+  bind_rows(., sra.01.inc.blk2[ , which(names(sra.19.inc.blk2) %in% names(sra.01.inc.blk2))]) %>%
+  mutate(depth = factor(lyr_bot),
+         ecoYear = paste0(eco, " (", Year, ")")) %>%
+  filter(d14c_mean.inc > -200) %>%
+  ggplot(., aes(d14c_mean.bulk, d14c_mean.inc, color = eco)) +
+  # geom_vline(xintercept = atm.d14.2019, linetype = "dashed") +
+  geom_vline(xintercept = 0) +
+  # geom_hline(yintercept = atm.d14.2019, linetype = "dashed") +
+  geom_hline(yintercept = 0) +
+  geom_abline(slope = 1, intercept = 0) +
+  geom_point(aes(color = eco, shape = ecoYear), size = 3) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  geom_errorbarh(
+    aes(xmin = d14c_l.bulk, 
+        xmax = d14c_u.bulk,
+        color = eco), 
+    height = 1.5) +
+  geom_errorbar(
+    aes(ymin = d14c_l.inc, 
+        ymax = d14c_u.inc,
+        color = eco), 
+    width = 1.5) +
+  scale_color_manual(name = "Climate",
+                     values = c("warm" = warm,
+                                "cool" = cool,
+                                "cold" = cold)) +
   scale_shape_manual(name = "Ecosystem (year)",
                      values = c("warm (2019)" = 0,
                                 "cool (2019)" = 1,
@@ -1647,7 +1725,7 @@ sra.19.inc.blk2  %>%
 #   theme(panel.grid.minor = element_blank())
 # 
 # # 2019
-# fig.n <- fig.n + 1
+#  
 # sra.19.inc.blk2 %>%
 #   mutate(depth = factor(lyr_bot)) %>%
 #   ggplot(., aes(d14c_mean.bulk, d14c_mean.inc, color = pm, shape = eco, group = pm)) +
@@ -1813,7 +1891,7 @@ sra.01.09.19.raw %>%
   theme(panel.grid.minor = element_blank())
 
 # just topsoil, w/ error bars
-fig.n <- fig.n + 1
+ 
 sra.01.09.19.raw <- sra.01.09.19.raw[order(sra.01.09.19.raw$lyr_top), ]
 sra.01.09.19.raw %>%
   mutate(PMeco_year = paste0(PMeco, Year),
@@ -1869,7 +1947,7 @@ sra.01.09.19.raw %>%
 
 Soils collected in both the 2001 and 2009 sampling campaigns were sampled by horizon, but the depth intervals differed between the two sampling years. In 2009, full profiles were excavated for each site, as opposed to the shorter profiles collected in 2001 from the GR and AN sites. Radiocarbon was measured on all three replicate profiles at each site for the 2001 samples, but only for one of the replicate profiles at each site in 2009, e.g. ANpp rep2, etc.
 
-In order to compare the radiocarbon profiles between 2001, 2009, and 2019 we first interpolated both radiocarbon and carbon stock data at 1 cm intervals for each site in the datasets from each year. The carbon-stock-weighted radiocarbon values for any given target depth interval can then be calculated as a simple sum of the product of the carbon weight of each 1 cm increment (relative to the total carbon stock of the target depth interval) and its radiocarbon value. A monotonic cubic spline fit was used for the carbon stock interpolation (Wendt and Hauser 2013), and a mass-preserving spline was used to fit the radiocarbon data (Bishop, T.F.A., McBratney, A.B., Laslett, G.M., (1999) Modelling soil attribute depth functions with equal-area quadratic smoothing splines. Geoderma, 91(1-2): 27-45).
+In order to compare the radiocarbon profiles between 2001, 2009, and 2019 we first interpolated both radiocarbon and carbon stock data at 1 cm intervals for each site in the datasets from each year. The carbon-stock-weighted radiocarbon values for any given target depth interval can then be calculated as a simple sum of the product of the carbon weight of each 1 cm increment (relative to the total carbon stock of the target depth interval) and its radiocarbon value. A monotonic cubic spline fit with Hyman filtering was used for the carbon stock interpolation (Wendt and Hauser 2013), and a mass-preserving spline was used to fit the radiocarbon data (Bishop, T.F.A., McBratney, A.B., Laslett, G.M., (1999) Modelling soil attribute depth functions with equal-area quadratic smoothing splines. Geoderma, 91(1-2): 27-45).
 
 ```{r cn-clean, include = FALSE}
 elm_results_df <- bind_rows(unlist(elm_results_ls, recursive = FALSE))
@@ -1908,6 +1986,8 @@ sra.2001.ls <- lapply(sra.2001.ls, function(df) {
   })
   return(unsplit(ls, df$pro_name))
 })
+save(sra.2001.ls, file = "sra.2001.ls.RData")
+load("sra.2001.ls.RData")
 ```
 
 ```{r spline-fm, include = FALSE}
@@ -1973,7 +2053,13 @@ sra.2009.mass.sp <- lapply(sra.2009.ls, function(df) {
   return(df.mps)
 })
 
-# calculate mean of 1cm BD predictions for each 2019 depth increment
+sra.2009.bd.sp <- lapply(sra.2009.ls, function(df) {
+  depths(df) <- pro_name ~ lyr_top + lyr_bot
+  df.mps <- mpspline(df, var.name = "BD_g_cm_3", d = seq(0, max(df$lyr_bot), by = 10))
+  return(df.mps)
+})
+
+# calculate mean of 1cm mass predictions for each 2019 depth increment
 mass_pred <- lapply(seq_along(sra.2009.mass.sp), function(i) {
   ls <- split(sra.2019.ls[[i]], sra.2019.ls[[i]]["pro_rep"]) # split each replicate profile
   ls <- lapply(ls, function(df) {
@@ -1982,10 +2068,19 @@ mass_pred <- lapply(seq_along(sra.2009.mass.sp), function(i) {
   return(unsplit(ls, sra.2019.ls[[i]]["pro_rep"]))
 })
 
+# calculate mean of 1cm BD predictions for each 2019 depth increment
+bd_pred <- lapply(seq_along(sra.2009.bd.sp), function(i) {
+  ls <- split(sra.2019.ls[[i]], sra.2019.ls[[i]]["pro_rep"]) # split each replicate profile
+  ls <- lapply(ls, function(df) {
+    t(sra.2009.bd.sp[[i]][["var.std"]])[1:nrow(df)] # mass_kgm2
+    })
+  return(unsplit(ls, sra.2019.ls[[i]]["pro_rep"]))
+})
+
 # merge predicted mass values with sra.2019.ls
 nms <- names(sra.2019.ls)
 sra.2019.ls <- lapply(seq_along(sra.2019.ls), function(df) {
-  cbind(sra.2019.ls[[df]], mass_kgm2 = mass_pred[[df]])
+  cbind(sra.2019.ls[[df]], bd_g_cm3 = bd_pred[[df]])
 })
 names(sra.2019.ls) <- nms
 
@@ -1997,9 +2092,13 @@ sra.2019.ls <- lapply(sra.2019.ls, function(df) {
 })
 
 ## calculate stocks and cumulative stocks
-cstock.fx <- function(ls, mass, C) {
+cstock.fx <- function(ls, mass, bd, C) {
   lapply(ls, function(df) {
-    df$lyr_soc <- df[[mass]] * df[[C]] * 10^-2
+    if (is.na(mass)) {
+     df$lyr_soc <- df[[bd]] * df[[C]] * (df$lyr_bot - df$lyr_top) * 10^-1 
+    } else {
+     df$lyr_soc <- df[[mass]] * df[[C]] * 10^-2 
+    }
     pro_ls <- split(df, df$pro_name)
     pro_ls <- lapply(pro_ls, function(x) {
       x$lyr_soc_cmtv <- NA
@@ -2016,12 +2115,25 @@ cstock.fx <- function(ls, mass, C) {
   })
 }
 # 2019
-sra.2019.ls <- cstock.fx(sra.2019.ls, "mass_kgm2", "C")
+sra.2019.ls <- cstock.fx(sra.2019.ls, mass = NA, bd = "bd_g_cm3", "C")
 # 2009
-sra.2009.ls <- cstock.fx(sra.2009.ls, "mass_kgm2", "C_pct")
+sra.2009.ls <- cstock.fx(sra.2009.ls, "mass_kgm2", bd = NA, "C_pct")
 
 # save
 save(sra.2019.ls, file = "sra.2019.ls.RData")
+# write.csv(bind_rows(sra.2019.ls), file = "sra.2019.df.csv")
+
+# make df
+sra.2019.sum.df <- bind_rows(
+  lapply(sra.2019.ls, function(df) {
+    df %>%
+      group_by(PMeco, lyr_top, lyr_bot) %>%
+      summarize(across(c(fm, bd_g_cm3, C, N, lyr_soc), .fns = list(mean = mean, sd = sd))) %>%
+      select(-bd_g_cm3_sd) %>%
+      data.frame
+  })
+  , .id = "PMeco")
+# write.csv(sra.2019.sum.df, file = "/Users/jeff/Desktop/sra.2019.sum.csv")
 ```
 
 ```{r spline-soc, include = FALSE}
@@ -2032,7 +2144,7 @@ depth.spline <- function(x) {
   std <- seq(0, 100) # in cm (linear beyond last measured depth)
   sp <- predict(sp.ss, std) 
   df <- data.frame(sp)
-  colnames(df) <- c("lyr_bot","lyr_soc")
+  colnames(df) <- c("lyr_bot","lyr_soc") # where lyr_soc = cumulative SOC in output
   for(i in seq_along(df$lyr_bot)) {
     if(i == 1) {
       df$lyr_soc[i] <- df$lyr_soc[i]
@@ -2060,7 +2172,7 @@ sra.2001.sp.ls <- lapply(sra.2001.ls, function(df) {
 sra.2001.sp.ls.avg <- lapply(sra.2001.sum.ls2, function(df) {
   xy <- df[ , c("lyr_bot", "lyr_soc_cmtv")]
   t0 <- data.frame(lyr_bot = 0, lyr_soc_cmtv = 0)
-  return(rbind(xy))
+  return(rbind(t0, xy))
 })
 # 2009
 sra.2009.sp.ls <- lapply(sra.2009.ls, function(df) {
@@ -2551,6 +2663,7 @@ sra.19.rep.30.ls <- lapply(seq_along(1:9), function(i) {
     return(unlist(f)) 
   })
 })
+names(sra.19.rep.30.ls) <- names(fm.wt.19_30)
 sra.19.avg.30.ls <- lapply(seq_along(sra.2019.sum.ls), function(i) {
   fm <- lapply(seq_along(sra.19.rep.30.ls[[i]][[1]]), function(z) {
     data.frame(fm_19_mean = mean(sapply(sra.19.rep.30.ls[[i]], "[", z), na.rm = TRUE),
@@ -2599,6 +2712,7 @@ sra.01.rep.30.ls <- lapply(seq_along(1:9), function(i) {
     return(unlist(f)) 
   })
 })
+names(sra.01.rep.30.ls) <- names(fm.wt.01_30)
 sra.01.avg.30.ls <- lapply(seq_along(1:9), function(i) {
   fm <- lapply(seq_along(sra.01.rep.30.ls[[i]][[1]]), function(z) {
     data.frame(fm_01_mean = mean(sapply(sra.01.rep.30.ls[[i]], "[", z), na.rm = TRUE),
@@ -2611,6 +2725,11 @@ names(sra.01.avg.30.ls) <- names(fm.wt.01_30)
 ### inc
 ## 2019
 # SOC weights (site average)
+cwt.19_30.avg <- lapply(cwt.19_30, function(ls) {
+  apply(bind_rows(ls), 1, mean)
+})
+# Flux weights (site average)
+
 cwt.19_30.avg <- lapply(cwt.19_30, function(ls) {
   apply(bind_rows(ls), 1, mean)
 })
@@ -2732,7 +2851,7 @@ sra.30.blk.inc.df <- rbind(merge(sra.30.blk.inc.ls[[1]],
 ```
 
 ```{r plot-01-09-19-14c-profiles}
-fig.n <- fig.n + 1
+ 
 sra.01.09.19 %>%
   mutate(PMeco_year = paste0(PMeco, Year),
          eco = factor(ifelse(ECO == "pp", "warm",
@@ -2780,7 +2899,7 @@ sra.01.09.19 %>%
 >*Caption:* Points for 2001 samples show the mean $\Delta$^14^C values at the measured depths. Points for 2009 and 2019 samples are spline-fitted estimates of $\Delta$^14^C predicted for the same depth intervals as measured in 2001. Error bars show ± 1 standard deviation of the mean of three replicate profiles for 2001 and 2019 samples (only a single profile was analyzed in 2009). 
 
 ```{r plot-19-01-09-14c-profiles}
-fig.n <- fig.n + 1
+ 
 sra.19.01.09 %>%
   mutate(PMeco_year = paste0(PMeco, Year),
          eco = factor(ifelse(ECO == "pp", "warm",
@@ -2830,7 +2949,7 @@ sra.19.01.09 %>%
 
 ```{r plot-by-depth-14C-timeseries}
 # plot individual depths
-fig.n <- fig.n + 1
+ 
 
 # Atm
 atm.14c <- data.frame(year = Datm[Datm$Date > 2000, "Date"],
@@ -2905,7 +3024,6 @@ sra.19.01.inc.df <- bind_rows(lapply(seq_along(sra.19.01.inc.ls), function(i) {
                    year = 2001)
   return(df)
 }))
-save(sra.19.01.inc.df, file = "sra.19.01.inc.df.RData")
 # join
 sra.19.01.inc <- rbind(sra.19.01.inc.df, sra.2019.inc.df)
 
@@ -3127,7 +3245,7 @@ ras18_4.sp.df <- bind_rows(lapply(ras18_4.sp.ls, function(ls) {
     df$conc_30_wtd <- df$mass_wt * df$conc
     return(sum(df$conc_30_wtd))
   }), .id = "pro_name")
-}), .id = "min") %>% 
+}), .id = "min") %>%
   pivot_longer(!min, names_to = "PMeco", values_to = "conc") %>%
   mutate(min = ifelse(min == "Alo (g/kg)", "Al_ox", 
                       ifelse(min == "Alp (g/kg)", "Al_py",
@@ -3905,6 +4023,8 @@ csoc.19.0_30.df <- bind_rows(
     return(data.frame(df))
   })
 )
+# write.csv(csoc.19.0_30.df, "csoc.19.0_30.csv")
+
 # convert to 27 element list
 csoc.19.0_30.ls <- split(csoc.19.0_30.df, paste0(csoc.19.0_30.df$PMeco, "_", csoc.19.0_30.df$lyr_top, "-", csoc.19.0_30.df$lyr_bot))
 
@@ -3947,6 +4067,8 @@ obs.bulk.14c <- unlist(
 names(obs.bulk.14c) <- paste0(rep(c("AN", "BS", "GR"), each = 9),
                               rep(c("pp", "rf", "wf"), each = 3, times = 3),
                               rep(c("_0-10", "_10-20", "_20-30"), times = 9))
+save(obs.bulk.14c, file = "obs.bulk.14c.RData")
+
 # respiration
 sra.19.01.inc.min.max <- unlist(
   lapply(seq_along(1:3), function(i) {
@@ -3984,6 +4106,8 @@ for (i in seq_along(names(sra.2019.inc.min.max))) {
 obs.resp.14c <- rbind(bind_rows(sra.19.01.inc.min.max, .id = "id"),
                       bind_rows(sra.2019.inc.min.max, .id = "id"))
 obs.resp.14c <- lapply(split(obs.resp.14c, obs.resp.14c$id), function(df) df[ , 2:3])
+
+save(obs.resp.14c, file = "obs.resp.14c.RData")
 
 ## input/stock ratio
 ras06 <- data.frame(read_excel("../data/external/sra_ras_inc/RespRates_Rasmussen2006.xlsx", sheet = "RatesSum"))
@@ -4039,25 +4163,42 @@ con.df.fx <- function(PMeco_depth) {
 }
 
 # plot function
-C14.2p.plot.fx <- function(plot.df, con.df, mod, PMeco_depth) {
-  plot.df %>%
-  filter(pool == "bulk C" | pool == "respiration" | pool == "atm") %>%
-  ggplot(., aes(years, d14C, color = pool)) +
-  geom_path() +
-  geom_point(data = con.df, aes(Year, d14c, color = pool), size = 3) +
-  scale_color_manual(
-    name = "Pool",
-    values = c("atm" = 8,
-               "bulk C" = "black",
-               "fast" = "#D81B60",
-               "slow" = "#1E88E5",
-               "respiration" = "#FFC107")) +
-  scale_x_continuous(limits = c(1950, 2022)) +
-  ggtitle(paste(PMeco_depth, mod)) +
-  xlab("Year") +
-  ylab(expression(''*Delta*''^14*'C (‰)')) +
-  theme_bw() +
-  theme(panel.grid = element_blank())
+C14.2p.plot.fx <- function(plot.df, con.df, mod, pool_fltr = "bulk & resp", PMeco_depth) {
+  
+  if (pool_fltr == "bulk & resp") {
+    plot.df <- plot.df %>%
+      filter(pool == "bulk C" | pool == "respiration" | pool == "atm")
+  }
+  
+  p <- ggplot(plot.df, aes(years, d14C, color = pool)) +
+    geom_point(data = con.df, aes(Year, d14c, color = pool), size = 3) +
+    scale_color_manual(
+      name = "Pool",
+      values = c("atm" = 8,
+                 "bulk C" = "black",
+                 "fast" = "#D81B60",
+                 "slow" = "#1E88E5",
+                 "respiration" = "#FFC107")) +
+    scale_x_continuous(limits = c(1950, 2022)) +
+    ggtitle(paste(PMeco_depth, mod)) +
+    xlab("Year") +
+    ylab(expression(''*Delta*''^14*'C (‰)')) +
+    theme_bw() +
+    theme(panel.grid = element_blank())
+  
+  if (pool_fltr != "bulk & resp") {
+    p + 
+      geom_path(aes(linetype = pool)) +
+      scale_linetype_manual(name = "Pool",
+                            values = c("atm" = 1,
+                                       "bulk C" = 1,
+                                       "fast" = 2,
+                                       "slow" = 2,
+                                       "respiration" = 1))
+  } else {
+    p +
+      geom_path()
+  }
 }
 C14.1p.plot.fx <- function(plot.df, con.df, mod, PMeco_depth) {
   ggplot(plot.df, aes(years, d14C, color = pool)) +
@@ -6463,7 +6604,7 @@ SA.TT.df %>%
 ### Bayesian parameter estimation (MCMC)
 
 ```{r MCMC-fits, eval = FALSE}
-# the following .RData files are generated by script "sra-ts/source/sra-ts-mcmc-bayes.R"
+# the following .RData files are generated by script "sra-ts/source/sra-ts-14c-mcmc-bayes.R"
 load(file = "../data/derived/bayes-par-fit-2020-11-06/bayes_fit_2pp_0-10_5000iter.RData")
 load(file = "../data/derived/bayes-par-fit-2020-11-17/bayes_fit_2ps_0-10_5000iter.RData")
 
