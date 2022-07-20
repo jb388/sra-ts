@@ -231,7 +231,7 @@ soc.2001 <- data.frame(read_excel("../data/external/sra_ras_sum/sierra_data_summ
 
 # create list; remove BS samples deeper than 30 cm
 soc.2001.ls <- lapply(split(soc.2001, soc.2001$PMeco), function(df) {
-  df <- type.convert(df[complete.cases(df), c("ID", "C.", "mass_kgm2", "PMeco", "pro_rep", "lyr_top", "lyr_bot")])
+  df <- type.convert(df[complete.cases(df), c("ID", "C.", "mass_kgm2", "bd.g.cm3", "PMeco", "pro_rep", "lyr_top", "lyr_bot")])
  return(df[which(df$lyr_bot < 36), ])
 })
 
@@ -262,7 +262,7 @@ BSrf_comp_01_pctC$mass_wt <- c(15 / 30, rep((5 / 30), 3))
 BSrf_comp_01_pctC$c_pct_wtd <- BSrf_comp_01_pctC$C. * BSrf_comp_01_pctC$mass_wt
 
 # summarize SOC
-soc.2001.sum <- data.frame(bind_rows(lapply(soc.2001.ls, function(df) {
+soc.2001.sum <- data.frame(bind_rows(lapply(soc.2001.ls.inc, function(df) {
   df %>%
     mutate(ID2 = paste0(PMeco, "_", lyr_top, "-", lyr_bot)) %>%
     group_by(ID2, PMeco, lyr_top, lyr_bot) %>%
@@ -455,6 +455,7 @@ sra.2019.inc <- sra.2019.inc[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(
 names(sra.2019.inc) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
 sra.2001.inc <- sra.2001.inc[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
 names(sra.2001.inc) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+
 # merge
 # 2019
 sra.2019.inc.ls <- bind_rows(
@@ -1236,6 +1237,24 @@ ts[which(ts$year == 2019), "gC_gS"] <- sra.2019.cn.sum[match(ts[which(ts$year ==
 # calculate per unit carbon fluxes
 ts$mgCO2_gC <- ts$gC_gS * ts$dw_g * ts$mgCO2_jar * (12/44)
 ts$mgCO2_gC_d <- ts$mgCO2_gC / ts$time_d
+
+# average fluxes by rep
+ts.rep.avg <- bind_rows(
+  lapply(split(ts, ts$ID), function(x) {
+    x %>%
+      group_by(PMeco, year, depth, rep) %>%
+      summarize(time_d = max(time_d),
+                mgCO2_gC_d_avg = mean(mgCO2_gC_d),
+                mgCO2_gC_d_max = max(mgCO2_gC_d),
+                mgCO2_gC_d_min = min(mgCO2_gC_d),
+                mgCO2_gC_avg = mean(mgCO2_gC),
+                mgCO2_gC_max = max(mgCO2_gC),
+                mgCO2_gC_min = min(mgCO2_gC)) %>%
+      mutate(PMeco_depth_year = paste(PMeco, depth, year, sep = "_"),
+             lyr_top = as.numeric(sapply(strsplit(depth, "-"), "[", 1)),
+             lyr_bot = as.numeric(sapply(strsplit(depth, "-"), "[", 2)))
+  }), .id = "ID") %>%
+  mutate(PMeco_year_rep = paste(PMeco, year, rep, sep = "_"))
 
 # average reps
 ts.avg <- ts %>%
@@ -2138,22 +2157,22 @@ sra.2019.sum.df <- bind_rows(
 
 ```{r spline-soc, include = FALSE}
 # spline fit for carbon stocks (for calc weighted averages)
-depth.spline <- function(x) {
+depth.spline <- function(x, var_cmtv = "lyr_soc") {
   sp <- spline(x, method = "hyman") # fit monotonic cubic spline
   sp.ss <- smooth.spline(sp) # convert to class "spline" with smooth.spline fxn
-  std <- seq(0, 100) # in cm (linear beyond last measured depth)
+  std <- seq(0, max(x$lyr_bot)) # in cm (linear beyond last measured depth)
   sp <- predict(sp.ss, std) 
   df <- data.frame(sp)
-  colnames(df) <- c("lyr_bot","lyr_soc") # where lyr_soc = cumulative SOC in output
+  colnames(df) <- c("lyr_bot", var_cmtv) # where var_cmtv = cumulative variable in spline output
   for(i in seq_along(df$lyr_bot)) {
     if(i == 1) {
-      df$lyr_soc[i] <- df$lyr_soc[i]
+      df[[var_cmtv]][i] <- df[[var_cmtv]][i]
     } else {
-      df$lyr_soc[i] <- df$lyr_soc[i + 1] - df$lyr_soc[i]
+      df[[var_cmtv]][i] <- df[[var_cmtv]][i + 1] - df[[var_cmtv]][i]
     }
   }
   df <- df[-1,]
-  return(df[-length(df$lyr_soc), ])
+  return(df[-length(df[[var_cmtv]]), ])
 }
 
 ## add (0, 0) point for (lyr_bot, lyr_cmtv_stock)
@@ -2222,6 +2241,69 @@ sra.2019.oc.sp.avg <- lapply(sra.2019.oc.sp, function(ls) {
     summarize(lyr_soc = mean(lyr_soc)) %>%
     data.frame
 })
+
+# spline '01 fluxes
+ts.rep.avg.sp <- lapply(split(ts.rep.avg, ts.rep.avg$year), function(y) {
+  lapply(split(y, y$PMeco_year_rep), function(x) {
+      x <- data.frame(x)
+      if (x$year[1] == "2001") {
+        # run mpspline
+        depths(x) <- PMeco_year_rep ~ lyr_top + lyr_bot
+        mps <- mpspline(x, var.name = "mgCO2_gC_d_avg", d = c(0, 10, 20, 30))
+        mps.std <- mps$var.std
+        data.frame(lyr_bot = c(10, 20, 30), flx = t(mps$var.std[1:3]), row.names = NULL)
+      } else {
+        data.frame(lyr_bot = x$lyr_bot, flx = x$mgCO2_gC_d_avg)
+      }
+  })
+})
+
+# spline 14C
+# duplicate sra.2001.inc.ls
+sra.2001.inc.ls2 <- sra.2001.inc.ls
+# combine a and b reps for ANwf (only have data for one rep per increment)
+sra.2001.inc.ls2$ANwf$rep <- "a" 
+# run mpspline on fm data and return 1cm increments for 0-30 cm
+sra.2001.inc.sp <- bind_rows(lapply(sra.2001.inc.ls2, function(df) {
+  df$PMeco_year_rep <- paste(df$PMeco, df$Year, df$rep, sep = "_")
+  bind_rows(lapply(split(df, df$PMeco_year_rep), function(x) {
+    depths(x) <- PMeco_year_rep ~ lyr_top + lyr_bot
+    sp <- mpspline(x, "fm", d = c(0, 10, 20, 30))
+    data.frame(lyr_bot = c(10, 20, 30),
+               PMeco_year_rep = sp$idcol,
+               fm = t(sp$var.std[1:3]))
+  }))
+}))
+sra.2001.inc.sp.ls <- split(sra.2001.inc.sp, sra.2001.inc.sp$PMeco_year_rep)
+
+# combine 14c and flux data
+# 1. strip out missing data
+ts.rep.avg.sp$`2001` <- ts.rep.avg.sp$`2001`[-which(names(ts.rep.avg.sp$`2001`) == "ANrf_2001_a" |
+                                                  names(ts.rep.avg.sp$`2001`) == "ANwf_2001_b")]
+# combine '01 data
+flx.14c.rep.01.sp <- bind_rows(
+  lapply(
+    mapply(
+      merge,
+      ts.rep.avg.01.sp,
+      sra.2001.inc.sp.ls,
+      SIMPLIFY = FALSE),
+    function(x) {
+      x <- x[complete.cases(x), ]
+      x$flx.wt <- x$flx / sum(x$flx)
+      x$fm.wtd <- x$fm * x$flx.wt
+      data.frame(PMeco_year_rep = unique(x$PMeco_year_rep), 
+                 lyr_bot = max(x$lyr_bot), 
+                 fm.wtd = sum(x$fm.wtd))
+    })) %>%
+  mutate(PMeco = substr(PMeco_year_rep, 1, 4),
+         year = substr(PMeco_year_rep, 6, 9),
+         d14c.wtd = convert_fm_d14c(fm = fm.wtd, obs_date_y = 2001, verbose = FALSE)) %>%
+  rename(d14c_inc = d14c.wtd,
+         fm_inc = fm.wtd)
+  # group_by(PMeco, lyr_bot) %>%
+  # summarize(across(c(fm.wtd, d14c.wtd), .fns = list(mean = mean, sd = sd)))
+save(flx.14c.rep.01.sp, file = "flx.14c.rep.01.sp.RData")
 ```
 
 ```{r plot-soc-cmtv}
@@ -2756,7 +2838,7 @@ names(sra.19.30.inc.ls) <- names(cwt.19_30.avg)
 cwt.01_30.avg <- lapply(cwt.01_30, function(ls) {
   apply(bind_rows(ls), 1, mean)
 })
-# FM weights
+# FM weights (cstock weighting)
 fm.wt.01.30.inc <- lapply(seq_along(cwt.01_30.avg), function(j) {
   lapply(sra.2001.inc.fm.sp[[j]], function(fm) {
     df <- data.frame(cwt = cwt.01_30.avg[[j]])
