@@ -17,17 +17,153 @@ Depth & Site & Trend & $SE$ & df & $lower$ & $upper$\\
 \endfoot
 \bottomrule
 \endlastfoot
- & andesite (warm) & -0.19 & 0.09 & 62 & -0.37 & -0.01\\
+ & andesite (warm) & -0.20 & 0.09 & 62 & -0.38 & -0.02\\
 \nopagebreak
  & andesite (cold) & 0.20 & 0.10 & 62 & 0.01 & 0.40\\
 \nopagebreak
-\multirow[t]{-3}{*}{\raggedright\arraybackslash 0-10cm} & basalt (cold) & -0.43 & 0.09 & 62 & -0.61 & -0.25\\
+\multirow[t]{-3}{*}{\raggedright\arraybackslash 0-10cm} & basalt (cold) & -0.27 & 0.09 & 62 & -0.45 & -0.09\\
 \cmidrule{1-7}\pagebreak[0]
  & andesite (cold) & 0.23 & 0.06 & 62 & 0.12 & 0.35\\
 \nopagebreak
 \multirow[t]{-2}{*}{\raggedright\arraybackslash 10-20cm} & granite (warm) & 0.16 & 0.05 & 62 & 0.05 & 0.26\\
 \cmidrule{1-7}\pagebreak[0]
 20-30cm & andesite (cold) & 0.21 & 0.04 & 62 & 0.13 & 0.29\\*
+\end{longtable}
+\efloatseparator
+ 
+\begin{longtable}[t]{rllrrlrrl}
+\caption{\label{tab:blk-inc-contrasts-10}Contrasts of bulk and respired \(\Delta\)\textsuperscript{14}C for parent material and climate factors, 0-0.1 m (all pairs). P value adjustment: Tukey method for comparing a family of 3 estimates.}\\
+\toprule
+\multicolumn{3}{c}{ } & \multicolumn{3}{c}{Bulk} & \multicolumn{3}{c}{Respired} \\
+\cmidrule(l{3pt}r{3pt}){4-6} \cmidrule(l{3pt}r{3pt}){7-9}
+Year & Group & Contrast & Est. & $SE$ & $p$ & Est. & $SE$ & $p$\\
+\midrule
+ &  & andesite - basalt & -62.0 & 18.8 & \textbf{0.011} &  &  & \\
+\nopagebreak
+ &  & andesite - granite & -124.5 & 18.8 & \textbf{< .001} &  &  & \\
+\nopagebreak
+ & \multirow[t]{-3}{*}{\raggedright\arraybackslash cool} & basalt - granite & -62.4 & 18.8 & \textbf{0.011} &  &  & \\
+\nopagebreak
+ &  & andesite - granite &  &  &  & 84.0 & 22.1 & \textbf{0.016}\\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash cold} & basalt - granite &  &  &  & 82.1 & 18.1 & \textbf{0.006}\\
+\nopagebreak
+ &  & warm - cool & 126.6 & 18.8 & \textbf{< .001} &  &  & \\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash andesite} & cool - cold & -82.1 & 21.0 & \textbf{0.003} &  &  & \\
+\nopagebreak
+ &  & warm - cool & 48.7 & 18.8 & \textbf{0.048} &  &  & \\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash basalt} & warm - cold & 66.1 & 18.8 & \textbf{0.007} &  &  & \\
+\nopagebreak
+ &  & warm - cold & 107.3 & 18.8 & \textbf{< .001} & 114.5 & 18.1 & \textbf{< .001}\\
+\nopagebreak
+\multirow[t]{-11}{*}{\raggedleft\arraybackslash 2001} & \multirow[t]{-2}{*}{\raggedright\arraybackslash granite} & cool - cold & 83.6 & 18.8 & \textbf{< .001} & 104.1 & 18.1 & \textbf{0.002}\\
+\cmidrule{1-9}\pagebreak[0]
+ &  & andesite - basalt & -56.5 & 16.3 & \textbf{0.007} &  &  & \\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash warm} & andesite - granite & -79.8 & 16.3 & \textbf{< .001} &  &  & \\
+\nopagebreak
+ & cool & basalt - granite &  &  &  & -43.6 & 18.0 & 0.089\\
+\nopagebreak
+ & andesite & cool - cold & -42.0 & 16.3 & \textbf{0.047} &  &  & \\
+\nopagebreak
+ & basalt & warm - cool & 52.3 & 16.3 & \textbf{0.013} &  &  & \\
+\nopagebreak
+ &  & warm - cool & 65.0 & 16.3 & \textbf{0.002} &  &  & \\
+\nopagebreak
+ &  & warm - cold & 58.5 & 16.3 & \textbf{0.006} & 47.1 & 18.0 & 0.066\\
+\nopagebreak
+\multirow[t]{-8}{*}{\raggedleft\arraybackslash 2019} & \multirow[t]{-3}{*}{\raggedright\arraybackslash granite} & cool - cold &  &  &  & 49.0 & 18.0 & 0.056\\
+\bottomrule
+\end{longtable}
+\efloatseparator
+ 
+\begin{longtable}[t]{rllrrlrrl}
+\caption{\label{tab:blk-inc-contrasts-20}Contrasts of bulk and respired \(\Delta\)\textsuperscript{14}C for parent material and climate factors, 0.1-0.2 m (all pairs). P value adjustment: Tukey method for comparing a family of 3 estimates.}\\
+\toprule
+\multicolumn{3}{c}{ } & \multicolumn{3}{c}{Bulk} & \multicolumn{3}{c}{Respired} \\
+\cmidrule(l{3pt}r{3pt}){4-6} \cmidrule(l{3pt}r{3pt}){7-9}
+Year & Group & Contrast & Est. & $SE$ & $p$ & Est. & $SE$ & $p$\\
+\midrule
+ & warm & andesite - granite & -47.8 & 20.1 & 0.072 &  &  & \\
+\nopagebreak
+ &  & andesite - basalt & -72.2 & 20.1 & \textbf{0.006} &  &  & \\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash cool} & andesite - granite & -99.5 & 20.1 & \textbf{< .001} &  &  & \\
+\nopagebreak
+ &  & andesite - granite &  &  &  & 162.8 & 31.4 & \textbf{0.005}\\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash cold} & basalt - granite &  &  &  & 227.2 & 27.2 & \textbf{< .001}\\
+\nopagebreak
+ &  & warm - cool & 65.0 & 20.1 & \textbf{0.013} &  &  & \\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash andesite} & cool - cold & -57.2 & 22.5 & 0.052 &  &  & \\
+\nopagebreak
+ &  & warm - cold & 70.4 & 20.1 & \textbf{0.007} & 165.1 & 27.2 & \textbf{0.002}\\
+\nopagebreak
+\multirow[t]{-9}{*}{\raggedleft\arraybackslash 2001} & \multirow[t]{-2}{*}{\raggedright\arraybackslash granite} & cool - cold & 57.2 & 20.1 & \textbf{0.029} & 163.9 & 27.2 & \textbf{0.002}\\
+\cmidrule{1-9}\pagebreak[0]
+ &  & andesite - basalt & -62.6 & 20.1 & \textbf{0.016} &  &  & \\
+\nopagebreak
+ &  & andesite - granite & -124.9 & 20.1 & \textbf{< .001} & -52.4 & 13.7 & \textbf{0.013}\\
+\nopagebreak
+ & \multirow[t]{-3}{*}{\raggedright\arraybackslash warm} & basalt - granite & -62.3 & 20.1 & \textbf{0.016} & -35.2 & 13.7 & 0.078\\
+\nopagebreak
+ &  & andesite - basalt &  &  &  & 74.2 & 13.7 & \textbf{0.002}\\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash cool} & andesite - granite &  &  &  & 87.3 & 13.7 & \textbf{< .001}\\
+\nopagebreak
+ &  & andesite - granite &  &  &  & 62.2 & 16.8 & \textbf{0.015}\\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash cold} & basalt - granite &  &  &  & 70.8 & 16.8 & \textbf{0.007}\\
+\nopagebreak
+ &  & warm - cool & 74.8 & 20.1 & \textbf{0.004} & 63.0 & 13.7 & \textbf{0.004}\\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash basalt} & cool - cold & -63.5 & 20.1 & \textbf{0.014} & -54.2 & 13.7 & \textbf{0.011}\\
+\nopagebreak
+ &  & warm - cool & 118.2 & 20.1 & \textbf{< .001} & 111.3 & 13.7 & \textbf{< .001}\\
+\nopagebreak
+\multirow[t]{-11}{*}{\raggedleft\arraybackslash 2019} & \multirow[t]{-2}{*}{\raggedright\arraybackslash granite} & warm - cold & 105.3 & 20.1 & \textbf{< .001} & 114.7 & 16.8 & \textbf{< .001}\\
+\bottomrule
+\end{longtable}
+\efloatseparator
+ 
+\begin{longtable}[t]{rllrrlrrl}
+\caption{\label{tab:blk-inc-contrasts-30}Contrasts of bulk and respired \(\Delta\)\textsuperscript{14}C for parent material and climate factors, 0.2-0.3 m (all pairs). P value adjustment: Tukey method for comparing a family of 3 estimates.}\\
+\toprule
+\multicolumn{3}{c}{ } & \multicolumn{3}{c}{Bulk} & \multicolumn{3}{c}{Respired} \\
+\cmidrule(l{3pt}r{3pt}){4-6} \cmidrule(l{3pt}r{3pt}){7-9}
+Year & Group & Contrast & Est. & $SE$ & $p$ & Est. & $SE$ & $p$\\
+\midrule
+ & warm & andesite - granite & -70.2 & 21.0 & \textbf{0.01} &  &  & \\
+\nopagebreak
+ &  & andesite - granite & -106.5 & 21.0 & \textbf{< .001} &  &  & \\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash cool} & basalt - granite & -62.9 & 21.0 & \textbf{0.021} &  &  & \\
+\nopagebreak
+\multirow[t]{-4}{*}{\raggedleft\arraybackslash 2001} & granite & warm - cold & 51.8 & 21.0 & 0.061 &  &  & \\
+\cmidrule{1-9}\pagebreak[0]
+ &  & andesite - granite & -51.9 & 19.6 & \textbf{0.042} &  &  & \\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash warm} & basalt - granite & -51.3 & 19.6 & \textbf{0.044} &  &  & \\
+\nopagebreak
+ &  & andesite - basalt &  &  &  & 93.9 & 20.6 & \textbf{0.005}\\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash cool} & basalt - granite & -53.5 & 19.6 & \textbf{0.035} & -61.0 & 20.6 & \textbf{0.043}\\
+\nopagebreak
+ & cold & andesite - basalt & -46.3 & 19.6 & 0.073 &  &  & \\
+\nopagebreak
+ & andesite & warm - cool & 57.6 & 19.6 & \textbf{0.023} &  &  & \\
+\nopagebreak
+ &  & warm - cool & 75.7 & 19.6 & \textbf{0.003} & 64.7 & 20.6 & \textbf{0.033}\\
+\nopagebreak
+ & \multirow[t]{-2}{*}{\raggedright\arraybackslash basalt} & cool - cold & -106.5 & 19.6 & \textbf{< .001} & -86.8 & 25.3 & \textbf{0.022}\\
+\nopagebreak
+ &  & warm - cool & 73.5 & 19.6 & \textbf{0.004} &  &  & \\
+\nopagebreak
+\multirow[t]{-10}{*}{\raggedleft\arraybackslash 2019} & \multirow[t]{-2}{*}{\raggedright\arraybackslash granite} & warm - cold & 51.5 & 19.6 & \textbf{0.043} & 57.8 & 20.6 & 0.054\\
+\bottomrule
 \end{longtable}
 \efloatseparator
  
@@ -50,23 +186,23 @@ Climate & Parent material & Trend & $SE$ & Trend & $SE$ & Trend & $SE$\\
 \endfoot
 \bottomrule
 \endlastfoot
- & andesite & \textbf{-6.1} & 1.1 & -2.1 & 1.3 & 1.1 & 1.2\\
+ & andesite & \textbf{-5.8} & 1.0 & -1.9 & 1.3 & 1.1 & 1.3\\
 \nopagebreak
- & basalt & -1.9 & 1.1 & -0.3 & 1.3 & -1 & 1.2\\
+ & basalt & -1.8 & 1.0 & -0.1 & 1.3 & -1.1 & 1.3\\
 \nopagebreak
-\multirow[t]{-3}{*}{\raggedright\arraybackslash warm} & granite & \textbf{-2.8} & 1.1 & 2.1 & 1.3 & 0.2 & 1.2\\
+\multirow[t]{-3}{*}{\raggedright\arraybackslash warm} & granite & \textbf{-2.5} & 1.0 & 2.4 & 1.3 & 0.2 & 1.3\\
 \cmidrule{1-8}\pagebreak[0]
- & andesite & 0.1 & 1.1 & 0.4 & 1.3 & 0.3 & 1.2\\
+ & andesite & 0.1 & 1.0 & 0.4 & 1.3 & 0.3 & 1.3\\
 \nopagebreak
- & basalt & -2.1 & 1.1 & \textbf{-3.7} & 1.3 & \textbf{-6.4} & 1.2\\
+ & basalt & -2.1 & 1.0 & \textbf{-3.2} & 1.3 & \textbf{-3.3} & 1.3\\
 \nopagebreak
-\multirow[t]{-3}{*}{\raggedright\arraybackslash cool} & granite & \textbf{-5} & 1.1 & \textbf{-3.7} & 1.3 & \textbf{-3.6} & 1.2\\
+\multirow[t]{-3}{*}{\raggedright\arraybackslash cool} & granite & \textbf{-4.9} & 1.0 & \textbf{-3.5} & 1.3 & \textbf{-3.6} & 1.3\\
 \cmidrule{1-8}\pagebreak[0]
- & andesite & -2.4 & 1.2 & -1.2 & 1.4 & 0.3 & 1.4\\
+ & andesite & -2.2 & 1.1 & -0.9 & 1.4 & 0.4 & 1.5\\
 \nopagebreak
- & basalt & 0.8 & 1.1 & -0.4 & 1.3 & 1.6 & 1.2\\
+ & basalt & 0.9 & 1.0 & 0 & 1.3 & 1.4 & 1.3\\
 \nopagebreak
-\multirow[t]{-3}{*}{\raggedright\arraybackslash cold} & granite & -0.3 & 1.1 & 0.4 & 1.3 & 0.3 & 1.2\\*
+\multirow[t]{-3}{*}{\raggedright\arraybackslash cold} & granite & 0.1 & 1.0 & 0.3 & 1.3 & 0.1 & 1.3\\*
 \end{longtable}
 \efloatseparator
  
@@ -89,35 +225,35 @@ Climate & Parent material & Trend & $SE$ & Trend & $SE$ & Trend & $SE$\\
 \endfoot
 \bottomrule
 \endlastfoot
- & andesite & \textbf{-6.2} & 0.8 & \textbf{-2.3} & 0.9 & 1.5 & 1.7\\
+ & andesite & \textbf{-6.2} & 1.0 & -2.1 & 1.0 & 1.4 & 2.0\\
 \nopagebreak
- & basalt & \textbf{-2.3} & 0.8 & -1.1 & 0.9 & 0.5 & 1.7\\
+ & basalt & \textbf{-2.3} & 1.0 & -0.9 & 1.0 & 0.4 & 2.0\\
 \nopagebreak
-\multirow[t]{-3}{*}{\raggedright\arraybackslash warm} & granite & \textbf{-5} & 0.8 & 1.4 & 0.9 & 2.8 & 1.7\\
+\multirow[t]{-3}{*}{\raggedright\arraybackslash warm} & granite & \textbf{-3.7} & 1.0 & 2 & 1.0 & 3.2 & 2.0\\
 \cmidrule{1-8}\pagebreak[0]
- & andesite & -1.4 & 0.8 & -1 & 0.9 & -1.5 & 1.7\\
+ & andesite & -1.4 & 1.2 & -1 & 1.2 & -1.5 & 2.5\\
 \nopagebreak
- & basalt & \textbf{-3.7} & 0.8 & \textbf{-6} & 0.9 & \textbf{-7.8} & 1.7\\
+ & basalt & \textbf{-3.7} & 1.0 & \textbf{-5.9} & 1.0 & NA & \\
 \nopagebreak
-\multirow[t]{-3}{*}{\raggedright\arraybackslash cool} & granite & \textbf{-3.1} & 0.8 & \textbf{-4.3} & 0.9 & 0 & 1.7\\
+\multirow[t]{-3}{*}{\raggedright\arraybackslash cool} & granite & \textbf{-3} & 1.0 & \textbf{-4.1} & 1.0 & 0 & 2.0\\
 \cmidrule{1-8}\pagebreak[0]
- & andesite & \textbf{-3} & 0.8 & -1.1 & 0.9 & 1.1 & 1.7\\
+ & andesite & \textbf{-2.9} & 1.2 & -0.8 & 1.2 & 1.4 & 2.5\\
 \nopagebreak
- & basalt & \textbf{-3.8} & 0.8 & \textbf{-4} & 0.9 & -3.4 & 2.1\\
+ & basalt & \textbf{-3.9} & 1.0 & \textbf{-3.9} & 1.0 & -3.5 & 2.5\\
 \nopagebreak
-\multirow[t]{-3}{*}{\raggedright\arraybackslash cold} & granite & -0.7 & 0.8 & \textbf{3.9} & 1.3 & \textbf{9.3} & 2.1\\*
+\multirow[t]{-3}{*}{\raggedright\arraybackslash cold} & granite & 0.1 & 1.0 & \textbf{4.8} & 1.4 & NA & \\*
 \end{longtable}
 \efloatseparator
  
 \begin{longtable}[t]{lllrrlrrl}
-\caption{\label{tab:blk-inc-contrasts}Contrasts for bulk and respired \(\Delta\)\textsuperscript{14}C temporal trends. P value adjustment: Tukey method for comparing a family of 3 estimates.}\\
+\caption{\label{tab:blk-inc-trend-contrasts}Contrasts for bulk and respired \(\Delta\)\textsuperscript{14}C by year and depth. P value adjustment: Tukey method for comparing a family of 3 estimates.}\\
 \toprule
 \multicolumn{3}{c}{ } & \multicolumn{3}{c}{Bulk} & \multicolumn{3}{c}{Respired} \\
 \cmidrule(l{3pt}r{3pt}){4-6} \cmidrule(l{3pt}r{3pt}){7-9}
 Depth & Group & Contrast & Est. & $SE$ & $p$ & Est. & $SE$ & $p$\\
 \midrule
 \endfirsthead
-\caption[]{\label{tab:blk-inc-contrasts}Contrasts for bulk and respired \(\Delta\)\textsuperscript{14}C temporal trends. P value adjustment: Tukey method for comparing a family of 3 estimates. \textit{(continued)}}\\
+\caption[]{\label{tab:blk-inc-trend-contrasts}Contrasts for bulk and respired \(\Delta\)\textsuperscript{14}C by year and depth. P value adjustment: Tukey method for comparing a family of 3 estimates. \textit{(continued)}}\\
 \toprule
 \multicolumn{3}{c}{ } & \multicolumn{3}{c}{Bulk} & \multicolumn{3}{c}{Respired} \\
 \cmidrule(l{3pt}r{3pt}){4-6} \cmidrule(l{3pt}r{3pt}){7-9}
@@ -128,61 +264,37 @@ Depth & Group & Contrast & Est. & $SE$ & $p$ & Est. & $SE$ & $p$\\
 \endfoot
 \bottomrule
 \endlastfoot
- & warm & andesite - basalt & -4.2 & 1.5 & \textbf{0.023} & -3.9 & 1.2 & \textbf{0.009}\\
+ & warm & andesite - basalt & -4.0 & 1.4 & \textbf{0.021} & -3.9 & 1.4 & \textbf{0.036}\\
 \nopagebreak
- & warm & andesite - granite & -3.3 & 1.5 & 0.091 &  &  & \\
+ & warm & andesite - granite & -3.3 & 1.4 & 0.068 &  &  & \\
 \nopagebreak
- & warm & basalt - granite &  &  &  & 2.7 & 1.2 & 0.08\\
+ & cool & andesite - granite & 5.0 & 1.4 & \textbf{0.004} &  &  & \\
 \nopagebreak
- & cool & andesite - granite & 5.0 & 1.5 & \textbf{0.005} &  &  & \\
+ & cold & basalt - granite &  &  &  & -4.0 & 1.4 & \textbf{0.031}\\
 \nopagebreak
- & cold & basalt - granite &  &  &  & -3.1 & 1.2 & \textbf{0.037}\\
+ & andesite & warm - cool & -5.9 & 1.4 & \textbf{< .001} & -4.8 & 1.6 & \textbf{0.021}\\
 \nopagebreak
- & andesite & warm - cool & -6.2 & 1.5 & \textbf{< .001} & -4.8 & 1.2 & \textbf{0.001}\\
+ & andesite & warm - cold & -3.6 & 1.5 & 0.06 &  &  & \\
 \nopagebreak
- & andesite & warm - cold & -3.7 & 1.6 & 0.064 & -3.3 & 1.2 & \textbf{0.029}\\
+ & granite & warm - cold &  &  &  & -3.7 & 1.4 & \textbf{0.045}\\
 \nopagebreak
- & granite & warm - cold &  &  &  & -4.2 & 1.2 & \textbf{0.005}\\
-\nopagebreak
-\multirow[t]{-9}{*}{\raggedright\arraybackslash 0-10cm} & granite & cool - cold & -4.7 & 1.5 & \textbf{0.01} &  &  & \\
+\multirow[t]{-8}{*}{\raggedright\arraybackslash 0-10cm} & granite & cool - cold & -5.0 & 1.4 & \textbf{0.004} &  &  & \\
 \cmidrule{1-9}\pagebreak[0]
- & warm & andesite - granite & -4.2 & 1.8 & 0.055 & -3.7 & 1.3 & \textbf{0.029}\\
+ & warm & andesite - granite & -4.3 & 1.8 & 0.051 & -4.1 & 1.4 & \textbf{0.03}\\
 \nopagebreak
- & cool & andesite - basalt & 4.1 & 1.8 & 0.065 & 4.9 & 1.3 & \textbf{0.004}\\
+ & cool & andesite - basalt &  &  &  & 4.9 & 1.6 & \textbf{0.019}\\
 \nopagebreak
- & cool & andesite - granite & 4.1 & 1.8 & 0.068 & 3.3 & 1.3 & 0.055\\
+ & cool & andesite - granite & 4.0 & 1.8 & 0.08 &  &  & \\
 \nopagebreak
- & cold & andesite - basalt &  &  &  & 2.9 & 1.3 & 0.097\\
+ & cold & andesite - granite &  &  &  & -5.6 & 1.9 & \textbf{0.024}\\
 \nopagebreak
- & cold & andesite - granite &  &  &  & -5.0 & 1.6 & \textbf{0.015}\\
+ & cold & basalt - granite &  &  &  & -8.7 & 1.7 & \textbf{< .001}\\
 \nopagebreak
- & cold & basalt - granite &  &  &  & -7.9 & 1.6 & \textbf{< .001}\\
+ & basalt & warm - cool &  &  &  & 5.0 & 1.4 & \textbf{0.008}\\
 \nopagebreak
- & basalt & warm - cool &  &  &  & 4.8 & 1.3 & \textbf{0.005}\\
+ & granite & warm - cool & 5.9 & 1.8 & \textbf{0.005} & 6.1 & 1.4 & \textbf{0.002}\\
 \nopagebreak
- & basalt & warm - cold &  &  &  & 2.9 & 1.3 & 0.097\\
-\nopagebreak
- & granite & warm - cool & 5.8 & 1.8 & \textbf{0.006} & 5.7 & 1.3 & \textbf{0.001}\\
-\nopagebreak
-\multirow[t]{-10}{*}{\raggedright\arraybackslash 10-20cm} & granite & cool - cold & -4.1 & 1.8 & 0.066 & -8.1 & 1.6 & \textbf{< .001}\\
+\multirow[t]{-8}{*}{\raggedright\arraybackslash 10-20cm} & granite & cool - cold & -3.8 & 1.8 & 0.094 & -8.9 & 1.7 & \textbf{< .001}\\
 \cmidrule{1-9}\pagebreak[0]
- & cool & andesite - basalt & 6.7 & 1.7 & \textbf{0.001} & 6.3 & 2.5 & 0.054\\
-\nopagebreak
- & cool & andesite - granite & 3.9 & 1.7 & 0.072 &  &  & \\
-\nopagebreak
- & cool & basalt - granite &  &  &  & -7.8 & 2.5 & \textbf{0.016}\\
-\nopagebreak
- & cold & andesite - granite &  &  &  & -8.1 & 2.8 & \textbf{0.025}\\
-\nopagebreak
- & cold & basalt - granite &  &  &  & -12.7 & 3.0 & \textbf{0.002}\\
-\nopagebreak
- & basalt & warm - cool & 5.5 & 1.7 & \textbf{0.009} & 8.3 & 2.5 & \textbf{0.011}\\
-\nopagebreak
- & basalt & cool - cold & -8.0 & 1.7 & \textbf{< .001} &  &  & \\
-\nopagebreak
- & granite & warm - cool & 3.8 & 1.7 & 0.085 &  &  & \\
-\nopagebreak
- & granite & warm - cold &  &  &  & -6.5 & 2.8 & 0.077\\
-\nopagebreak
-\multirow[t]{-10}{*}{\raggedright\arraybackslash 20-30cm} & granite & cool - cold & -3.9 & 1.7 & 0.072 & -9.3 & 2.8 & \textbf{0.011}\\*
+20-30cm & basalt & cool - cold & -4.7 & 1.9 & \textbf{0.04} &  &  & \\*
 \end{longtable}

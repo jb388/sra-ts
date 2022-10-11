@@ -1,0 +1,163 @@
+---
+title: Soil minerals mediate climatic control of soil C cycling on annual to centennial timescales
+journal: "`r rticles::copernicus_journal_abbreviations(journal_name = 'soil')`"
+author:
+  - given_name: Jeffrey
+    surname: Beem-Miller
+    affiliation: 1
+    email: jbeem@bgc-jena.mpg.de
+    corresponding: true
+  - given_name: Craig
+    surname: Rasmussen
+    affiliation: 2
+  - given_name: Alison M.
+    surname: Hoyt
+    affiliation: 3
+  - given_name: Marion
+    surname: Schrumpf
+    affiliation: 1
+  - given_name: Georg
+    surname: Guggenberger
+    affiliation: 4
+  - given_name: Susan
+    surname: Trumbore
+    affiliation: 1
+affiliation:
+  - code: 1
+    address: Department of Biogeochemical Processes, Max Planck Institute for Biogeochemistry, Jena, Germany
+  - code: 2
+    address: Department of Environmental Science, The University of Arizona, Tucson, AZ, USA
+  - code: 3
+    address: Department of Earth System Science Science, Stanford University, Stanford, CA, USA
+  - code: 4
+    address: Institute of Soil Science, Leibniz University Hannover, Hannover, Germany
+abstract: |
+  Climate and parent material both affect soil C persistence, yet the relative importance of climatic versus mineralogical controls on soil C dynamics remains unclear. To test this we collected soil samples in 2001, 2009, and 2019 along a combined gradient of parent material (andesite, basalt, granite) and climate (MAT: 6.5 °C “cold”, 8.6 °C “cool”, 12.0 °C “warm”). We measured the radiocarbon of heterotrophically respired CO~2~ ($\Delta$^14^C~*respired*~) and bulk soil C ($\Delta$^14^C~*bulk*~) as proxies for fast and slowly cycling soil C, and characterized mineral assemblages using selective dissolution. Using linear regression, we observed that MAT was not a significant predictor of either $\Delta$^14^C~*bulk*~ or $\Delta$^14^C~*respired*~, yet climate was highly significant as a categorical variable. Climate explained more variance in $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ over 0-0.1 m, but parent material explained more from 0.1-0.3 m. Soil C tended to be older in cool than cold or warm climate soils, and decreased in age from andesitic to basaltic to granitic soils. Poorly crystalline metal oxides (PCMs) (but not crystalline metal oxides) were significantly (p < 0.1) correlated with $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~, and $\Delta$^14^C~*respired*~-$\Delta$^14^C~*bulk*~, indicating their importance for soil C persistence on both short term and longer time scales. Change in over time $\Delta$^14^C~*respired*~ was linearly related to MAT for the granite soils with the lowest PCM content, but this temperature relationship was absent in the andesitic and basaltic soils with higher PCM content. We interpret this as evidence that PCMs may attenuate the temperature sensitivity of decomposition.
+bibliography: lib.bib
+running:
+  title: Soil minerals mediate climatic control of soil C
+  author: Beem-Miller et al.
+# This section is mandatory even if you declare that no competing interests are present.
+competinginterests: |
+  The authors declare no competing interests.
+# See https://publications.copernicus.org/for_authors/licence_and_copyright.html, normally used for transferring the copyright, if needed. 
+# Note: additional copyright statements for affiliated software or data need to be placed in the data availability section. 
+copyrightstatement: |
+  The author's copyright for this publication is transferred to institution/company. 
+### The following commands are for the statements about the availability of data sets and/or software code corresponding to the manuscript.
+### It is strongly recommended to make use of these sections in case data sets and/or software code have been part of your research the article is based on.
+### Note: unless stated otherwise, software and data affiliated with the manuscript are assumed to be published under the same licence as the article (currently Creative Commons 4.0)
+availability:
+  #code: |
+  #  use this to add a statement when having only software code available
+  #data: |
+  #  use this to add a statement when having only data sets available
+  codedata: |
+    use this to add a statement when having data sets and software code available
+acknowledgements: |
+  Thanks to the rticles contributors.
+appendix: |
+  \section{Figures and tables in appendices}
+  Regarding figures and tables in appendices, the following two options are possible depending on your general handling of figures and tables in the manuscript environment:
+  \subsection{Option 1}
+  If you sorted all figures and tables into the sections of the text, please also sort the appendix figures and appendix tables into the respective appendix sections.
+  They will be correctly named automatically.
+  \subsection{Option 2}
+  If you put all figures after the reference list, please insert appendix tables and figures after the normal tables and figures.
+  
+  To rename them correctly to A1, A2, etc., please add the following commands in front of them:
+  `\appendixfigures` needs to be added in front of appendix figures
+  `\appendixtables` needs to be added in front of appendix tables
+  
+  Please add `\clearpage` between each table and/or figure. Further guidelines on figures and tables can be found below.
+output:
+  rticles::copernicus_article: 
+    highlight: NULL
+    keep_tex: true
+  bookdown::pdf_book:
+    base_format: rticles::copernicus_article # for using bookdown features like \@ref()
+header_includes:
+- \usepackage[utf8]{inputenc}
+- \usepackage{float}
+- \usepackage{longtable}
+---
+
+\introduction[Introduction]
+
+Understanding the response of soil carbon stocks to current and future changes in climate requires insight into the environmental factors governing soil carbon dynamics. Climate, and in particular temperature, has been found to be the most important variable for explaining the age of soil carbon in topsoil at local to global scales [@frank2012; @mathieu2015; @shi2020]. Yet our current understanding of soil organic matter decomposition underscores the importance of mechanisms that can affect the temperature sensitivity of decomposition, such as the interaction between soil organic matter and minerals [@davidson2000; @davidson2006; @rasmussen2005; @lehmann2015]. The effect of mineral-organic associations on the temperature sensitivity of soil organic matter has been addressed in several modeling studies [@ahrens2020; @woolf2019; @abramoff2019; @tang2014]. These models typically invoke Michaelis Menten kinetics in addition to an Arrhenius-type temperature response in order to account for energy and substrate limitations on decomposition rates for soil organic matter found in association with minerals [@tang2019; @ahrens2020]. Studies comparing the relative importance of different soil mineral assemblages versus temperature for explaining soil C dynamics over time in situ are scarce, yet critical for testing model-based findings. We designed the current study to quantify the relative importance of climatic versus mineralogical mechanisms of soil organic C persistence across a combined gradient of mean annual temperature (MAT) and parent material in order to provide insight into the relevant time scales associated with these mechanisms.
+
+The relevance of soil minerals for mediating soil organic matter protection has been found to be a function of the specific minerals present, rather than the amount of clay or total mineral surface area [@rasmussen2018a; @kramer2018]. Soil mineral assemblages are dynamic, developing over time as primary minerals inherited from parent material weather to form reactive, poorly crystalline secondary minerals, which in turn eventually weather to increasing stable crystalline species [@slessarev2022; @mikutta2010]. Soils enriched in poorly crystalline metal oxides (PCM), such as Al and Fe oxyhydroxides, are known to be of particular importance for the accumulation and persistence of soil C [@torn1997; @masiello2004]. The amount of these minerals present is directly related to parent material, but is also a function of primary mineral weathering rates [@slessarev2022]. Due to the strong effect of climate on weathering rates, different soil mineral assemblages can form from the same parent material under different climatic regimes [@rasmussen2018b; @kramer2016]. Conversely, similar mineral assemblages can be found among soils developed on different parent materials given adequate time for weathering and similar vegetation and climate [@graham2010]. These complex interactions demonstrate that climatic and mineralogical controls on soil C cycling are not independent, but interact over the centennial to millenial time scales of soil development.
+
+The strength and sorptive capacity of soil minerals is dependent on ligand exchange, which is a function of not only surface area and charge, but more specifically the density of accessible hydroxyl groups [@kaiser2003; @rasmussen2018a; @kleber2015]. Poorly crystalline metal oxides are particularly enriched in hydroxyl groups, and batch sorption/desorption experiments have shown that the mineral-organic interactions between pedogenic metal oxide-rich clays are stronger than those with siloxane-rich phyllosilicate clays [@kahle2004]. Furthermore, the reactive properties of pedogenic metal oxides can also facilitate lower strength interactions with soil organic matter through multivalent cation bridging [@kleber2007]. This high reactivity of poorly crystalline Fe oxides is also implicated in the observations that poorly crystalline Fe is correlated with aggregate stability but crystalline Fe oxide content is not [@duiker2003]. Consequently, Rasmussen et al. (2018b) observed that oxalate extractable iron, as an extractant for PCM, was the best predictor both soil C concentration and bulk soil radiocarbon ($\Delta$^14^C~*bulk*~). However, the relevance of mineral-organic associations with specific mineral phases such as PCM or crystalline metal oxides (CRM) for specific timescales of soil C turnover is poorly studied.
+
+Radiocarbon (^14^C) is a useful tracer for soil C dynamics over annual to millennial time scales [@trumbore2000]. The use of ^14^C to measure timescales of soil carbon decomposition is reliant on our knowledge of the ratio of ^12^C/^14^C in the atmosphere. Once CO~2~ is fixed into organic matter via photosynthesis, this ratio starts to shift as ^14^C is preferentially lost due to radioactive decay. Changes in the ^12^C/^14^C ratio due to radioactive decay are detectable at the relatively longer timescales of hundreds to thousands of years. However, we can detect changes in ^14^C with nearly annual resolution for the so-called “bomb-C” period, which began with the atmospheric testing of nuclear weapons in the mid-20^th^ century. This pulse of “bomb-C” led to a doubling of atmospheric ^14^C concentration prior to the ban on above-ground nuclear tests in 1963 [@hua2021]. The level of ^14^C in the atmosphere returned to pre-bomb levels around 2020, thus archived samples now represent the best opportunity to construct a high-resolution time series of the bomb-C pulse as it moves through different soil organic matter pools [@trumbore2009].
+
+Soil is an open system, and this has important implications for the interpretation of radiocarbon measurements of soil C. For most soils, the majority of carbon that enters the soil leaves relatively quickly, with only a small fraction persisting [@sierra2018]. Radiocarbon measurements of bulk soil C ($\Delta$^14^C~*bulk*~) typically capture the signal from these persistent pools, while more transient pools dominate measurements of C leaving the soil via heterotrophic respiration [@trumbore2000]. Here we define “transient” for C cycling on annual to decadal timescales, while we use “persistent” to refer to C cycling on centennial to millennial timescales. A diagnostic feature of the radiocarbon measurements of $\Delta$^14^C~*bulk*~ and heterotrophically respired CO~2~ ($\Delta$^14^C~*respired*~) is that when these two signals are the same it indicates that all of the C in the soil has an equal probability of being decomposed by microbes and the system is homogenous (Sierra et al., 2017). However, when $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ are substantially different this indicates the presence of both labile and persistent pools of soil C [@ewing2006; @hopkins2012].
+We turned to the western slope of the Sierra Nevada Mountains, USA to compare and contrast the effects of climate and mineral assemblage on soil C dynamics. Drawing on earlier studies in this region [@jenny1949; @dahlgren1997; @rasmussen2004; @trumbore1996], we selected soils similar in age and vegetation along a combined gradient of parent material (granite, andesite, basalt) and MAT (6.5 °C, 8.6 °C, 12.0 °C). The climate gradient also represents a weathering gradient, with poorly developed soils at the cold climate sites, intermediately developed soils at the cool climate sites, and highly weathered soils at the warm climate sites [@harradine1958; @rasmussen2010a]. Previous work at these sites [@rasmussen2004; @rasmussen2018b] (and at nearby locations [@trumbore1996, @koarashi2012; @dahlgren1997; @castanha2008]) confirm strong differences in mineral assemblages along both the parent material and climate gradients, making for an ideal setting to probe the relative influence of climatic and mineralogical factors and their interaction on soil C dynamics.
+
+We were able to construct a time series of both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ at these sites by combining data from samples newly collected in 2019 with data from archived samples collected in 2001 and 2009. Such a time series provides a crucial constraint for determining the trajectory of bomb-derived ^14^C concentrations over time [@beem-miller2021; @stoner2021]. Whether bomb-C concentrations are increasing or decreasing in bulk or respired CO~2~ over time depends on both on the distribution of soil C among pools with different cycling rates as well as the year in which the soil was sampled. Given this, the trajectory of ^14^C cannot be easily determined from observations at a single point in time [@baisden2013]. Using the radiocarbon time series in combination with previously determined mineralogical data, we were able to test several hypotheses regarding the roles of mineralogical versus climatic factors in determining both overall cycling rates and the dynamics of transiently cycling soil C.
+
+We can expect soils with large stocks of persistent soil C to have depleted values of $\Delta$^14^C~*bulk*~ relative to soils dominated by fast cycling soil C. If climate proves more important than parent material for determining soil C persistence, than we would expect to see large differences in $\Delta$^14^C~*bulk*~ among climate regimes when comparing soils within a given parent material, but minimal differences among parent materials when comparing soils within the same climate regime. However, if parent material proves more important than climate for soil C persistence, we would expect the opposite trends in $\Delta$^14^C~*bulk*~: differences would be greater among parent materials within a given climate regime than among climate regimes within a given parent material. Alternatively, if persistent soil C is associated with specific soil minerals, we would expect an interactive effect of parent material and climate on $\Delta$^14^C~*bulk*~. For example, if soil C persistence is due to the association of soil organic matter with poorly crystalline metal oxides, we would expect to observe the most depleted $\Delta$^14^C~*bulk*~ values where the combination of parent material and climate factors has led to the greatest abundance of these specific soil minerals.
+
+Soil C found in association with minerals is typically older than organic matter found in free particulate forms [@lavallee2020]. Accordingly, we might expect climate to be the dominant factor controlling the amount and cycling rates of C in transiently cycling soil C pools, with mineral factors being less relevant at these shorter timescales. If this hypothesis is correct, we would expect to see greater differences in $\Delta$^14^C~*respired*~ among different climate regimes and within a given parent material than we would among different parent materials within the same climate regime. Furthermore, given sufficient moisture, we would expect warmer climate soils to have $\Delta$^14^C~*respired*~ values closer to the atmosphere than colder climate soils, due to faster decomposition rates in the actively cycling soil C pools, and accordingly, we would expect $\Delta$^14^C~*respired*~ to change more over time at the warmer climate sites than at the colder climate sites.
+
+# Methods
+
+## Site descriptions
+
+We collected samples from nine sites across a combined gradient of parent material and climate in the Sierra Nevada Mountains of California (Table 1).  Parent material changes from basalt to andesite to granite along the north-south axis of the cordillera, while MAT decreases as a function of increasing elevation along the east-west axis. Total mean annual precipitation (MAP) ranges from 910 to 1400 mm yr-1 across the sites. Precipitation increases slightly with elevation (Table 1), and falls mainly as rain at lower elevations (< 1400 m), but mainly as snow at higher elevations (> 1800 m). The andesitic and basaltic parent materials receive slightly more precipitation on average than the granitic soils, with MAP values of 1330 (± 75) mm yr-1, 1160 (± 175) mm yr-1, and 1000 (± 85) mm yr-1 averaged across the andesite, basalt, and granite transects, respectively.
+
+Vegetation at the study sites is typical of the Sierra Mixed Conifer habitat (Parker and Matyas, 1981). All of the sites are forested and dominated by conifers. The species composition changes along the elevation and climate  gradient, but not along the parent material gradient. Tree species at the lowest elevation warm climate sites are predominantly *Pinus ponderosa* mixed with lesser amounts of *Quercus* spp. The canopy species at the mid-elevation cool climate sites consist primarily of *Abies concolor* and *Pinus lambertiana*, while *Abies magnifica* dominates at the high elevation cold climate sites. Species present at all sites include Calocedrus decurrens in the canopy, the shrubs *Arctostaphylos* spp., *Chamaebatia foliolosa*, and *Ceanothus* spp. in the understory, and patchy ground cover of grasses and forbs (Table 1).
+
+## Sample collection
+
+Site locations were initially established in 2001 by C. Rasmussen [@rasmussen2004] and resampled in 2009 [@rasmussen2018b] and 2019 (this study). Three replicate pits were dug at each site, with samples collected from the A horizon in 2001, and from both the A and B horizons in 2009 and 2019. Samples were collected from the pit sidewalls by horizon in 2001 and 2009, and by 0.1 m increments in 2019. For the 2019 resampling, we located the sites using GPS and geospatial coordinates recorded during site establishment. Prior to sample collection we compared the soil profiles to the pedon descriptions from the 2001 sampling campaign to confirm the profiles matched. However, we only focus on the upper mineral soil layers in this study (0 to ca. 0.3m) as the 2001 sampling was restricted to this depth range.
+
+## Incubations
+
+Laboratory soil incubations were performed on composite samples from the three replicate profiles sampled at each site in 2001 and 2019. We omitted the 2009 samples from the incubation experiment to save on time and analysis costs, and because sample material was only available from a single profile at each site. We composited and incubated each depth increment separately in 1 L glass mason jars fitted with airtight sampling ports in the lids. Incubations were performed in duplicate. Prior to the start of incubations, we adjusted the soil moisture content to 60% of water holding capacity (WHC). Samples from 2001 were air-dried prior to archiving, and therefore we also air-dried the freshly collected soils from 2019 in order to control for the known effects of drying and rewetting on $\Delta$^14^C~*respired*~ [@beem-miller2021]. We defined WHC as the gravimetric water content of water-saturated soil placed in mesh-covered (50µm) tubes (50ml) weighed after draining for 30 minutes on a bed of fine sand. Following rewetting we allowed the soils to respire for one week before closing the jars. Incubations proceeded until CO~2~ concentrations in the jar headspace reached approximately 10,000 ppm, at which point we collected a 400 ml gas subsample for radiocarbon analysis. Gas samples were collected with pre-evacuated stainless-steel vacuum canisters (Restek GmbH, Bad Homburg, Germany). All incubations were performed in the dark at 20 °C.
+
+## Soil Physical Analyses and Mineral Characterization
+
+Data on soil particle size distributions, bulk density, and mineral characterization were obtained from previously published analyses of samples collected at the study sites in 2001 and 2009 (Rasmussen et al., 2010a, 2018b, 2005, 2010b, 2007). Both qualitative and quantitative approaches were used to characterize soil mineral assemblages, including X-ray diffraction (XRD) for the clay (<2 µm) fraction and non-sequential selective dissolution. These previous analyses revealed that the dominant mineral species in the soils of the highly weathered warm climate zone were similar across parent materials, but differed substantially across parent materials at the less weathered cool and cold climate sites. Mineral assemblages at the warm climate sites are dominated by 1:1 clays and large accumulations of crystalline iron oxides [@rasmussen2010b; @dahlgren1997; @rasmussen2010a]. In contrast, the cool and cold climate andesitic soils contain high concentrations of poorly crystalline short-range order (SRO) minerals such as allophane and iron oxyhydroxides. The cool and cold climate basaltic soils contain intermediate amounts of SRO minerals, while the granitic soils lack SRO minerals almost entirely, but are rich in quartz and contain relatively more hydroxyl-interlayered vermiculite than soils from the other lithologies.
+
+The previous work at these sites showed that the PCM content was the best predictor of both C abundance and $\Delta$^14^C~*bulk*~ [@rasmussen2018b]. Accordingly, our analyses focus on the relationship between radiocarbon measurements and the abundance of poorly crystalline versus crystalline metal oxides as well as 2:1 versus 1:1 clays, but not the whole suite of mineralogical data. For simplification, we use the sum of ammonium-oxalate extractable aluminum and half of the ammonium-oxalate extractable Fe selectively dissolved from bulk soils as a proxy for the abundance of poorly and non-crystalline metal oxides, and the difference of dithionite-citrate extractable Fe and ammonium-oxalate extractable Fe for the abundance of crystalline Fe [@kleber2005]. We present the results of regression analyses looking at the specific relationships between $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~, and the concentration of Fe or Al extracted with ammonium-oxalate, Fe extracted with dithionite-citrate, and Al extracted with sodium-pyrophosphate in the supplemental information.
+
+## Carbon, Nitrogen, and Radiocarbon Analysis
+
+Total carbon and nitrogen content was determined by dry combustion (2019 samples: Vario Max, Elementar Analysensysteme GmbH, Langenselbold, Germany) on finely ground soils (2019 samples: MM400, Retsch GmbH, Haan, Germany). For radiocarbon analysis of 2001 and 2019 samples, we first purified CO~2~ from combusted soil samples (bulk soils) and incubation flask samples (respired CO~2~) on a vacuum line using liquid N~2~. Following purification, samples were graphitized with an iron catalyst under an H2 enriched atmosphere at 550 °C. Radiocarbon content was then measured by accelerator mass spectrometry (Micadas, Ionplus, Zurich, Switzerland) at the Max Planck Institute for Biogeochemisty [@steinhof2017]. See Rasmussen et al. (2018b) for details of C, N, and radiocarbon analysis of the 2009 samples.
+
+We report radiocarbon values using units of $\Delta$^14^C, defined as the deviation in parts per thousand of the ratio of ^14^C/^12^C from that of the oxalic acid standard measured in 1950. This unit also contains a correction for the potential effect of mass-dependent fractionation by normalizing sample $\delta$^13^C to a common $\delta$^13^C value of -25 per mil [@stuiver1977]. Values with $\Delta$^14^C >0 indicate the presence of ‘bomb’ C produced by atmospheric weapons testing in the early 1960s. Values with $\Delta$^14^C < 0 indicate the influence of radioactive decay of ^14^C, which has a half-life of 5730 y.
+
+## Spline fitting
+We used a spline function to compare soil properties from samples collected from different depth intervals in different years and at different sites. We were motivated to use consistent depth increments across sites when resampling in 2019 because of the strong correlation between depth and $\Delta$^14^C observed in the 2009 dataset, a correlation also noted in numerous other studies [@mathieu2015; @shi2020]. We fit a mass-preserving quadratic spline to the 2001 and 2009 profiles in order to convert soil property data to the equivalent depth increments sampled in 2019 [@bishop1999]. We performed the spline fitting with the mpspline function of the GSIF package in R, using a $\lambda$ value of 0.1 [@hengl2019].
+
+## Statistical analysis
+
+We used a linear modeling approach to assess the relative explanatory power of climate versus parent material on the observed variation in $\Delta$^14^C, as well as potential interactions between these two factors. We constructed separate models for $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ but with the same equation structure Eq. (1). For each model we considered the two-way interaction between parent material and climate as well as the three-way interaction with time Eq. (1). For ease of interpretation, we considered the effect of depth by modeling each depth layer separately   (0-0.1 m, 0.1-0.2 m, 0.2-0.3 m). We also made pairwise comparisons of $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ across sites and within years, and across years for individual sites. We assessed the significance of the temporal trend for pairwise combinations of parent material and climate using the emmtrends function of the emmeans package [@lenth2021]. We corrected for multiple comparisons using Tukey’s honestly significant mean difference.
+
+\begin{equation}
+\Delta^{14}C = \alpha + \beta_{1}(Parent\_material) \times \beta_{2}(Climate) \times \beta_{3}(Year) + \varepsilon,
+\end{equation}
+
+where $\alpha$ is the intercept term, the $\beta$ terms are coefficients, and $\varepsilon$ is random error.
+
+We also considered the relationship between $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ to gain insight into potential differences in soil C dynamics and persistence mechanisms across our sites (Sierra et al. 2018). We modeled the effects of parent material Eq. (2) and climate Eq. (3) on this relationship separately, as we did not have an adequate number of observations to consider the interaction between these two explanatory variables. For this analysis we used $\Delta$^14^C measurements made on samples collected in 2001 and 2019, and data from all depths. The three-way interactions of $\Delta$^14^C~*bulk*~ and the explanatory variables (parent material or climate) were not significant with either depth or time for either Eq. (2) or Eq. (3), so we did not include either depth or time as variables in the models.
+
+\begin{equation}
+\Delta^{14}C_{respired} = \alpha + \beta_{1}(\Delta^{14}C_{bulk}) \times \beta_{2}(Parent\_material) + \varepsilon
+\end{equation}
+
+\begin{equation}
+\Delta^{14}C_{respired} = \alpha + \beta_{1}(\Delta^{14}C_{bulk}) \times \beta_{2}(Climate) + \varepsilon
+\end{equation}
+
+We assessed the relative importance of poorly crystalline versus crystalline iron minerals in protecting soil C from microbial decomposition by regressing $\Delta$^14^C against the concentrations of ammonium-oxalate extractable iron, ammonium-oxalate extractable aluminum, pyrophosphate extractable aluminum, and dithionite-citrate extractable iron Eq. (4). We fit the model for $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~, and the difference between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ ($\Delta$^14^C~*bulk*~-respired). We used $\Delta$^14^C data from 2001, 2009, and 2019 for the $\Delta$^14^C~*bulk*~ model, but only data from 2001 and 2019 for the $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~-respired models. Selective dissolution was only performed on the soils collected in 2001, but these data were assumed to be comparable for the other time points as they reflect weathering processes operating at timescales much beyond the 18-year duration of this study. The regression analysis conducted with Eq. (4) was done for the combined depth increment of 0 to 0.3 m, as extracted metal concentrations did not change substantially over this increment. Combining depth increments allowed us to control for the depth dependence of $\Delta$^14^C as well as simplify interpretation of the data. In order to obtain values for the necessary data over the 0 to 0.3 m depth increment we computed mass-weighted estimates of extractable metal concentrations, carbon mass-weighted means of $\Delta$^14^C~*bulk*~ and flux-weighted means of $\Delta$^14^C~*respired*~; these calculations were made prior to determining $\Delta$^14^C~*bulk-respired*~.
+
+\begin{equation}
+\Delta^{14}C = \alpha + \beta_{1}(Metal_{x}) + \beta_{2}(time) + \varepsilon,
+\end{equation}
+
+where $\alpha$ is the intercept term, the $\beta$ terms are coefficients, *Metal~x~* is the concentration of selectively dissolved metal oxides, time is the year of sampling, and and $\varepsilon$ is random error.
+
+

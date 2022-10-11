@@ -81,7 +81,7 @@ elm_results_ls <- lapply(seq_along(elm_results_dir), function(i) {
 names(elm_results_ls) <- list.files("../data/raw", pattern = "elm_jena_results")
 ```
 
-```{r data-template}
+```{r data-templates}
 # Create template for bulk soil data
 template19.fx <- function(pm, eco, ndepth) {
   df <- data.frame(Year = rep(2019, ndepth * 3),
@@ -164,9 +164,9 @@ BSwf <- template19.fx("BS", "wf", 7)
 BSpp <- template19.fx("BS", "pp", 8)
 BSpp[BSpp$lyr_bot == 80, "lyr_bot"] <- 75 # only sampled to 75cm, not 80
 
-sra.2019.df <- rbind(GRrf, GRwf, GRpp,
-                     ANrf, ANwf, ANpp,
-                     BSrf, BSwf, BSpp)
+sra.2019 <- list(GRrf = GRrf, GRwf = GRwf, GRpp = GRpp,
+                 ANrf = ANrf, ANwf = ANwf, ANpp = ANpp,
+                 BSrf = BSrf, BSwf = BSwf, BSpp = BSpp)
 
 # template for 2019 incubation data
 sra.2019.inc.df <- template.comp.fx(2019, 
@@ -206,11 +206,8 @@ sra.2001.inc.df <- bind_rows(
 )
 
 # 2001 bulk soil template
-sra.2001 <- vector(mode = "list", length = length(unique(sra.2019.df$pro_name)))
-names(sra.2001) <- unique(sra.2019.df$pro_name)
-
-# 2019 bulk soil template
-sra.2019 <- sra.2001
+sra.2001 <- vector(mode = "list", length = length(sra.2019))
+names(sra.2001) <- names(sra.2019)
 
 # inc templates for merging 14C data
 sra.2019.inc <- vector(mode = "list", length = length(unique(sra.2019.inc.df$pro_name)))
@@ -327,12 +324,8 @@ sra.2001 <- bind_rows(unlist(sra.2001, recursive = FALSE))
 sra.2001$ID <- unlist(strsplit(sra.2001$Probe, "_Sierra Nevada_2001"))
 sra.2001 <- sra.2001[ , c("ID", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
 names(sra.2001) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
-sra.2001$lyr_top <- as.numeric(ifelse(substr(sra.2001$ID, 9, 9) == "-",
-                                      substr(sra.2001$ID, 8, 8),
-                                      substr(sra.2001$ID, 8, 9)))
-sra.2001$lyr_bot <- as.numeric(ifelse(substr(sra.2001$ID, 9, 9) == "-", 
-                                      substr(sra.2001$ID, 10, nchar(sra.2001$ID)),
-                                      substr(sra.2001$ID, 11, nchar(sra.2001$ID))))
+sra.2001$lyr_top <- as.numeric(sapply(strsplit(sapply(strsplit(sra.2001$ID, "-"), "[", 1), "_"), "[", 3))
+sra.2001$lyr_bot <- as.numeric(sapply(strsplit(sapply(strsplit(sra.2001$ID, "-"), "[", 2), "_"), "[", 1))
 sra.2001$pro_rep <- substr(sra.2001$ID, 6, 6)
 sra.2001$PM <- factor(substr(sra.2001$ID, 1, 2))
 sra.2001$ECO <- factor(substr(sra.2001$ID, 3, 4), levels = c("pp", "wf", "rf"))
@@ -2263,7 +2256,7 @@ ts.rep.avg.sp <- lapply(split(ts.rep.avg, ts.rep.avg$year), function(y) {
 sra.2001.inc.ls2 <- sra.2001.inc.ls
 # combine a and b reps for ANwf (only have data for one rep per increment)
 sra.2001.inc.ls2$ANwf$rep <- "a" 
-# run mpspline on fm data and return 1cm increments for 0-30 cm
+# run mpspline on fm data and return 10 cm increments for 0-30 cm
 sra.2001.inc.sp <- bind_rows(lapply(sra.2001.inc.ls2, function(df) {
   df$PMeco_year_rep <- paste(df$PMeco, df$Year, df$rep, sep = "_")
   bind_rows(lapply(split(df, df$PMeco_year_rep), function(x) {
@@ -2304,6 +2297,139 @@ flx.14c.rep.01.sp <- bind_rows(
   # group_by(PMeco, lyr_bot) %>%
   # summarize(across(c(fm.wtd, d14c.wtd), .fns = list(mean = mean, sd = sd)))
 save(flx.14c.rep.01.sp, file = "flx.14c.rep.01.sp.RData")
+```
+
+```{r spline-cwt-14c}
+# fit weights to blkC and inc data
+
+## helper functions
+# weighted spline fx
+wtd.sp.fx <- function(df, pro_name = "pro_name", target_var, weight_var, d = c(0, 10, 20, 30)) {
+  
+  # convert df to soil profile collection obj
+  depths(df) <- pro_name ~ lyr_top + lyr_bot
+  ls <- list(
+    suppressMessages(
+      mpspline(df, var.name = target_var, d = d, show.progress = FALSE)),
+    suppressMessages(
+      mpspline(df, var.name = weight_var, d = d, show.progress = FALSE)))
+  
+  # get number of depth increments
+  # NB: index ls[[1]] = target var; index ls[[2]] = weighting var
+  nr <- length(ls[[1]][["var.std"]]) - 1
+      
+  # make data frame of target and weighting var
+  df.wtd <- data.frame(depth = names(ls[[1]][["var.std"]])[1:nr])
+  df.wtd[[target_var]] <- t(ls[[1]][["var.std"]][1:nr])
+  df.wtd[[weight_var]] <- t(ls[[2]][["var.std"]][1:nr])
+  
+  # extract lyr_bottom data from mpspline depth output
+  df.wtd$lyr_bot <- as.numeric(
+    substr(sapply(strsplit(as.character(df.wtd$depth), "-"), "[", 2), 1, 2))
+  
+  # calculate weighted data and return
+  df.wtd[[paste0(target_var, "_wtd")]] <- df.wtd[[target_var]] * (df.wtd[[weight_var]] / sum(df.wtd[[weight_var]],  na.rm = TRUE))
+  return(df.wtd)
+}
+
+# 0-30 cm summary fx
+sum.30.fx <- function(ls, sum_var) {
+  bind_rows(
+    lapply(ls, function(x) {
+      x <- x[complete.cases(x), ]
+      df <- data.frame(lyr_bot = max(x$lyr_bot))
+      df[[sum_var]] <- sum(x[[sum_var]], na.rm = TRUE)
+      return(df)
+    }), .id = "rep")
+}
+
+
+## get data
+# extract 2001 flux data (averaged over whole incubation, reps separate)
+ts.rep.avg.01.ls <- lapply(split(ts.rep.avg, ts.rep.avg$PMeco), function(df) df[df$year == "2001", ])
+
+# extract 2019 flux data (averaged over whole incubation, reps separate)
+ts.rep.avg.19.ls <- lapply(split(ts.rep.avg, ts.rep.avg$PMeco), function(df) df[df$year == "2019", ])
+
+## '01 inc data
+# combine flux and 14C
+flx.rep.14c.ls <- mapply(
+  merge,
+  ts.rep.avg.01.ls,
+  sra.2001.inc.ls2,
+  SIMPLIFY = FALSE
+)
+
+# split by rep and fit splines to fluxes and fm
+flx.rep.14c.sp.wtd.ls <- lapply(flx.rep.14c.ls, function(df) 
+  lapply(split(df, df$rep), wtd.sp.fx, target_var = "fm", weight_var = "mgCO2_gC_d_avg"))
+
+# sum for 0-30 cm
+flx.rep.wtd.30.14c.ls <- lapply(flx.rep.14c.sp.wtd.ls, function(x) {
+  sum.30.fx(x, "fm_wtd") %>%
+    mutate(d14c_wtd = convert_fm_d14c(fm = fm_wtd, obs_date_y = 2001, verbose = FALSE))
+})
+flx.rep.wtd.30.14c.df <- bind_rows(flx.rep.wtd.30.14c.ls, .id = "PMeco") %>%
+  mutate(year = 2001)
+
+
+## '01 bulk data
+# split by rep and fit splines to SOC and fm
+blkC.rep.14c.sp.wtd.ls <- lapply(sra.2001.ls, function(df) 
+  lapply(split(df, df$pro_rep), wtd.sp.fx, target_var = "fm", weight_var = "lyr_soc_kgm2"))
+
+# sum for 0-30 cm
+blkC.rep.wtd.30.14c.ls <- lapply(blkC.rep.14c.sp.wtd.ls, function(x) {
+  sum.30.fx(x, "fm_wtd") %>%
+    mutate(d14c_wtd = convert_fm_d14c(fm = fm_wtd, obs_date_y = 2001, verbose = FALSE))
+})
+blkC.rep.wtd.30.14c.df <- bind_rows(blkC.rep.wtd.30.14c.ls, .id = "PMeco") %>%
+  mutate(year = 2001)
+
+
+## '19 inc data
+# combine flux and 14C
+flx.rep.14c.19.ls <- mapply(
+  merge,
+  ts.rep.avg.19.ls,
+  sra.2019.inc.ls,
+  SIMPLIFY = FALSE
+)
+
+# split by rep and fit splines to fluxes and fm
+flx.rep.14c.sp.wtd.19.ls <- lapply(flx.rep.14c.19.ls, function(df) 
+  lapply(split(df, df$rep), wtd.sp.fx, target_var = "fm", weight_var = "mgCO2_gC_d_avg"))
+
+# sum for 0-30 cm
+flx.rep.wtd.30.14c.19.ls <- lapply(flx.rep.14c.sp.wtd.19.ls, function(x) {
+  sum.30.fx(x, "fm_wtd") %>%
+    mutate(d14c_wtd = convert_fm_d14c(fm = fm_wtd, obs_date_y = 2019, verbose = FALSE))
+})
+flx.rep.wtd.30.14c.19.df <- bind_rows(flx.rep.wtd.30.14c.19.ls, .id = "PMeco") %>%
+  mutate(year = 2019)
+
+
+## '19 bulk data
+# split by rep and fit splines to SOC and fm
+blkC.rep.14c.sp.wtd.19.ls <- lapply(sra.2019.ls, function(df) 
+  lapply(split(df, df$pro_rep), wtd.sp.fx, target_var = "fm", weight_var = "lyr_soc"))
+
+# sum for 0-30 cm
+blkC.rep.wtd.30.14c.19.ls <- lapply(blkC.rep.14c.sp.wtd.19.ls, function(x) {
+  sum.30.fx(x, "fm_wtd") %>%
+    mutate(d14c_wtd = convert_fm_d14c(fm = fm_wtd, obs_date_y = 2019, verbose = FALSE))
+})
+blkC.rep.wtd.30.14c.19.df <- bind_rows(blkC.rep.wtd.30.14c.19.ls, .id = "PMeco") %>%
+  mutate(year = 2019)
+
+# combine 0-30 cm data
+inc.blk.rep.30.wtd.df <- merge(
+  rbind(blkC.rep.wtd.30.14c.df, blkC.rep.wtd.30.14c.19.df),
+  rbind(flx.rep.wtd.30.14c.df, flx.rep.wtd.30.14c.19.df),
+  by = c("PMeco", "year", "lyr_bot"),
+  suffixes = c("_blk", "_inc")
+)
+save(inc.blk.rep.30.wtd.df, file = "inc.blk.rep.30.wtd.df.RData")
 ```
 
 ```{r plot-soc-cmtv}
@@ -2891,6 +3017,8 @@ inc.30.bind.fx <- function(ls, year_xx) {
 }
 sra.inc.rep.30.df <- rbind(inc.30.bind.fx(sra.01.30.inc.ls, "01"), 
                            inc.30.bind.fx(sra.19.30.inc.ls, "19"))
+
+
 # combine
 sra.blk.inc.rep.30.df <- merge(sra.blk.rep.30.df, sra.inc.rep.30.df, by = c("year", "PMeco"))
 save(sra.blk.inc.rep.30.df, file = "sra.blk.inc.rep.30.df.RData")
@@ -4201,7 +4329,7 @@ obs.flx.stock <- lapply(split(ras06, ras06$PMeco), function(x) {
 
 # calculate inputs using flx/stock ratio
 in.flx.stock <- lapply(seq_along(obs.flx.stock), function(i) {
-  obs.flx.stock[[i]][["flx.stock"]]/csoc.19.0_30[ix.10][[i]][["lyr_soc"]]
+  obs.flx.stock[[i]][["flx.stock"]] / csoc.19.0_30[ix.10][[i]][["lyr_soc"]]
 })
 
 # Flux estimated from Goulden et al. 2012; Tang et al. 2005; Wang et al. 2000; Gaudinski 2000

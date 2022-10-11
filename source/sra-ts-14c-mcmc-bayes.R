@@ -1,6 +1,6 @@
 # MCMC script for Bayesian parameter optimization
 # aut: J. Beem-Miller
-# date: 11-Nov-2020
+# date: 16-Aug-2022
 
 # script requires running all code chunks prior to "Bayesian parameter estimation" section of "sra-ts.Rmd"
 # # 2pp
@@ -31,24 +31,25 @@ if(!dir.exists(save.dir)) {dir.create(file.path(paste0("~/sra-ts/data/derived/ba
 # same upper/lower limits as in modFit, same cost fx
 ix.10 <- seq(1, 27, 3) # start with just 0-10 cm depth increment subset
 bayes.fit.fx <- function(mod, pars.fit, In.fit, var0, jump, sub, upper, lower) {
-  lapply(seq_along(pars.fit), function(i) {
+  lapply(seq_along(pars.fit[sub]), function(i) {
   
     start <- Sys.time()
     cat(paste0(names(pars.fit)[i], " parameter fitting\n"))
     
     # define cost fx for current iteration
+    # 14C costs only for now...
     mod.Cost <- function(pars) {
-      modelOutput <- modFun_2p(pars, In = In.fit[[i]], pass = TRUE, mod = mod)
+      modelOutput <- modFun(pars, In = In.fit[sub][[i]], pass = TRUE, mod = mod)
       cost1 <- modCost(model = modelOutput, obs = obs.bulk.14c[sub][[i]], scaleVar = TRUE)
-      return(modCost(model = modelOutput, obs = obs.resp.14c[sub][[i]], cost = cost1))
+      return(modCost(model = modelOutput, obs = obs.resp.14c[sub][[i]], scaleVar = TRUE, cost = cost1))
     }
     
     # run MCMC
     fit <- tryCatch(
       modMCMC(f = mod.Cost, 
-              p = pars.fit[[i]], 
-              var0 = var0[[i]][["var_ms_unweighted"]],
-              jump = jump[[i]][["cov.unscaled"]],
+              p = pars.fit[sub][[i]], 
+              var0 = var0[sub][[i]][["var_ms_unweighted"]],
+              jump = jump[sub][[i]][["cov.unscaled"]],
               upper = upper, 
               lower = lower,
               niter = iter,
@@ -71,6 +72,40 @@ bayes_fit_2pp_0_10 <- bayes.fit.fx(mod = "2pp",
                                    upper = c(1, 1, 1),
                                    lower = c(0, 0 ,0))
 names(bayes_fit_2pp_0_10) <- names(mod.fits.2pp)
+
+# test fits for 
+# a) well-fit site w/ standard optimization
+bayes_fit_2pp_ANpp_0_10 <- bayes.fit.fx(mod = "2pp",
+                                   pars.fit = pars.fit.2pp,
+                                   In.fit = in.1.ls,
+                                   var0 <- mod.fits.2pp,
+                                   jump = pars.fit.2pp.sum,
+                                   sub = 1,
+                                   upper = c(1, 1, 1),
+                                   lower = c(0, 0 ,0))
+names(bayes_fit_2pp_ANpp_0_10) <- "ANpp_0-10"
+# b) poorly-fit site w/ standard optimization
+bayes_fit_2pp_ANrf_0_10 <- bayes.fit.fx(mod = "2pp",
+                                        pars.fit = pars.fit.2pp,
+                                        In.fit = in.1.ls,
+                                        var0 <- mod.fits.2pp,
+                                        jump = pars.fit.2pp.sum,
+                                        sub = 4,
+                                        upper = c(1, 1, 1),
+                                        lower = c(0, 0 ,0))
+names(bayes_fit_2pp_ANrf_0_10) <- "ANrf_0_10"
+C14.plot.fx(modFun(bayes_fit_2pp_ANrf_0_10$ANrf_0_10$bestpar, mod = "2pp", In = 1, out = ""), con.df = con.df.fx("ANrf_0-10"), mod, PMeco_depth = "ANrf_0-10")
+
+# b) poorly-fit site w/ fm optimization
+bayes_fit_2pp_ANrf_0_10 <- bayes.fit.fx(mod = "2pp",
+                                        pars.fit = pars.fit.2pp,
+                                        In.fit = in.1.ls,
+                                        var0 <- mod.fits.2pp,
+                                        jump = pars.fit.2pp.sum,
+                                        sub = 4,
+                                        upper = c(1, 1, 1),
+                                        lower = c(0, 0 ,0))
+names(bayes_fit_2pp_ANrf_0_10) <- "ANrf_0_10"
 
 # 2ps
 bayes_fit_2ps_0_10 <- bayes.fit.fx(mod = "2ps",

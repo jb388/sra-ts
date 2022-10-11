@@ -1,5 +1,5 @@
 ---
-title: Parent material and climate interact to control soil C dynamics on annual to centennial timescales through the development of poorly crystalline minerals
+title: Soil minerals mediate climatic control of soil C cycling on annual to centennial timescales
 author:
 - address: Hans-Knoell-Str. 10, 07745 Jena, Germany
   affiliation: '1'
@@ -29,7 +29,7 @@ affiliation:
 - id: '4'
   institution: Institute of Soil Science, Leibniz University Hannover, Hannover, Germany
 output:
-  word: papaja::apa6_docx
+  pdf_document: papaja::apa6_pdf
   html_notebook:
     css: custom.css
     toc: yes
@@ -37,7 +37,7 @@ output:
   word_document:
     toc: yes
     toc_depth: '2'
-  pdf_document: papaja::apa6_pdf
+  word: papaja::apa6_docx
   html_document:
     df_print: paged
     toc: yes
@@ -52,17 +52,17 @@ always_allow_html: true
 linenumbers: yes
 mask: no
 classoption: man
-shorttitle: Parent material and climate interactions control soil C dynamics
+shorttitle: Soil minerals mediate climatic control of soil C
 tablelist: no
 abstract: |
-  Lorem ipsum...
+  Climate and parent material both affect soil C persistence, yet the relative importance of climatic versus mineralogical controls on soil C dynamics remains unclear. We compared radiocarbon data of bulk soil and heterotrophically respired CO~2~ along a combined gradient of parent material (andesite, basalt, granite) and climate (mean annual temperature (MAT): 6.5 °C, 8.6 °C, 12.0 °C) to . We quantified poorly crystalline and crystalline metal oxide content using selective dissolution, and employed linear regression modeling to assess correlations between climate, parent material, metal oxide content, and bulk and respired radiocarbon. Climate explained more variation in bulk and respired radiocarbon at the soil surface (0-0.1 m), while parent material explained more at depth (0.1-0.2 m, 0.2-0.3 m). The importance of parent material for explaining trends in respired radiocarbon suggests mineral-organic associations affect soil C cycling on annual to decadal timescales. Bulk soil radiocarbon was more closely linked to poorly crystalline metal oxide (PCM) content than MAT, with the oldest C in the 8.6 °C soils where PCM content was highest. The abundance of PCMs(but not crystalline metal oxides) was significantly correlated with the difference between bulk and respired radiocarbon, suggesting a mechanistic role for PCMs in soil C persistence. The rate of change in respired radiocarbon over time was a linear function of MAT for the granite soils with the lowest PCM content, but not in the andesitic or basaltic soils with higher PCM content. We interpret this as evidence that PCMs may attenuate the temperature sensitivity of decomposition. 
+    
 header_includes:
 - \usepackage[utf8]{inputenc}
 - \usepackage{float}
 - \usepackage{longtable}
 - \setlength{\headheight}{28pt}
 ---
-
 ```{r global_options, include = FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
                       fig.align = 'center', dev = c('cairo_pdf', 'png'),
@@ -104,10 +104,6 @@ atm.14c <- atm.14c %>% rename(Year = year) %>% mutate(Type = "atmosphere")
 slope.atm14c.01.19 <- round(summary(lm(d14c ~ Year, atm.14c))$coef[2,1],2)
 ```
 
-```{r load-min}
-load("ras18.sp.df.RData")
-```
-
 ```{r ingest-fxs, include=FALSE}
 source("./utilities/jena_ams_ingest.R")
 source("./utilities/jena_elm_ingest.R")
@@ -119,6 +115,13 @@ sra.01.blkC <- read_excel("../data/external/sra_ras_sum/sierra_data_summary_2020
 
 # 2009
 sra.09.blkC <- read_excel("../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx", sheet = "2009_bulk_data") %>% type.convert(., as.is = TRUE) %>% data.frame
+sra.09.blkC$PMeco <- paste0(toupper(substr(sra.09.blkC$Parent_Material, 1, 2)),
+                            tolower(sra.09.blkC$Biome))
+sra.09.blkC$PMeco <- ifelse(
+  substr(sra.09.blkC$PMeco, 1, 2) == "BA", 
+  paste0("BS", substr(sra.09.blkC$PMeco, 3, 4)), 
+  sra.09.blkC$PMeco)
+save(sra.09.blkC, file = "sra.09.blkC.RData")
 
 # 2019
 elm_results_dir <- list.files("../data/raw", pattern = "elm_jena_results", full.names = TRUE)
@@ -128,20 +131,330 @@ elm_results_ls <- suppressMessages(lapply(seq_along(elm_results_dir), function(i
 names(elm_results_ls) <- list.files("../data/raw", pattern = "elm_jena_results")
 ```
 
-```{r define-C-spline-fx}
-# depth spline for C percent, where d = vector of layer bottom depths
-Cspline.fx <- function(df, var.name, d = c(10, 20, 30), show.progress = TRUE) {
-  bind_rows(lapply(split(df, df$pro_name), function(x) {
-    depths(x) <- pro_name ~ lyr_top + lyr_bot
-    x.mps <- mpspline(x, var.name = var.name, d = t(c(0, d)), 
-                      show.progress = show.progress)
-    x.std <- t(x.mps$var.std)
-    df <- data.frame(x.std, row.names(x.std))
-    names(df) <- c(var.name, "depth")
-    df$depth <- gsub(" [^ ]*$", "", df$depth)
-    return(df[1:length(d), ])
-  }), .id = "pro_name")
+```{r load-flx-data}
+## load timeseries of CO2 release from incubations
+# 2019
+sra.19a.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19a_CO2_flux_2021-01-19.csv")
+sra.19b.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S19b_CO2_flux_2021-01-19.csv")
+
+# 2001
+sra.01.1.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_1_CO2_flux_2021-01-27.csv")
+sra.01.2.co2.ts <- read.csv("../data/derived/lab_jena_CO2-timeseries/S01_2_CO2_flux_2021-01-27.csv")
+```
+
+```{r read-14c-data, include = FALSE}
+# 2001, 2019
+ams_jena_results_dirs <- list.files("../data/raw", pattern = "ams_jena_results", full.names = TRUE)
+ams_results_ls <- lapply(seq_along(ams_jena_results_dirs), function(i) {
+  read_jena_ams_results(ams_jena_results_dirs[i])
+})
+names(ams_results_ls) <- list.files("../data/raw", pattern = "ams_jena_results")
+
+# 2009
+sra.09.all <- read_excel(
+  "../data/external/sra_ras_sum/sierra_data_summary_2020.xlsx", 
+  sheet = "Data_Summary_2018_paper") %>% 
+  type.convert(., as.is = TRUE) %>% 
+  mutate(mass_kgm2 = Soil_finefraction * Thickness_cm * BD_g_cm_3 * 10) %>%
+  data.frame
+pro_nms <- substr(unique(sra.09.all$pro_name), 1, 4)
+sra.2009.ls <- split(sra.09.all, sra.09.all$pro_name)
+names(sra.2009.ls) <- pro_nms
+```
+
+```{r template-fxs}
+# Create template for bulk soil data
+template.fx <- function(PMeco, year, lyr_bots, reps, type) {
+  nlyr <- length(lyr_bots)
+  nreps <- length(reps)
+  lyr_top <- sapply(seq_along(lyr_bots), function(i) {
+    if (i == 1) {
+      lyr_top <- 0
+    } else {
+      lyr_top <- lyr_bots[i - 1]
+    }
+  })
+  df <- data.frame(Year = rep(year, nlyr * nreps),
+                   PM = rep(substr(PMeco, 1, 2), nlyr * nreps),
+                   ECO = rep(substr(PMeco, 3, 4), nlyr * nreps),
+                   pro_rep = rep(reps, each = nlyr),
+                   lyr_top = rep(lyr_top, nreps),
+                   lyr_bot = rep(lyr_bots, nreps))
+  df$pro_name <- paste0(PMeco, "_", df$pro_rep)
+  df$PMeco <- PMeco
+  if (type == "bulk") {
+    df$lyr_name <- paste0(df$pro_name, "_", df$lyr_top, "-", df$lyr_bot)
+  } else {
+    df$lyr_name <- paste0(PMeco, "_comp_", df$lyr_top, "-", df$lyr_bot, "_", as.character(year), "_", df$pro_rep)
+  }
+  return(df)
 }
+```
+
+```{r data-templates}
+# templates for bulk soil data
+nms <- paste0(rep(c("AN", "BS", "GR"), ea = 3), rep(c("pp", "wf", "rf"), 3))
+lyrs <- c(7, 9, 8, 6, 6, 8, 8, 7, 8)
+lyrs.ls <- lapply(seq_along(lyrs), function(i) seq(10, lyrs[i] * 10, by = 10))
+sra.2019.temp <- lapply(seq_along(nms), function(i) {
+  template.fx(substr(nms[i], 1, 4), 2019, lyrs.ls[[i]], 1:3, type = "bulk")
+})
+names(sra.2019.temp) <- nms
+
+# modify template as needed
+# GRrf 
+# NB: GRrf_1_60_70 doesn't exist
+sra.2019.temp$GRrf <- if (any(sra.2019.temp$GRrf$lyr_name == "GRrf_1_60-70")) {
+  sra.2019.temp$GRrf <- sra.2019.temp$GRrf[-which(sra.2019.temp$GRrf$lyr_name == "GRrf_1_60-70"), ]
+} else {
+  sra.2019.temp$GRrf
+}
+
+# BSrf 
+# NB: BSrf_1_70_80 doesn't exist
+sra.2019.temp$BSrf <- if (any(sra.2019.temp$BSrf$lyr_name == "BSrf_1_70-70")) {
+  sra.2019.temp$BSrf <- sra.2019.temp$BSrf[-which(sra.2019.temp$BSrf$lyr_name == "BSrf_1_70-80"), ]
+} else {
+  sra.2019.temp$BSrf
+}
+
+# BSpp
+# NB: only sampled to 75cm, not 80
+sra.2019.temp$BSpp[sra.2019.temp$BSpp$lyr_bot == 80, "lyr_bot"] <- 75 
+
+# make data frame
+sra.2019.df <- bind_rows(sra.2019.temp, .id = "PMeco")
+
+## 2019 incubation data
+sra.2019.inc.temp <- bind_rows(lapply(seq_along(nms), function(i) {
+  template.fx(substr(nms[i], 1, 4), 2019, rep(list(c(10, 20, 30)), 9)[[i]], c("a", "b"), type = "inc")
+}))
+
+
+## 2001 data
+# list of depths for 2001 samples
+lyr_bot.01.ls <- list(ANpp = c(6, 13, 33),
+                      ANwf = c(11, 35),
+                      ANrf = c(11, 32),
+                      BSpp = c(7, 18, 28),
+                      BSwf = c(10, 19, 40),
+                      BSrf = c(3, 8, 15, 30),
+                      GRpp = c(7, 15, 27),
+                      GRwf = c(4, 13, 28),
+                      GRrf = c(3, 8, 27))
+# '01 bulk C template df
+sra.2001.df <- bind_rows(lapply(seq_along(nms), function(i) {
+  template.fx(substr(nms[i], 1, 4), 2001, lyr_bot.01.ls[[i]], 1:3, type = "bulk")
+}))
+
+# '01 inc template df
+lyr_bot.01.inc.ls <- lyr_bot.01.ls
+lyr_bot.01.inc.ls$BSwf <- lyr_bot.01.inc.ls$BSwf[1:2] # only incubated 0-10, 10-19
+lyr_bot.01.inc.ls$BSrf <- c(8, 15, 30) # combined 0-3, 3-8
+lyr_bot.01.inc.ls$GRrf <- c(8, 27) # combined 0-3, 3-8
+sra.2001.inc.temp <- bind_rows(lapply(seq_along(nms), function(i) {
+  template.fx(substr(nms[i], 1, 4), 2001, lyr_bot.01.inc.ls[[i]], c("a", "b"), type = "inc")
+}))
+
+# null list length = 9 for merging 14C data
+sra.template <- lapply(sra.2019.temp, function(x) NULL)
+```
+
+```{r merge-14c-data-S01}
+# Extract 14C data for 2001 samples
+ams_results_ls_S01 <- ams_results_ls[grep("soil-S01", names(ams_results_ls))]
+sra.2001 <- sra.template
+for(i in seq_along(sra.2001)) {
+  sra.2001[[i]] <- lapply(ams_results_ls_S01, function(ls) {
+    lapply(ls, function(df) {
+      if(any(grepl(names(sra.2001)[i], df$Probe))) {
+       df[grep(names(sra.2001)[i], df$Probe), ] 
+      }
+    })
+  })
+  sra.2001[[i]] <- Filter(Negate(is.null), unlist(sra.2001[[i]], recursive = FALSE))
+  sra.2001[[i]] <- type.convert(sra.2001[[i]], as.is = TRUE)
+}
+sra.2001 <- bind_rows(unlist(sra.2001, recursive = FALSE))
+
+## merge w/ 2001 template
+# rename cols in AMS tables
+sra.2001 <- sra.2001[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
+names(sra.2001) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+# merge
+sra.2001.lyr.ls <- lapply(split(sra.2001.df, sra.2001.df$lyr_name), function(df) {
+  df <- merge(df, sra.2001[grep(df$lyr_name, sra.2001$ID), ])
+  df$ID <- NULL
+  return(df)
+})
+# remove outlier ANpp sample
+if (any(names(sra.2001.lyr.ls) == "ANpp_3_6-13")) {
+  sra.2001.lyr.ls <- sra.2001.lyr.ls[-which(names(sra.2001.lyr.ls) == "ANpp_3_6-13")]
+}
+# missing sample notes:
+# GRpp_2_0-7: not enough sample
+# ANrf_2: no samples from pit 2 available
+
+# reshape list by PMeco
+sra.2001.14c.ls <- split(bind_rows(sra.2001.lyr.ls), bind_rows(sra.2001.lyr.ls)[["PMeco"]])
+
+# summarize
+sra.2001.14c.blk.sum.df <- bind_rows(sra.2001.14c.ls, .id = "PMeco") %>%
+  group_by(PMeco, PM, ECO, lyr_bot) %>%
+  summarize(across(d14c, .fns = list(mean = mean, sd = sd)), .groups = "drop") %>%
+  mutate(d14c_l = d14c_mean + d14c_sd,
+         d14c_u = d14c_mean - d14c_sd)
+
+# save 
+save(sra.2001.14c.ls, file = "sra.2001.14c.ls.RData")
+```
+
+```{r merge-14c-data-S19}
+# Extract 14C data for 2019 samples
+ams_results_ls_S19 <- ams_results_ls[grep("soil-S19", names(ams_results_ls))]
+sra.2019 <- sra.template
+for(i in seq_along(sra.2019)) {
+  sra.2019[[i]] <- lapply(ams_results_ls_S19, function(ls) {
+    lapply(ls, function(df) {
+      if(any(grepl(names(sra.2019)[i], df$Probe))) {
+       df[grep(names(sra.2019)[i], df$Probe), ] 
+      }
+    })
+  })
+  sra.2019[[i]] <- Filter(Negate(is.null), unlist(sra.2019[[i]], recursive = FALSE))
+  sra.2019[[i]] <- type.convert(sra.2019[[i]], as.is = TRUE)
+}
+sra.2019 <- bind_rows(unlist(sra.2019, recursive = FALSE))
+
+## merge w/ 2019 template
+# rename cols in AMS tables
+sra.2019 <- sra.2019[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
+names(sra.2019) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+# merge
+sra.2019.lyr.ls <- lapply(split(sra.2019.df, sra.2019.df$lyr_name), function(df) {
+  df <- merge(df, sra.2019[grep(df$lyr_name, sra.2019$ID), ])
+  df$ID <- NULL
+  return(df)
+})
+
+# reshape list by PMeco
+sra.2019.14c.ls <- split(bind_rows(sra.2019.lyr.ls), bind_rows(sra.2019.lyr.ls)[["PMeco"]])
+
+# summarize
+sra.2019.14c.blk.sum.df <- bind_rows(sra.2019.14c.ls) %>%
+  group_by(PMeco, PM, ECO, lyr_bot) %>%
+  summarize(across(d14c, .fns = list(mean = mean, sd = sd)), .groups = "drop") %>%
+  mutate(d14c_l = d14c_mean + d14c_sd,
+         d14c_u = d14c_mean - d14c_sd)
+
+# save 
+save(sra.2019.14c.ls, file = "sra.2019.14c.ls.RData")
+```
+
+```{r merge-14c-co2-19}
+## Extract 14c for '19 incubation samples
+# get ams data
+ams_results_ls_co2_S19 <- ams_results_ls[grep("co2-S19", names(ams_results_ls))]
+sra.2019.inc <- sra.template
+for (i in seq_along(sra.2019.inc)) {
+  sra.2019.inc[[i]] <- lapply(ams_results_ls_co2_S19, function(ls) {
+    lapply(ls, function(df) {
+      if (any(grepl(names(sra.2019.inc)[i], df$Probe))) {
+        df[grep(names(sra.2019.inc)[i], df$Probe), ] 
+      }
+    })
+  })
+  sra.2019.inc[[i]] <- Filter(Negate(is.null), unlist(sra.2019.inc[[i]], recursive = FALSE))
+  sra.2019.inc[[i]] <- type.convert(sra.2019.inc[[i]], as.is = TRUE)
+}
+sra.2019.inc <- bind_rows(unlist(sra.2019.inc, recursive = FALSE))
+
+# merge w/ template
+# rename cols in AMS tables
+sra.2019.inc <- sra.2019.inc[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
+names(sra.2019.inc) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+# merge
+sra.2019.inc.lyr.ls <- lapply(
+  split(sra.2019.inc.temp, sra.2019.inc.temp$lyr_name), function(df) {
+    df <- merge(df, sra.2019.inc[grep(df$lyr_name, sra.2019.inc$ID), ])
+    df$ID <- NULL
+    if (any(is.na(df$fm))) {
+      df[-which(is.na(df$fm)), ]
+    } else {
+     df 
+    }
+  })
+# make ls
+sra.2019.inc.14c.ls <- lapply(split(bind_rows(sra.2019.inc.lyr.ls), bind_rows(sra.2019.inc.lyr.ls)[["PMeco"]]), function(x) x[complete.cases(x), ])
+
+# summarize
+sra.2019.14c.inc.sum.df <- bind_rows(sra.2019.inc.14c.ls) %>%
+  filter(d14c > -200) %>%
+  group_by(PMeco, PM, ECO, lyr_bot) %>%
+  summarize(across(d14c, .fns = list(mean = mean, max = max, min = min)), .groups = "drop") %>%
+  rename(d14c_l = d14c_min, d14c_u = d14c_max)
+```
+
+```{r merge-14c-co2-01}
+## Extract 14c for '01 incubation samples
+# get ams data and filter as needed
+ams_results_ls_co2_S01 <- ams_results_ls[grep("co2-S01", names(ams_results_ls))]
+# remove questionable/duplicate samples
+# ANrf_comp_11-32_2001_a (analyzed twice; both anomously low compared to rep and rest of data)
+ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_22.xlsx` <- ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_22.xlsx`[-grep("ANrf_comp_11-32_2001_a", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_22.xlsx`$Probe), ]
+ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-16`$`14C_SierraNevada_Inc_2001_3_results.xlsx` <- ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-16`$`14C_SierraNevada_Inc_2001_3_results.xlsx`[-grep("ANrf_comp_11-32_2001_a", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-16`$`14C_SierraNevada_Inc_2001_3_results.xlsx`$Probe), ]
+
+# from original analysis of samples extracted online 11-Dec-2020 (see readme for notes)
+ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_23.xlsx` <- ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2020-12-11`$`Beem-Miller_23.xlsx`[-grep("GRwf_comp_13-28_2001_a_11", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx`$Probe), ]
+
+# from reanalysis of samples extracted online 11-Dec-2020 (see readme for notes)
+# GRrf_comp_8-27_2001_a_5, GRrf_comp_8-27_2001_b_6, GRpp_comp_15-27_2001_b_18 
+ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx` <- ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx`[c(
+  grep("GRrf_comp_8-27_2001_a_5", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx`$Probe),
+  grep("GRwf_comp_13-28_2001_b_12", ams_results_ls_co2_S01$`ams_jena_results-co2-S01_2021-01-26`$`14C_SierraNevada_Inc_2001_2_results.xlsx`$Probe)), ]
+
+# create template for extracting data
+sra.2001.inc <- sra.template
+# merge with 14C data
+for (i in seq_along(sra.2001.inc)) {
+  sra.2001.inc[[i]] <- lapply(ams_results_ls_co2_S01, function(ls) {
+    lapply(ls, function(df) {
+      if (any(grepl(names(sra.2001.inc)[i], df$Probe))) {
+        df[grep(names(sra.2001.inc)[i], df$Probe), ] 
+      }
+    })
+  })
+  sra.2001.inc[[i]] <- Filter(Negate(is.null), unlist(sra.2001.inc[[i]], recursive = FALSE))
+  sra.2001.inc[[i]] <- type.convert(sra.2001.inc[[i]], as.is = TRUE)
+}
+sra.2001.inc <- bind_rows(unlist(sra.2001.inc, recursive = FALSE))
+
+# merge w/ template
+# rename cols in AMS tables
+sra.2001.inc <- sra.2001.inc[ , c("Probe", "F14C", "err", "∆14C.(‰)", "err.(‰)")]
+names(sra.2001.inc) <- c("ID", "fm", "fm_err", "d14c", "d14c_err")
+# merge
+sra.2001.inc.lyr.ls <- lapply(
+  split(sra.2001.inc.temp, sra.2001.inc.temp$lyr_name), function(df) {
+    df <- merge(df, sra.2001.inc[grep(df$lyr_name, sra.2001.inc$ID), ])
+    df$ID <- NULL
+    if (any(is.na(df$fm))) {
+      df[-which(is.na(df$fm)), ]
+    } else {
+     df 
+    }
+  })
+# make ls
+sra.2001.inc.14c.ls <- lapply(split(bind_rows(sra.2001.inc.lyr.ls), bind_rows(sra.2001.inc.lyr.ls)[["PMeco"]]), function(x) x[complete.cases(x), ])
+
+# summarize
+sra.2001.14c.inc.sum.df <- bind_rows(sra.2001.inc.14c.ls) %>%
+  group_by(PMeco, PM, ECO, lyr_bot) %>%
+  summarize(across(d14c, .fns = list(mean = mean, max = max, min = min)), .groups = "drop") %>%
+  rename(d14c_l = d14c_min, d14c_u = d14c_max)
+
+# save inc list
+save(sra.2001.inc.14c.ls, file = "sra.2001.inc.14c.ls.RData")
 ```
 
 ```{r summarize-C-data, include=FALSE}
@@ -152,196 +465,757 @@ sra.01.blkC <- sra.01.blkC[which(!is.na(sra.01.blkC$C.)), ]
 
 # convert lyr_top to numeric and add pro_name col
 sra.01.blkC$lyr_top <- as.numeric(sra.01.blkC$lyr_top)
-
-# Need to account for different depth increments among profiles: depth spline C.
-# split by profile and spline
 sra.01.blkC$pro_name <- paste0(sra.01.blkC$PMeco, sra.01.blkC$pro_rep)
-sra.01.blkC.sp <- Cspline.fx(sra.01.blkC, var.name = "C.")
-sra.01.blkC.sp.reps <- sra.01.blkC.sp
-sra.01.blkC.sp.reps$PMeco <- substr(sra.01.blkC.sp.reps$pro_name, 1, 4)
-sra.01.blkC.sp.reps$year <- 2001
-# summarize
-sra.01.blkC.sum <- data.frame(
-  sra.01.blkC.sp %>%
-    mutate(PMeco = substr(pro_name, 1, 4)) %>%
-    group_by(PMeco, depth) %>%
-    summarize(across(c_pct, .fns = c(mean = mean, sd = sd)))
-)
 
-## 2009
-# spline
-sra.09.blkC.sp <- Cspline.fx(
-  sra.09.blkC %>% 
-    rename(lyr_bot = bottom.mineral, lyr_top = top.mineral), 
-  var.name = "C_pct")
-sra.09.blkC.sp.reps <- sra.09.blkC.sp
-sra.09.blkC.sp.reps$PMeco <- substr(sra.09.blkC.sp.reps$pro_name, 1, 4)
-sra.09.blkC.sp.reps$year <- 2009
+# save for loading into SI script
+save(sra.01.blkC, file = "sra.01.blkC.RData")
 
-# summarize
-sra.09.blkC.sum <- data.frame(
-  sra.09.blkC.sp %>%
-    mutate(PMeco = substr(pro_name, 1, 4)) %>%
-    group_by(PMeco, depth) %>%
-    summarize(across(c_pct, .fns = c(mean = mean, sd = sd)))
-)
+# summarize for composite profiles
+sra.01.blkC.sum <- sra.01.blkC %>%
+  group_by(PMeco, lyr_bot, lyr_top, bd.g.cm3, fine.earth., mass_kgm2) %>%
+  summarize(
+    across(
+      c(C., soc_kgm2), .fns = list(mean = mean, sd = sd)), .groups = "drop") %>% 
+  mutate(ID2 = paste0(PMeco, "_", lyr_top, "-", lyr_bot)) %>%
+  data.frame()
+
 
 ## 2019
 # reps
-sra.19.blkC.reps <- bind_rows(unlist(elm_results_ls, recursive = FALSE)) %>%
+sra.19.blkC.all <- bind_rows(unlist(elm_results_ls, recursive = FALSE)) %>%
   mutate(PMeco = sapply(strsplit(ID, "_"), "[", 2),
          depth = sapply(strsplit(ID, "_"), "[", 4),
          year = 2019)
-sra.19.blkC.reps.30 <- bind_rows(
-  lapply(split(sra.19.blkC.reps, sra.19.blkC.reps$PMeco), function(df) {
+
+# 0-30 cm only
+sra.19.blkC <- bind_rows(
+  lapply(split(sra.19.blkC.all, sra.19.blkC.all$PMeco), function(df) {
     df$lyr_bot <- as.numeric(unlist(lapply(strsplit(df$depth, "-"), "[[", 2)))
     df <- df[df$lyr_bot < 31, ]
     df$rep <- rep(seq(1, 3), each = 3)
     df$pro_name <- paste(df$PMeco, df$rep, sep = "_")
-    names(df)[which(names(df) == "C")] <- "c_pct"
-    return(df[ , names(df) %in% names(sra.09.blkC.sp.reps)])
+    return(df)
   }))
 
 # summary
-sra.19.blkC.sum <- data.frame(
-  bind_rows(unlist(elm_results_ls, recursive = FALSE)) %>%
-  mutate(PMeco = sapply(strsplit(ID, "_"), "[", 2),
-         depth = sapply(strsplit(ID, "_"), "[", 4)) %>%
+sra.19.blkC.sum <- sra.19.blkC %>%
   group_by(PMeco, depth) %>%
-  summarize(across(c(C, N), .fns = c(mean = mean, sd = sd))) %>%
+  summarize(across(c(C, N), .fns = c(mean = mean, sd = sd)),
+            .groups = "drop") %>%
   rename(c_pct_mean = C_mean,
-         c_pct_sd = C_sd))
+         c_pct_sd = C_sd)
+
 # extract < 31 cm
 sra.19.blkC.sum.30 <- bind_rows(
-  lapply(split(sra.19.blkC.sum, sra.19.blkC.sum$PMeco), function(df) df[1:3, ]))
+  lapply(split(sra.19.blkC.sum, sra.19.blkC.sum$PMeco), function(df) df[1:3, ])) %>%
+  mutate(ID2 = paste0(PMeco, "_", depth))
+```
+
+```{r prep-flx-data}
+## Test that required names are present
+nms <- c("PMeco", "ID", "dw_g", "timepoint_cmtv",  "time_d", "mgCO2_jar")
+invisible(lapply(list(sra.19a.co2.ts,
+                      sra.19b.co2.ts,
+                      sra.01.1.co2.ts,
+                      sra.01.2.co2.ts),
+       function(x) {
+         ifelse(!is.na(match(nms, names(x))), "yes", "no")
+       }
+       ))
+
+# combine all data, remove time points without CO2 measurements, and add year and rep 
+ts <- bind_rows(sra.19a.co2.ts[ , nms], 
+                sra.19b.co2.ts[ , nms], 
+                sra.01.1.co2.ts[ , nms],
+                sra.01.2.co2.ts[ , nms])
+if(length(which(is.na(ts$mgCO2_jar))) > 0) {
+  ts <- ts[-which(is.na(ts$mgCO2_jar)), ]
+}
+ts$year <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 3)
+ts$rep <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 4)
+ts$depth <- sapply(strsplit(as.character(ts$ID), "_"), "[[", 2)
+ts$ID2 <- paste(ts$PMeco, ts$depth, sep = "_")
+
+# add C content
+ts[which(ts$year == 2001), "gC_gS"] <- as.numeric(sra.01.blkC.sum[match(ts[which(ts$year == 2001), "ID2"], sra.01.blkC.sum$ID2), "C._mean"]) * 10^-2
+ts[which(ts$year == 2019), "gC_gS"] <- sra.19.blkC.sum.30[match(ts[which(ts$year == 2019), "ID2"], sra.19.blkC.sum.30$ID2), "c_pct_mean"] * 10^-2
+
+# calculate per unit carbon fluxes
+ts$mgCO2_gC <- ts$gC_gS * ts$dw_g * ts$mgCO2_jar * (12/44)
+ts$mgCO2_gC_d <- ts$mgCO2_gC / ts$time_d
+
+# save ts obj for plotting in SI
+save(ts, file = "ts.RData")
+
+# average fluxes by rep
+ts.rep.avg <- bind_rows(
+  lapply(split(ts, ts$ID), function(x) {
+    x %>%
+      group_by(PMeco, year, depth, rep) %>%
+      summarize(time_d = max(time_d),
+                mgCO2_gC_d_avg = mean(mgCO2_gC_d),
+                mgCO2_gC_d_max = max(mgCO2_gC_d),
+                mgCO2_gC_d_min = min(mgCO2_gC_d),
+                mgCO2_gC_avg = mean(mgCO2_gC),
+                mgCO2_gC_max = max(mgCO2_gC),
+                mgCO2_gC_min = min(mgCO2_gC), .groups = "drop") %>%
+      mutate(PMeco_depth_year = paste(PMeco, depth, year, sep = "_"),
+             lyr_top = as.numeric(sapply(strsplit(depth, "-"), "[", 1)),
+             lyr_bot = as.numeric(sapply(strsplit(depth, "-"), "[", 2)))
+  }), .id = "ID") %>%
+  mutate(PMeco_year_rep = paste(PMeco, year, rep, sep = "_"),
+         pro_name = paste0(PMeco, "_", rep))
+
+# average reps
+ts.avg <- ts %>%
+  group_by(PMeco, year, depth, timepoint_cmtv) %>%
+  summarize(time_d = mean(time_d),
+            mgCO2_gC_d_avg = mean(mgCO2_gC_d),
+            mgCO2_gC_d_max = max(mgCO2_gC_d),
+            mgCO2_gC_d_min = min(mgCO2_gC_d),
+            mgCO2_gC_avg = mean(mgCO2_gC),
+            mgCO2_gC_max = max(mgCO2_gC),
+            mgCO2_gC_min = min(mgCO2_gC), .groups = "drop") %>%
+  mutate(PMeco_depth_year = paste(PMeco, depth, year, sep = "_"))
+
+# add depth index
+t1 <- ts.avg[ts.avg$timepoint_cmtv == 1, ]
+t1 <- data.frame(
+  bind_rows(
+    lapply(split(t1, t1$year), function(df) {
+      bind_rows(lapply(split(df, df$PMeco), function(x) {
+        x$lyr_top <- as.numeric(sapply(strsplit(x$depth, "-"), "[", 1))
+        x <- x[order(x$lyr_top), ]
+        x$depth_index <- seq(1, nrow(x))
+        return(x)
+      }))
+    })))
+ts.avg$depth_index <- t1[match(ts.avg$PMeco_depth_year, t1$PMeco_depth_year), "depth_index"]
+
+# cumulative flux rates
+ts.avg.cmtv <- bind_rows(
+  lapply(split(ts.avg, ts.avg$PMeco_depth_year), function(x) x[nrow(x), ]), 
+  .id = "PMeco_depth_year")
+```
+
+```{r spline-wt-fx, include = FALSE}
+# weighted spline fx
+wtd.sp.fx <- function(df, pro_name = "pro_name", target_var, weight_var, d = c(0, 10, 20, 30)) {
+  
+  # convert df to soil profile collection obj
+  depths(df) <- pro_name ~ lyr_top + lyr_bot
+  ls <- list(
+    suppressMessages(
+      mpspline(df, var.name = target_var, d = d, show.progress = FALSE)),
+    suppressMessages(
+      mpspline(df, var.name = weight_var, d = d, show.progress = FALSE)))
+  
+  # get number of depth increments
+  # NB: index ls[[1]] = target var; index ls[[2]] = weighting var
+  nr <- length(ls[[1]][["var.std"]]) - 1
+      
+  # make data frame of target and weighting var
+  df.wtd <- data.frame(depth = names(ls[[1]][["var.std"]])[1:nr])
+  df.wtd[[target_var]] <- t(ls[[1]][["var.std"]][1:nr])
+  df.wtd[[weight_var]] <- t(ls[[2]][["var.std"]][1:nr])
+  
+  # extract lyr_bottom data from mpspline depth output
+  df.wtd$lyr_bot <- as.numeric(
+    substr(sapply(strsplit(as.character(df.wtd$depth), "-"), "[", 2), 1, 2))
+  
+  # calculate weighted data and return
+  df.wtd[[paste0(target_var, "_wtd")]] <- df.wtd[[target_var]] * (df.wtd[[weight_var]] / sum(df.wtd[[weight_var]],  na.rm = TRUE))
+  return(df.wtd)
+}
+
+# 0-30 cm summary fx
+sum.30.fx <- function(ls, sum_var) {
+  bind_rows(
+    lapply(ls, function(x) {
+      x <- x[complete.cases(x), ]
+      df <- data.frame(lyr_bot = max(x$lyr_bot))
+      df[[sum_var]] <- sum(x[[sum_var]], na.rm = TRUE)
+      return(df)
+    }), .id = "rep")
+}
+```
+
+```{r spline-wt-14c-mass-min}
+### get data
+## fluxes
+# extract 2001 flux data (averaged over whole incubation, reps separate)
+ts.rep.avg.01.ls <- lapply(split(ts.rep.avg, ts.rep.avg$PMeco), function(df) df[df$year == "2001", ])
+
+# extract 2019 flux data (averaged over whole incubation, reps separate)
+ts.rep.avg.19.ls <- lapply(split(ts.rep.avg, ts.rep.avg$PMeco), function(df) df[df$year == "2019", ])
+
+# duplicate sra.2001.inc.ls
+sra.2001.inc.14c.ls2 <- sra.2001.inc.14c.ls
+# combine a and b reps for ANwf (only have data for one rep per increment)
+sra.2001.inc.14c.ls2$ANwf$pro_name <- "ANwf_a" 
+
+
+## '01 inc data
+# combine flux and 14C
+flx.rep.14c.ls <- mapply(
+  merge,
+  ts.rep.avg.01.ls,
+  sra.2001.inc.14c.ls2,
+  SIMPLIFY = FALSE
+)
+
+# split by rep and fit splines to fluxes and fm
+flx.rep.14c.sp.wtd.ls <- lapply(flx.rep.14c.ls, function(df) 
+  lapply(split(df, df$rep), wtd.sp.fx, target_var = "fm", weight_var = "mgCO2_gC_d_avg"))
+
+# sum for 0-30 cm
+flx.rep.wtd.30.14c.ls <- lapply(flx.rep.14c.sp.wtd.ls, function(x) {
+  sum.30.fx(x, "fm_wtd") %>%
+    mutate(d14c_wtd = convert_fm_d14c(fm = fm_wtd, obs_date_y = 2001, verbose = FALSE))
+})
+flx.rep.wtd.30.14c.df <- bind_rows(flx.rep.wtd.30.14c.ls, .id = "PMeco") %>%
+  mutate(year = 2001) %>%
+  select(-fm_wtd)
+
+
+## '01 bulk data
+# merge C data w/ 14C data
+sra.2001.ls <- lapply(sra.2001.14c.ls, function(df) {
+  merge(df, sra.01.blkC[, c("PMeco", "pro_rep", "lyr_bot", 
+                            "C.", "bd.g.cm3", "fine.earth.", "mass_kgm2", "soc_kgm2")], 
+        by = c("PMeco", "pro_rep", "lyr_bot"))
+})
+
+# split by rep and fit splines to C pct
+blkC.rep.C.sp.01.df <- bind_rows(lapply(sra.2001.ls, function(df) 
+  bind_rows(lapply(split(df, df$pro_rep), function(x) {
+    depths(x) <- pro_name ~ lyr_top + lyr_bot
+    sp <- suppressMessages(
+      mpspline(x, var.name = "C.", d = c(0, 10, 20, 30), show.progress = FALSE))
+    sp$var.std[1:3]
+  }), .id = "rep") %>%
+    pivot_longer(cols = 2:4, names_to = "depth", values_to = "c_pct") %>%
+    data.frame
+), .id = "PMeco") %>%
+  mutate(lyr_bot = substr(sapply(strsplit(depth, "-"), "[", 2), 1, 2),
+         year = 2001) %>%
+  select(-depth)
+
+# split by rep and fit splines to SOC and fm
+blkC.rep.14c.sp.wtd.ls <- lapply(sra.2001.ls, function(df) 
+  lapply(split(df, df$pro_rep), wtd.sp.fx, target_var = "fm", weight_var = "soc_kgm2"))
+
+# sum for 0-30 cm
+blkC.rep.wtd.30.14c.ls <- lapply(blkC.rep.14c.sp.wtd.ls, function(x) {
+  sum.30.fx(x, "fm_wtd") %>%
+    mutate(d14c_wtd = convert_fm_d14c(fm = fm_wtd, obs_date_y = 2001, verbose = FALSE))
+})
+blkC.rep.wtd.30.14c.df <- bind_rows(blkC.rep.wtd.30.14c.ls, .id = "PMeco") %>%
+  mutate(year = 2001) %>%
+  select(-fm_wtd)
+
+# recalculate weights for BSwf (only have inc data to 20 cm); USE THIS FOR INC-BLK CALC
+BSwf.inc.ls2 <- 
+  sum.30.fx(
+    lapply(blkC.rep.14c.sp.wtd.ls$BSwf, function(df) {
+      df <- df[1:2, ]
+      df$wt <- df$soc_kgm2 / sum(df$soc_kgm2)
+      df$fm_wtd <- df$fm * df$wt
+      return(df[ , c("depth", "fm", "soc_kgm2", "lyr_bot", "fm_wtd")])
+    }), "fm_wtd") %>%
+    mutate(d14c_wtd = convert_fm_d14c(fm = fm_wtd, obs_date_y = 2001, verbose = FALSE))
+blkC.rep.wtd.30.14c.ls2 <- blkC.rep.wtd.30.14c.ls
+blkC.rep.wtd.30.14c.ls2$BSwf <- BSwf.inc.ls2
+blkC.rep.wtd.30.14c.df2 <- bind_rows(blkC.rep.wtd.30.14c.ls2, .id = "PMeco") %>%
+  mutate(year = 2001) %>%
+  select(-fm_wtd)
+
+
+## '09 bulk data
+# fit spline to C data
+blkC.rep.C.sp.09.df <- bind_rows(
+  lapply(split(sra.09.blkC, sra.09.blkC$PMeco), function(x) {
+    depths(x) <- pro_name ~ top.mineral + bottom.mineral
+    sp <- suppressMessages(
+      mpspline(x, var.name = "C_pct", d = c(0, 10, 20, 30), show.progress = FALSE))$var.std
+    sp$rep <- seq(1, nrow(sp))
+    sp %>%
+      pivot_longer(cols = 1:3, names_to = "depth", values_to = "c_pct")
+  }), .id = "PMeco") %>%
+  mutate(lyr_bot = substr(sapply(strsplit(depth, "-"), "[", 2), 1, 2),
+         year = 2009) %>%
+  select(PMeco, rep, year, lyr_bot, c_pct) %>%
+  data.frame
+
+# split by rep and fit splines to SOC and fm
+blkC.14c.sp.wtd.09.ls <- lapply(sra.2009.ls, function(df) {
+  names(df)[which(names(df) == "Δ14C")] <- "d14c"
+  df <- df %>%
+      mutate(
+        fm = convert_fm_d14c(d14c = d14c, obs_date_y = 2009, verbose = FALSE),
+        soc_kgm2 = Thickness_cm * Soil_finefraction * C_pct * BD_g_cm_3 * 10^-1,
+        lyr_top = top.mineral,
+        lyr_bot = bottom.mineral)
+  wtd.sp.fx(df, target_var = "fm", weight_var = "soc_kgm2")
+})
+# make df for merging SOC w/ '19 data
+# NB: running mpspline on ANrf throws "longer object length is not a multiple of shorter object length" error, but doesn't seem to affect spline fits...
+blkC.sp.mass.09.df <- bind_rows(
+  lapply(sra.2009.ls, function(df) {
+    depths(df) <- pro_name ~ top.mineral + bottom.mineral
+    sp <- suppressMessages(
+      t(mpspline(df, var.name = "mass_kgm2", d = c(0, 10, 20, 30), 
+               show.progress = FALSE)$var.std[1:3]))
+    sp.df <- data.frame(sp)
+    names(sp.df) <-  "mass_kgm2"
+    sp.df$depth <- row.names(sp.df)
+    sp.df$lyr_bot <- substr(sapply(strsplit(sp.df$depth, "-"), "[", 2), 1, 2)
+    return(sp.df)
+  }), .id = "PMeco")
+
+# spline min data, weighted by mass
+min.sp.wtd.ls <- lapply(sra.2009.ls, function(df) {
+    df$lyr_bot <- df$bottom.mineral
+    df$lyr_top <- df$top.mineral
+    mins <- c("Alo..g.kg.", "Alp..g.kg.", "Fed..g.kg.", "Feo..g.kg.", "Sand..g.kg.", "Clay..g.kg.", "pH.H2O..")
+    df.long <- pivot_longer(
+      df, 
+      cols = mins,
+      names_to = "min",
+      values_to = "conc_gkg") %>%
+      data.frame
+    lapply(split(df.long, df.long$min), function(x)
+      wtd.sp.fx(x, target_var = "conc_gkg", weight_var = "mass_kgm2"))
+})
+# summarize for 0-30
+min.all.sp.wtd.30.df <- bind_rows(
+  lapply(min.sp.wtd.ls, sum.30.fx, "conc_gkg_wtd"), 
+  .id = "PMeco") %>%
+  mutate(min = recode(rep, 
+                      `Alo..g.kg.` = "Al_ox", 
+                      `Alp..g.kg.` = "Al_py", 
+                      `Fed..g.kg.` = "Fe_dc",
+                      `Feo..g.kg.` = "Fe_ox",
+                      `pH.H2O..` = "pH_h2o",
+                      `Sand..g.kg.` = "Sand_gkg",
+                      `Clay..g.kg.` = "Clay_gkg")) %>%
+  select(-c(rep, lyr_bot))
+# extract minerals
+min.sp.wtd.30.df <- min.all.sp.wtd.30.df %>% 
+  filter(min != "pH_h2o" & min != "Sand_gkg" & min != "Clay_gkg")
+# extract pH, sand, clay
+tblvars.sp.wtd.30.df <- min.all.sp.wtd.30.df %>% 
+  filter(min == "pH_h2o" | min == "Sand_gkg" | min == "Clay_gkg") %>%
+  pivot_wider(names_from = min, values_from = conc_gkg_wtd) %>%
+  mutate(eco = factor(substr(PMeco, 3, 4), levels = c("pp", "wf", "rf"))) %>%
+  mutate(ix = as.numeric(eco),
+         iix = substr(PMeco, 1, 2),
+         iix.ix = paste0(iix, ix)) %>%
+  arrange(iix.ix)
+
+# changing the depth increment for the mineral data changes the relationship between inc-blk 14c and PCMs substantially---recommend NOT using the 0-20cm min data...
+
+# recalculate weights for BSwf (only have inc data to 20 cm); USE THIS FOR INC-BLK CALC
+# BSwf.min.ls2 <- lapply(min.sp.wtd.ls$BSwf, function(df) {
+#   df <- df[1:2, ]
+#   df$wt <- df$mass_kgm2 / sum(df$mass_kgm2)
+#   df$conc_gkg_wtd <- df$conc_gkg_wtd * df$wt
+#   return(df[ , c("depth", "conc_gkg", "mass_kgm2", "lyr_bot", "conc_gkg_wtd")])
+# })
+# min.sp.wtd.ls2 <- min.sp.wtd.ls
+# min.sp.wtd.ls2$BSwf <- BSwf.min.ls2
+# min.sp.wtd.30.df2 <- bind_rows(
+#   lapply(min.sp.wtd.ls2, sum.30.fx, "conc_gkg_wtd"), 
+#   .id = "PMeco") %>%
+#   mutate(min = recode(rep, 
+#                       `Alo..g.kg.` = "Al_ox", 
+#                       `Alp..g.kg.` = "Al_py", 
+#                       `Fed..g.kg.` = "Fe_dc",
+#                       `Feo..g.kg.` = "Fe_ox")) %>%
+#   select(-rep)
+
+# sum for 0-30 cm
+blkC.wtd.30.14c.09.ls <- lapply(blkC.14c.sp.wtd.09.ls, function(x) {
+  df <- data.frame(lyr_bot = max(x$lyr_bot))
+  df$fm_wtd <- sum(x$fm_wtd, na.rm = TRUE)
+  df %>%
+    mutate(
+      d14c_wtd = convert_fm_d14c(fm = fm_wtd, obs_date_y = 2009, verbose = FALSE))
+})
+blkC.wtd.30.14c.09.df <- bind_rows(
+  blkC.wtd.30.14c.09.ls, .id = "PMeco") %>%
+  mutate(year = 2009,
+         rep = 1) %>%
+  select(-fm_wtd)
+
+
+## '19 inc data
+# combine flux and 14C
+flx.rep.14c.19.ls <- mapply(
+  merge,
+  ts.rep.avg.19.ls,
+  sra.2019.inc.14c.ls,
+  SIMPLIFY = FALSE
+)
+
+# split by rep and calc weighted fm
+flx.rep.14c.wtd.19.ls <- lapply(flx.rep.14c.19.ls, function(df) 
+  lapply(split(df, df$pro_rep), function(x) {
+    wts <- x$mgCO2_gC_d_avg / sum(x$mgCO2_gC_d_avg)
+    x$d14c_wtd <- x$d14c * wts
+    return(x)
+  }))
+
+# sum for 0-30 cm
+flx.rep.wtd.30.14c.19.ls <- lapply(flx.rep.14c.wtd.19.ls, function(x) {
+  sum.30.fx(x, "d14c_wtd")
+})
+flx.rep.wtd.30.14c.19.df <- bind_rows(flx.rep.wtd.30.14c.19.ls, .id = "PMeco") %>%
+  mutate(year = 2019) 
+
+
+## '19 bulk data
+# merge BD data w/ 14C data, C data
+sra.2019.ls <- lapply(sra.2019.14c.ls, function(df) {
+  merge(
+    merge(
+      df,
+      sra.19.blkC),
+    blkC.sp.mass.09.df[ , c("PMeco", "lyr_bot", "mass_kgm2")]) %>%
+    mutate(soc_kgm2 = C * mass_kgm2 * 10^-2) %>%
+    select(PMeco, pro_rep, lyr_bot, soc_kgm2, d14c)
+})
+
+# save for loading in SI script
+save(sra.2019.ls, file = "sra.2019.ls.RData")
+
+# split by rep and calculate weighted 14C
+blkC.rep.14c.wtd.19.ls <- lapply(sra.2019.ls, function(df) 
+  lapply(split(df, df$pro_rep), function(x) {
+    wts <- x$soc_kgm2 / sum(x$soc_kgm2)
+    x$d14c_wtd <- x$d14c * wts
+    return(x)
+  }))
+
+# sum for 0-30 cm
+blkC.rep.wtd.30.14c.19.df <- bind_rows(
+  lapply(blkC.rep.14c.wtd.19.ls, function(x) {
+    sum.30.fx(x, "d14c_wtd") %>% mutate(year = 2019)
+}), .id = "PMeco")
+
+# combine 0-30 cm data
+inc.blk.rep.30.wtd.df <- merge(
+  rbind(blkC.rep.wtd.30.14c.df2, blkC.rep.wtd.30.14c.19.df),
+  rbind(flx.rep.wtd.30.14c.df, flx.rep.wtd.30.14c.19.df),
+  by = c("PMeco", "year", "lyr_bot"),
+  suffixes = c("_blk", "_inc")
+)
+
+# summarize and merge w/ min data
+sra.all.30.min.conc.wtd <- merge(
+  inc.blk.rep.30.wtd.df %>%
+    group_by(PMeco, year, lyr_bot) %>%
+    summarize(across(c(d14c_wtd_blk, d14c_wtd_inc), .fns = list(mean = mean, sd = sd)), 
+              .groups = "drop"),
+  min.sp.wtd.30.df
+)
+
+# merge 0-30 cm bulk 14C ('01, '09, '19) with min data
+sra.blk.30.min.conc.wtd <- merge(
+  rbind(
+    blkC.rep.wtd.30.14c.19.df,
+    blkC.wtd.30.14c.09.df,
+    blkC.rep.wtd.30.14c.df),
+  min.sp.wtd.30.df
+)
+
+# merge 0-30 cm inc 14C ('01, '19) with min data
+sra.inc.30.min.conc.wtd <- rbind(
+    merge(flx.rep.wtd.30.14c.df,
+          min.sp.wtd.30.df),
+    merge(flx.rep.wtd.30.14c.19.df,
+          min.sp.wtd.30.df)
+)
+```
+
+```{r inc-bulk-d14c-plot-setup}
+# bind rows of inc list
+sra.19.inc <- sra.2019.14c.inc.sum.df
+sra.19.inc$Type <- "inc"
+
+# 2001
+sra.01.inc <- sra.2001.14c.inc.sum.df
+sra.01.inc$Type <- "inc"
+
+# rbind bulk data
+sra.19.bulk <- sra.2019.14c.blk.sum.df[which(sra.2019.14c.blk.sum.df$lyr_bot < 31), ]
+sra.19.bulk$Type <- "bulk"
+sra.19.inc.blk <- rbind(sra.19.inc, sra.19.bulk[ , names(sra.19.bulk) %in% names(sra.19.inc)])
+
+# save for SI
+save(sra.19.inc.blk, file = "sra.19.inc.blk.RData")
+
+## 2001
+# Need to calculate weighted average of radiocarbon values and stocks for combined inc depths 
+# 1) add SOC stocks to duplicate sra.2001.ls obj
+sra.2001.ls2 <- sra.2001.ls
+# 2) weighted average fx
+d1d2.14c.fx <- function(df) {
+  df <- df[order(df$lyr_bot), ]
+  sum_soc <- sum(df[1:2, "soc_kgm2"])
+  wt1 <- df$soc_kgm2[1] / sum_soc
+  wt2 <- df$soc_kgm2[2] / sum_soc
+  d1d2 <- df[1, ]
+  d1d2$soc_kgm2 <- sum(df$soc_kgm2[1], df$soc_kgm2[2])
+  d1d2$lyr_bot <- df$lyr_bot[2]
+  d1d2$fm <- sum(df$fm[1] * wt1, df$fm[2] * wt2)
+  d1d2$d14c <- sum(df$d14c[1] * wt1, df$d14c[2] * wt2)
+  return(rbind(d1d2,
+               df[3:nrow(df), ]))
+}
+# 3) calc. wtd. average for GRrf
+sra.2001.ls2$GRrf <- bind_rows(
+  lapply(split(sra.2001.ls2$GRrf, sra.2001.ls2$GRrf$pro_rep), function(x) {
+    d1d2.14c.fx(x)
+  })
+)
+# 4) calc. wtd. average for BSrf
+#    - problem here is that only one pro_rep has 0-3 cm data
+#    - so, need to calculate weighted SOC, then calculate weighted 14C
+#    - composite 0-8 = 15g BSrf_1_0-3 + 5 g from each pro_rep BSrf_3-8
+BSrf_comp_01_i <- sra.2001.ls2$BSrf[which(sra.2001.ls2$BSrf$lyr_bot < 9), ]
+BSrf_comp_01_i$soc_wt <- c(15 / 30, rep(5 / 30, 3))
+BSrf_comp_01_i$soc_wtd <- BSrf_comp_01_i$soc_kgm2 * BSrf_comp_01_i$soc_wt
+
+# create summarized list
+sra.2001.sum.ls2  <- lapply(sra.2001.ls2, function(df) {
+  data.frame(
+    df %>%
+      filter(lyr_bot <= 40) %>%
+      mutate(lyr_bot_ch = as.character(lyr_bot)) %>%
+      select(PMeco, d14c, fm, lyr_bot_ch, soc_kgm2) %>%
+      group_by(PMeco, lyr_bot_ch) %>%
+      summarize(
+        across(where(is.numeric), list(mean = mean, sd = sd), na.rm = TRUE), .groups = "drop") %>%
+      mutate(lyr_bot = as.numeric(lyr_bot_ch)) %>%
+      select(-lyr_bot_ch)
+  )
+})
+
+# remove BSrf row w/ lyr_bot = 3
+sra.2001.sum.ls2$BSrf <- sra.2001.sum.ls2$BSrf[-which(sra.2001.sum.ls2$BSrf$lyr_bot == 3), ]
+# calculate weighted average for d14c, fm, lyr_soc_kgm2
+sra.2001.sum.ls2$BSrf[which(sra.2001.sum.ls2$BSrf$lyr_bot == 8), "d14c_mean"] <- sum(BSrf_comp_01_i$d14c * (BSrf_comp_01_i$soc_wtd / sum(BSrf_comp_01_i$soc_wtd)))
+sra.2001.sum.ls2$BSrf[which(sra.2001.sum.ls2$BSrf$lyr_bot == 8), "fm_mean"] <- sum(BSrf_comp_01_i$fm * (BSrf_comp_01_i$soc_wtd / sum(BSrf_comp_01_i$soc_wtd)))
+sra.2001.sum.ls2$BSrf[which(sra.2001.sum.ls2$BSrf$lyr_bot == 8), "soc_kgm2_mean"] <- sum(BSrf_comp_01_i$soc_wtd)
+sra.2001.sum.ls2$BSrf[which(sra.2001.sum.ls2$BSrf$lyr_bot == 8), c("d14c_sd", "fm_sd", "soc_kgm2_sd")] <- NA
+
+# calculate cmtv soc
+sra.2001.sum.ls2 <- lapply(sra.2001.sum.ls2, function(x) {
+  x <- x[order(x$lyr_bot), ]
+  x$lyr_soc_cmtv <- NA
+  for(i in seq_along(x$lyr_bot)) {
+      if(i == 1) {
+        x$soc_cmtv[i] <- x$soc_kgm2_mean[i]
+      } else {
+        x$soc_cmtv[i] <- x$soc_kgm2_mean[i] + x$soc_cmtv[i-1] 
+      }
+  }
+  return(x)
+})
+
+# make df
+sra.01.sum <- data.frame(bind_rows(
+  lapply(sra.2001.sum.ls2, function(df) {
+    df %>%
+      mutate(ECO = substr(PMeco, 3, 4),
+             PM = substr(PMeco, 1, 2),
+             d14c_u = d14c_mean + d14c_sd,
+             d14c_l = d14c_mean - d14c_sd,
+             Year = 2001,
+             Type = "bulk") %>%
+      select(names(sra.01.inc)) %>%
+      arrange(lyr_bot)
+  })
+))
+# bind with inc
+sra.01.inc.blk <- rbind(data.frame(sra.01.inc), sra.01.sum)
+
+save(sra.01.inc.blk, file = "sra.01.inc.blk.RData")
 ```
 
 ```{r bulk-data-wrangling}
-# load data
-load("sra.19.01.09.RData")
-load("sra.19.01.rep.ls.RData")
-load("sra.2019.ls.RData")
-load("sra.2001.ls.RData")
-
 ## change over time
-# merge '01 and '19 data
-sra.19.01.d <- merge(sra.19.01.09[sra.19.01.09$Year == 2001 & sra.19.01.09$lyr_bot, ],
-                     sra.19.01.09[sra.19.01.09$Year == 2019 & sra.19.01.09$lyr_bot < 31, ],
-                     by = c("PM", "ECO", "PMeco", "lyr_top", "lyr_bot"),
-                     suffixes = c("_01", "_19")) 
-sra.19.01.d$dd14c_01_19 <- sra.19.01.d$d14c_01 - sra.19.01.d$d14c_19
-sra.19.01.d$sd14c_01_19 <- sqrt(sra.19.01.d$d14c_sd_01^2/3 + sra.19.01.d$d14c_sd_19^2/3)
+sum.bind.fx <- function(ls, year) {
+  bind_rows(lapply(ls, function(x) {
+      x <- bind_rows(x)
+      if (!any(names(x) == "d14c")) {
+        x$d14c <- convert_fm_d14c(fm = x$fm, obs_date_y = year, verbose = FALSE)
+      }
+      x %>%
+        group_by(lyr_bot) %>%
+        summarize(
+          across(c(d14c, soc_kgm2), 
+                 .fns = list(mean = mean, var = var),
+                 .names = "{.col}_{.fn}"),
+          n = n()) %>%
+        data.frame()
+    }), .id = "PMeco")
+}
+
+# summarize and bind data from all three years (splined)
+sra.19.sum.df <- sum.bind.fx(blkC.rep.14c.wtd.19.ls, 2019)
+sra.01.sum.df <- sum.bind.fx(blkC.rep.14c.sp.wtd.ls, 2001)
+sra.09.sum.df <- bind_rows(
+  lapply(blkC.14c.sp.wtd.09.ls, function(x) 
+    x %>%
+      mutate(
+        d14c_mean = convert_fm_d14c(fm = fm, obs_date_y = 2009, verbose = FALSE),
+        d14c_var = NA,
+        soc_kgm2_mean = soc_kgm2,
+        soc_kgm2_var = NA,
+        n = 1) %>%
+      select(lyr_bot, d14c_mean, d14c_var, soc_kgm2_mean, soc_kgm2_var, n)),
+  .id = "PMeco")
+sra.19.01.d <- rbind(
+  sra.01.sum.df,
+  sra.09.sum.df,
+  sra.19.sum.df
+)
+# merge '01, '19 data (wide)
+sra.19.01.d <- merge(
+  sra.01.sum.df, 
+  sra.19.sum.df,
+  by = c("PMeco", "lyr_bot"),
+  suffixes = c("_01", "_19")
+)
+sra.19.01.d$dd14c_01_19 <- sra.19.01.d$d14c_mean_01 - sra.19.01.d$d14c_mean_19
+sra.19.01.d$sd14c_01_19 <- sqrt(
+  sra.19.01.d$d14c_var_01 / sra.19.01.d$n_01 + 
+    sra.19.01.d$d14c_var_19 / sra.19.01.d$n_19)
+sra.19.01.d$PM <- substr(sra.19.01.d$PMeco, 1, 2)
+sra.19.01.d$ECO <- substr(sra.19.01.d$PMeco, 3, 4)
 
 ## summarize change '01-'19
 # PM
 sra.19.01.dsum.PM <-
   sra.19.01.d %>%
-  filter(lyr_bot < 31) %>%
   group_by(PM, lyr_bot) %>%
-  summarize(across(dd14c_01_19, .fn = list(mean = mean, sd = sd), na.rm = TRUE))
+  summarize(
+    across(dd14c_01_19, .fn = list(mean = mean, sd = sd), 
+           na.rm = TRUE), .groups = "drop")
 # ECO
 sra.19.01.dsum.ECO <-
   sra.19.01.d %>%
-  filter(lyr_bot < 31) %>%
   group_by(ECO, lyr_bot) %>%
-  summarize(across(dd14c_01_19, .fn = list(mean = mean, sd = sd), na.rm = TRUE))
+  summarize(
+    across(dd14c_01_19, .fn = list(mean = mean, sd = sd),
+           na.rm = TRUE), .groups = "drop")
 
 ## make long data frame of rep data
 # 2001 = sra.19.01.rep.ls (splined to '19 depths)
-sra.19.01.rep.df <- bind_rows(lapply(sra.19.01.rep.ls, function(PMeco) {
-  df <- bind_rows(lapply(PMeco, function(r) {
-    fm <- r[!is.na(r)]
-    lyr_bot <- seq(10, length(fm) * 10, by = 10)
-    return(data.frame(fm = fm, lyr_bot = lyr_bot))
-    }), .id = "PMeco_rep")
-  df$pro_rep <- substr(df$PMeco_rep, nchar(df$PMeco_rep), nchar(df$PMeco_rep))
-  return(df[ , c("fm", "lyr_bot", "pro_rep")])
-}), .id = "PMeco")
-sra.19.01.rep.df$Year <- 2001
-sra.19.01.rep.df$PM <- substr(sra.19.01.rep.df$PMeco, 1, 2)
-sra.19.01.rep.df$ECO <- substr(sra.19.01.rep.df$PMeco, 3, 4)
-# 2019 = sra.2019.ls
-sra.2019.rep.df <- bind_rows(sra.2019.ls, .id = "PMeco")
-sra.2019.rep.df <- sra.2019.rep.df[sra.2019.rep.df$lyr_bot < 31, ]
-
-# 2009 (splined to '19 depths)
-sra.09.19.df <- sra.19.01.09[sra.19.01.09$Year == "2009", 
-                             c("PMeco", "fm", "lyr_bot", "Year", "PM", "ECO")] %>%
-  mutate(pro_rep = 1) %>%
-  filter(lyr_bot < 31)
-
-# merge
-sra.01.09.19.d.df <- rbind(
-  sra.2019.rep.df[ , match(names(sra.19.01.rep.df), names(sra.2019.rep.df))],
-  sra.09.19.df,
-  sra.19.01.rep.df) %>%
-  left_join(., ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "lyr_bot", "PM", "ECO")], 
-  by = c("lyr_bot", "PM", "ECO")) %>%
+sra.01.09.19.rep.df <- rbind(
+  bind_rows(
+    lapply(blkC.rep.14c.wtd.19.ls, function(PMeco)
+      bind_rows(PMeco))) %>%
+    mutate(Year = 2019) %>%
+    select(-d14c_wtd),
+  bind_rows(
+    lapply(blkC.rep.14c.sp.wtd.ls, function(PMeco)
+      bind_rows(PMeco, .id = "pro_rep")), .id = "PMeco") %>%
+    mutate(Year = 2001,
+           d14c = convert_fm_d14c(fm = fm, obs_date_y = Year, verbose = FALSE),
+           lyr_bot = as.numeric(
+             substr(
+               sapply(
+                 strsplit(
+                   as.character(depth), "-"), "[", 2), 1, 2))) %>%
+    select(PMeco, pro_rep, lyr_bot, soc_kgm2, d14c, Year),
+  bind_rows(blkC.14c.sp.wtd.09.ls, .id = "PMeco") %>%
+    mutate(pro_rep = 1,
+           Year = 2009,
+           d14c = convert_fm_d14c(fm = fm, obs_date_y = Year, verbose = FALSE),
+           lyr_bot = as.numeric(
+             substr(
+               sapply(
+                 strsplit(
+                   as.character(depth), "-"), "[", 2), 1, 2))) %>%
+    select(PMeco, pro_rep, lyr_bot, soc_kgm2, d14c, Year)
+  )
+sra.01.09.19.d.df <- sra.01.09.19.rep.df %>%
+  mutate(PM = substr(PMeco, 1, 2), ECO = substr(PMeco, 3, 4)) %>%
   mutate(PM = factor(recode(PM, `AN` = "andesite", `BS` = "basalt", `GR` = "granite")),
          ECO = factor(recode(ECO, `pp` = "warm", `wf` = "cool", `rf` = "cold"),
                       levels = c("warm", "cool", "cold")),
-         year = as.numeric(Year) - 2000,
-         Year = as.numeric(Year))
-sra.01.09.19.d.df$d14c <- convert_fm_d14c(fm = sra.01.09.19.d.df$fm,
-                                          obs_date_y = sra.01.09.19.d.df$Year, verbose = FALSE)
-
+         year = Year -2000)
+         
 # by depth
 sra.01.09.19.d.10df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 10, ]
 sra.01.09.19.d.20df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 20, ]
 sra.01.09.19.d.30df <- sra.01.09.19.d.df[sra.01.09.19.d.df$lyr_bot == 30, ]
 
-# extract GRrf data for referencing extreme values
-sra.01.blk.GRrf.df  <- sra.19.01.d %>% filter(PMeco == "GRrf")
+# save
+save(sra.01.09.19.d.10df, file = "sra.01.09.19.d.10df.RData")
+save(sra.01.09.19.d.20df, file = "sra.01.09.19.d.20df.RData")
+save(sra.01.09.19.d.30df, file = "sra.01.09.19.d.30df.RData")
 ```
 
 ```{r resp-data-wrangling}
-# load data
-load("sra.19.01.inc.df.RData")
-load("sra.2019.inc.df.RData")
-load("sra.2001.inc.df2.RData")
-load("sra.2019.inc.df2.RData")
-load("sra.2001.inc.ls.RData")
-
 # bind raw 2001 inc data to df for referencing extreme values
-sra.01.inc.raw.df <- bind_rows(sra.2001.inc.ls, .id = "PMeco")
+sra.01.inc.raw.df <- bind_rows(sra.2001.inc.14c.ls, .id = "PMeco")
 sra.01.inc.GRrf.df <- sra.01.inc.raw.df %>% filter(PMeco == "GRrf")
 
 # make df of '19 inc data from GRrf for referencing extreme values
-sra.19.inc.GRrf.df <- sra.2019.inc.df2 %>% filter(PMeco == "GRrf")
+sra.19.inc.GRrf.df <- bind_rows(sra.2019.inc.14c.ls, .id = "PMeco") %>%
+  filter(PMeco == "GRrf")
 
 # rbind '01 and '19 data
-sra.01.19.inc.d.df <- rbind(cbind(sra.2001.inc.df2, 
-                                  rep = rep(c("a", "b"), each = 27),
-                                  Year = 2001),
-                            sra.2019.inc.df2[ , c("PM", "ECO", "rep", "lyr_bot", "Year", "d14c")]) %>%
-  left_join(., ras18.sp.df[ , c("Al_ox", "Al_py", "Fe_dc", "Fe_ox", "lyr_bot", "PM", "ECO")], 
-  by = c("lyr_bot", "PM", "ECO")) %>%
+sra.01.inc.rep.df <- bind_rows(
+  lapply(flx.rep.14c.sp.wtd.ls, function(x) bind_rows(x, .id = "pro_rep")),
+  .id = "PMeco") %>%
+  mutate(fm = as.vector(fm),
+         mgCO2_gC_d_avg = as.vector(mgCO2_gC_d_avg),
+         year = 2001)
+sra.19.inc.rep.df <- bind_rows(flx.rep.14c.19.ls, .id = "PMeco") %>%
+  mutate(year = 2019)
+sra.01.19.inc.rep.df <- rbind(
+  sra.01.inc.rep.df %>%
+    select(-fm_wtd),
+  sra.19.inc.rep.df %>%
+    select(which(names(sra.19.inc.rep.df) %in% names(sra.01.inc.rep.df)))) %>%
+  mutate(d14c = convert_fm_d14c(fm = fm, obs_date_y = year, verbose = FALSE))
+
+# df by depth
+sra.01.19.inc.d.df <- sra.01.19.inc.rep.df %>%
+  filter(d14c > -110) %>%
+  mutate(PM = substr(PMeco, 1, 2), ECO = substr(PMeco, 3, 4)) %>%
   mutate(PM = factor(recode(PM, `AN` = "andesite", `BS` = "basalt", `GR` = "granite")),
          ECO = factor(recode(ECO, `pp` = "warm", `wf` = "cool", `rf` = "cold"),
                       levels = c("warm", "cool", "cold")),
+         Year = year,
          year = Year - 2000)
 
-## change over time
-# merge '01 and '19 data
-sd.inc.fx <- function(df) {
-  apply(df[ , c("d14c_min", "d14c_max")], 1, sd)
-}
-sra.19.01.inc.d.df <- merge(
-  cbind(sra.19.01.inc.df, sd = sd.inc.fx(sra.19.01.inc.df))[ , c("PM", "ECO", "PMeco", "lyr_bot", "d14c", "sd")],
-  cbind(sra.2019.inc.df, sd = sd.inc.fx(sra.2019.inc.df))[ , c("PM", "ECO", "PMeco", "lyr_bot", "d14c", "sd")],
-  by = c("PM", "ECO", "PMeco", "lyr_bot"),
-  suffixes = c("_01", "_19"))
-sra.19.01.inc.d.df$dd14c_01_19 <- sra.19.01.inc.d.df$d14c_01 - sra.19.01.inc.d.df$d14c_19
-sra.19.01.inc.d.df$sd14c_01_19 <- sqrt(
-  sra.19.01.inc.d.df$sd_01^2/2 + sra.19.01.inc.d.df$sd_19^2/2)
-
-## filter outliers
-sra.01.19.inc.d.df <- sra.01.19.inc.d.df[-which(sra.01.19.inc.d.df$d14c < -200), ]
-
-# df by depth
+# split by depth
 sra.01.19.inc.d.10.df <- sra.01.19.inc.d.df[sra.01.19.inc.d.df$lyr_bot == 10, ]
 sra.01.19.inc.d.20.df <- sra.01.19.inc.d.df[sra.01.19.inc.d.df$lyr_bot == 20, ]
 sra.01.19.inc.d.30.df <- sra.01.19.inc.d.df[sra.01.19.inc.d.df$lyr_bot == 30, ]
+
+# save
+save(sra.01.19.inc.d.10.df, file = "sra.01.09.19.inc.d.10df.RData")
+save(sra.01.19.inc.d.20.df, file = "sra.01.09.19.inc.d.20df.RData")
+save(sra.01.19.inc.d.30.df, file = "sra.01.09.19.inc.d.30df.RData")
+
+## summarize and calc change over time
+sra.01.19.inc.sum.df <- sra.01.19.inc.rep.df %>%
+  filter(d14c > -200) %>%
+  group_by(year, PMeco, lyr_bot) %>%
+  summarize(across(c(mgCO2_gC_d_avg, d14c), .fns = list(mean = mean, var = var)), 
+            n = n(), .groups = "drop") %>%
+  pivot_wider(
+    names_from = year, 
+    values_from = c(d14c_mean, d14c_var, mgCO2_gC_d_avg_mean, mgCO2_gC_d_avg_var, n)) %>%
+  mutate(dd14c_01_19 = d14c_mean_2001 - d14c_mean_2019,
+         sd14c_01_19 = sqrt(sum(d14c_var_2001 / n_2001, d14c_var_2019 / n_2019)))
 ```
 
 ```{r emmip-plot-fx}
@@ -423,7 +1297,7 @@ emmip.plot.all.fx <- function(var, split_var, depths, Type) {
                           values = cvals) +
         scale_x_continuous(limits = c(2000, 2020), 
                            breaks = brks, expand = expansion(add = 2)) +
-        coord_cartesian(ylim = c(-110, 170)) +
+        coord_cartesian(ylim = c(-110, 210)) +
         theme_bw() +
         theme(panel.grid = element_blank(),
               axis.title = element_blank(),
@@ -478,91 +1352,202 @@ emmip.plot.all.fx <- function(var, split_var, depths, Type) {
 }
 ```
 
+```{r prep-table-1}
+# read in ISRaD profile data
+ras18.israd.pro <- read_excel("../data/external/sra_ras_ISRaD/Rasmussen_2018.xlsx", sheet = "profile") %>%
+  dplyr::slice(-(1:2)) %>%
+  type.convert(.) %>%
+  arrange(pro_parent_material_notes, desc(pro_MAT))
+
+# filter ISRaD lyr data to <= 30 (use 35 to capture data better)
+ras18.israd.lyr.30 <- lapply(min.sp.wtd.ls, bind_rows, .id = "var")
+min.max.fx <- function(ls, var, sigfigs) {
+  if (names(ls)[2] != "ANwf") {
+    ls <- ls[c(1,3,2,4,6,5,7,9,8)]
+  }
+  unlist(lapply(ls, function(x) {
+    x.sp <- split(x, x$var)
+    x.sp.var <- x.sp[[which(names(x.sp) == var)]]
+    paste0("(", round(min(x.sp.var$conc_gkg), sigfigs), ", ", round(max(x.sp.var$conc_gkg), sigfigs),
+           ")")
+  }))
+}
+
+# make header row w/ units
+head1 <- matrix(
+    c(" ", " ", "\\textdegree{}C", "mm yr\\textsuperscript{-1}", "masl", " ", " ",
+      "g kg\\textsuperscript{-1}", "g kg\\textsuperscript{-1}", 
+      "g kg\\textsuperscript{-1}", "g kg\\textsuperscript{-1}", " "),
+    nrow = 1)
+
+dat <- matrix(
+  c(rep(c("andesite", "basalt", "granite"), each = 3),
+    rep(c("warm", "cool", "cold"), 3),
+    ras18.israd.pro$pro_MAT,
+    ras18.israd.pro$pro_MAP,
+    ras18.israd.pro$pro_elevation,
+    round(tblvars.sp.wtd.30.df$pH_h2o, 1),
+    min.max.fx(ras18.israd.lyr.30, "pH.H2O..", 1),
+    round(tblvars.sp.wtd.30.df$Sand_gkg, 0),
+    min.max.fx(ras18.israd.lyr.30, "Sand..g.kg.", 0),
+    round(tblvars.sp.wtd.30.df$Clay_gkg, 0),
+    min.max.fx(ras18.israd.lyr.30, "Clay..g.kg.", 0),
+    as.character(ras18.israd.pro$pro_soil_taxon)), nrow = 9, ncol = 12)
+
+# bind header to data 
+table1.df <- rbind(head1, dat)
+```
+
+(ref:site-data-t1-cap) Soil and climate data by site.
+
+```{r site-data-t1}
+# set NA to blank, format to latex
+options(knitr.kable.NA = '')
+
+# print table
+table1.df %>%
+  kable(
+    .,
+    row.names = FALSE,
+    col.names =
+      c("Parent Material",
+        "Climate Zone",
+        "MAT",
+        "MAP",
+        "Elev",
+        "mean",
+        "range",
+        "mean",
+        "range",
+        "mean",
+        "range",
+        "Soil Taxonomy"),
+    escape = FALSE,
+    longtable = TRUE,
+    booktabs = TRUE,
+    caption = "(ref:site-data-t1-cap)",
+    format = "latex") %>%
+  column_spec(1, width = "1.2cm") %>%
+  column_spec(2, width = ".8cm") %>%
+  column_spec(c(3, 5, 6), width = ".6cm") %>%
+  column_spec(4, width = "1.2cm") %>%
+  column_spec(c(7, 9, 11), width = "1.3cm") %>%
+  column_spec(c(8, 10), width = ".8cm") %>%
+  column_spec(12, width = "3cm") %>%
+  collapse_rows(1, valign = "top", latex_hline = "major") %>%
+  add_header_above(
+    c(" " = 5, "pH\\\\textsuperscript{1}" = 2, "Sand\\\\textsuperscript{1}" = 2,
+      "Clay\\\\textsuperscript{1}" = 2, " "), escape = FALSE) %>%
+  kable_classic(full_width = FALSE, html_font = "Cambria") %>%
+  kable_styling(latex_options = c("repeat_header"), font_size = 8,
+                position = "left") %>%
+  footnote(general = c("Abbreviations: MAP—mean annual precipitation; MAT—mean
+                       annual temperature; Elev—elevation; masl—meters above sea
+                       level."),
+           number = c("pH and particle size data are from samples collected in 2009
+                 and aggregated over the depth increment 0-0.3 m. Data were
+                 aggregated using a mass-weighted spline function (see text for
+                 details)."),
+           general_title = "",
+           threeparttable = TRUE)
+```
+
 # Key messages:
-*	Climate explains more variance in $\Delta$^14^C at the soil surface; parent material explains more variance at depth
-*	Interaction of parent material and climate explains more variance in bulk soil and respired $\Delta$^14^C than either factor alone
-*	Poorly crystalline mineral content is highly correlated with the difference between bulk soil and respired $\Delta$^14^C
+* Mineral assemblages mediate climatic control of fast and slow cycling soil C
+* Poorly crystalline, not crystalline, metal oxide abundance correlates with ^14^C of bulk soil and respired CO~2~
+*	Climate controls surface soil C dynamics; mineral assemblage is more important at depth
 
 
 # Introduction
-Understanding the response of soil carbon stocks to current and future changes in climate requires insight into both the physical and environmental factors governing soil carbon dynamics. Climate, and in particular temperature, has been found to be the most important variable for explaining the age of soil carbon in topsoil at local to global scales [Frank et al., 2012; Mathieu et al., 2015; Shi et al. 2020]. Yet our current understanding of soil organic matter decomposition underscores the importance of physical mechanisms that can affect the temperature sensitivity of decomposition, such as the interaction between soil organic matter and minerals [Davidson et al., 2000; Davidson and Janssens, 2006; Rasmussen et al., 2006; Lehmann and Kleber, 2015;]. The effect of mineral-organic associations on the temperature sensitivity of soil organic matter has been addressed in several modeling studies [Abramoff et al., 2019; Riley et al., 2016; Ahrens et al., 2015; Woolf and Lehmann, 2019]. These models typically invoke Michaelis Menten kinetics in addition to an Arrhenius-type temperature response in order to account for energy and substrate limitations on decomposition rates for soil organic matter found in association with minerals [Tang and Riley, 2019; Ahrens et al., 2020]. Studies comparing the relative importance of different soil mineral assemblages versus temperature for explaining soil C dynamics over time *in situ*  are scarce, yet are critical in order to test these model-based findings. We designed the current study to quantify the relative importance of climatic versus mineralogical mechanisms of soil organic C persistence, and to provide insight into the relevant time scales associated with these mechanisms.
+Understanding the response of soil carbon stocks to current and future changes in climate requires insight into both the physical and environmental factors governing soil carbon dynamics. Climate, and in particular temperature, has been found to be the most important variable for explaining the age of soil carbon in topsoil at local to global scales [Frank et al., 2012; Mathieu et al., 2015; Shi et al. 2020]. Yet our current understanding of soil organic matter decomposition underscores the importance of physical mechanisms that can affect the temperature sensitivity of decomposition, such as the interaction between soil organic matter and minerals [Davidson et al., 2000; Davidson and Janssens, 2006; Rasmussen et al., 2006; Lehmann and Kleber, 2015;]. The effect of mineral-organic associations on the temperature sensitivity of soil organic matter has been addressed in several modeling studies [Abramoff et al., 2019; Riley et al., 2016; Ahrens et al., 2015; Woolf and Lehmann, 2019]. These models typically invoke Michaelis Menten kinetics in addition to an Arrhenius-type temperature response in order to account for energy and substrate limitations on decomposition rates of soil organic matter found in association with minerals [Tang and Riley, 2019; Ahrens et al., 2020]. Studies comparing the relative importance of different soil mineral assemblages versus temperature for explaining soil C dynamics over time *in situ*  are scarce, yet critical for testing these model-based findings. We designed the current study to quantify the relative importance of climatic versus mineralogical mechanisms of soil organic C persistence across a combined gradient of mean annual temperature (MAT) and parent material in order to provide insight into the relevant time scales associated with these mechanisms.
 
-The relevance of soil minerals for mediating soil organic matter protection has been found to be a function of the specific minerals present, rather than the amount of clay or total mineral surface area [Rasmussen et al. 2018a, "Beyond Clay"]. Soil mineral assemblages are dynamic, developing over time as primary minerals inherited from parent material weather to form reactive, poorly crystalline secondary minerals, which in turn eventually weather to increasing stable crystalline species [Slessarev 2022, others...]. Soils enriched in poorly crystalline minerals, such as Al and Fe oxyhydroxides, are known to be of particular importance for the accumulation and persistence of soil C [Torn 1997, Maseiello 2004]. The amount of these minerals present is directly related to parent material, but is also a function of primary mineral weathering rates [Slesserav et al. 2022]. Due to the strong effect of climate on these rates, different soil mineral assemblages can form from the same parent material under different climatic regimes (Rasmussen et al. 2018b). Conversely, similar mineral assemblages can be found among soils developed on different parent materials given adequate time for weathering and similar vegetation and climate [Graham and O'Geen 2010 "Soil mineralogy trends in California landscapes"]. These differential outcomes demonstrate that climatic and mineralogical controls on soil C cycling are not independent, but interact over the centennial to millenial time scales of soil development. 
+The relevance of soil minerals for mediating soil organic matter protection has been found to be a function of the specific minerals present, rather than the amount of clay or total mineral surface area [Rasmussen et al. 2018a, "Beyond Clay"]. Soil mineral assemblages are dynamic, developing over time as primary minerals inherited from parent material weather to form reactive, poorly crystalline secondary minerals, which in turn eventually weather to increasingly stable crystalline species [Slessarev 2022, others...]. Soils enriched in poorly crystalline metal oxides, such as Al and Fe oxyhydroxides, are known to be of particular importance for the accumulation and persistence of soil C [Torn 1997, Maseiello 2004]. The amount of these minerals present is directly related to parent material, but is also a function of primary mineral weathering rates [Slesserav et al. 2022]. Due to the strong effect of climate on weathering rates, different soil mineral assemblages can form from the same parent material under different climatic regimes (Rasmussen et al. 2018b). Conversely, similar mineral assemblages can be found among soils developed on different parent materials given adequate time for weathering and similar vegetation and climate [Graham and O'Geen 2010 "Soil mineralogy trends in California landscapes"]. These differential outcomes demonstrate that climatic and mineralogical controls on soil C cycling are not independent, but interact over the centennial to millennial time scales of soil development. 
 
-The strength and sorptive capacity of soil minerals is dependent on ligand exchange, which is a function of not only surface area and charge, but more specifically the density of accessible hydroxyl groups (Kaiser and Guggenberger, 2003; Rasmussen et al., 2018a “Beyond Clay”; Kleber et al., 2015). Poorly crystalline metal oxides are particularly enriched in hydroxyl groups, and batch sorption/desorption experiments have shown that the mineral-organic interactions between pedogenic oxide rich clays are stronger than those with siloxane-rich phyllosilicate clays (Kahle et al., 2004). Furthermore, the reactive properties of pedogenic oxides can also facilitate lower strength interactions with soil organic matter through multivalent cation bridging (Kleber et al., 2007). The importance of pedogenic oxides for explaining both soil C concentration and bulk soil radiocarbon ($\Delta$^14^C~*bulk*~) is confirmed by the findings of Rasmussen et al. (Soil systems, 2018a) [other citations?], who observed that oxalate extractable iron was the best predictor of both properties. However, the relevance of mineral-organic associations with specific minerals such as poorly crystalline metal oxides or crystalline metal oxides for specific timescales of soil C turnover is poorly studied.
+The strength and sorptive capacity of soil minerals is dependent on ligand exchange, which is a function of not only surface area and charge, but more specifically the density of accessible hydroxyl groups (Kaiser and Guggenberger, 2003; Rasmussen et al., 2018a “Beyond Clay”; Kleber et al., 2015). Poorly crystalline metal oxides are particularly enriched in hydroxyl groups, and batch sorption/desorption experiments have shown that the mineral-organic interactions between pedogenic metal oxide-rich clays are stronger than those with siloxane-rich phyllosilicate clays (Kahle et al., 2004). Furthermore, the reactive properties of pedogenic metal oxides can also facilitate lower strength interactions with soil organic matter through multivalent cation bridging (Kleber et al., 2007). This high reactivity of poorly crystalline Fe oxides is also implicated in the observations that poorly crystalline Fe is correlated with aggregate stability but crystalline Fe oxide content is not (Duiker et al., 2003). The importance of pedogenic metal oxides for explaining both soil C concentration and bulk soil radiocarbon ($\Delta$^14^C~*bulk*~) is confirmed by the findings of Rasmussen et al. (Soil systems, 2018a; Torn et al. 1997), who observed that oxalate extractable iron was the best predictor of both properties. However, the relevance of mineral-organic associations with specific mineral phases such as poorly crystalline metal oxides or crystalline metal oxides for specific timescales of soil C turnover is poorly studied.
 
-Radiocarbon (^14^C) is a useful tracer for soil C dynamics over time scales ranging from annual to millennial. The use of ^14^C to measure timescales of soil carbon decomposition is reliant on our knowledge of the ratio of ^12^C/^14^C in the atmosphere. Once CO~2~ is fixed into organic matter via photosynthesis, this ratio starts to shift as ^14^C is preferentially lost due to radioactive decay. Changes in the ^12^C/^14^C ratio due to radioactive decay are detectable at the relatively longer timescales of hundreds to thousands of years. However, we can detect changes in ^14^C with nearly annual resolution for the so-called “bomb-C” period, which began with the deployment and atmospheric testing of nuclear weapons in the mid-20^th^ century. This pulse of “bomb-C” led to a doubling of atmospheric ^14^C concentration prior to the ban on above-ground nuclear tests in 1963. The level of ^14^C in the atmosphere returned to pre-bomb levels around 2020, thus archived samples now represent the best opportunity to construct a high-resolution time series of the bomb-C pulse as it moves through different soil organic matter pools.
+Radiocarbon (^14^C) is a useful tracer for soil C dynamics over time scales ranging from annual to millennial. The use of ^14^C to measure timescales of soil carbon decomposition is reliant on our knowledge of the ratio of ^12^C/^14^C in the atmosphere. Once CO~2~ is fixed into organic matter via photosynthesis, this ratio starts to shift as ^14^C is lost due to radioactive decay. Changes in the ^12^C/^14^C ratio due to radioactive decay are detectable at the relatively longer timescales of hundreds to thousands of years. However, we can detect changes in ^14^C with nearly annual resolution for the so-called “bomb-C” period, which began with the deployment and atmospheric testing of nuclear weapons in the mid-20^th^ century. This pulse of “bomb-C” led to a doubling of atmospheric ^14^C concentration prior to the ban on above-ground nuclear tests in 1963. The level of ^14^C in the atmosphere returned to pre-bomb levels around 2020 (Hua et al., 2021), thus archived samples now represent the best opportunity to construct a high-resolution time series of the bomb-C pulse as it moves through different soil organic matter pools.
 
-Soil is an open system, and this has important implications for the interpretation of radiocarbon measurements of soil C. For most soils, the majority of carbon that enters the soil leaves relatively quickly, with only a small fraction persisting (Sierra et al. 2018). Radiocarbon measurements of bulk soil C typically capture the signal from these persistent pools, while more transient pools dominate measurements of C leaving the soil via heterotrophic respiration (Trumbore 2000). Here we define "transient" for C cycling on annual to decadal timescales, while we use "persistent" to refer to C cycling on centennial to millennial timescales. A diagnostic feature of the radiocarbon measurements of $\Delta$^14^C~*bulk*~ and heterotrophically respired CO~2~ ($\Delta$^14^C~*respired*~) is that when these two signals are the same it indicates that all of the C in the soil has an equal probability of being decomposed by microbes and the system is homogenous. However, when $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ are substantially different this indicates the presence of both labile and persistent pools of soil C.
+Soil is an open system, and this has important implications for the interpretation of radiocarbon measurements of soil C. For most soils, the majority of carbon that enters the soil leaves relatively quickly, with only a small fraction persisting (Sierra et al. 2018). Radiocarbon measurements of bulk soil C ($\Delta$^14^C~*bulk*~) typically capture the signal from these persistent pools, while more transient pools dominate measurements of C leaving the soil via heterotrophic respiration (Trumbore 2000). Here we define "transient" for C cycling on annual to decadal timescales, while we use "persistent" to refer to C cycling on centennial to millennial timescales. A diagnostic feature of the radiocarbon measurements of $\Delta$^14^C~*bulk*~ and heterotrophically respired CO~2~ ($\Delta$^14^C~*respired*~) is that when these two signals are the same it indicates that all of the C in the soil has an equal probability of being decomposed by microbes and the system is homogenous. However, when $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ are substantially different, this indicates the presence of both labile and persistent pools of soil C.
 
-We turned to the western slope of the Sierra Nevada Mountains, USA to compare and contrast the effects of climate and mineral assemblage on soil C dynamics. Drawing on earlier studies in this region, we selected soils similar in age and vegetation along a combined gradient of parent material (granite, andesite, basalt) and climate ( "warm", cool, cold). The climate gradient also represents a weathering gradient, with poorly developed soils at the cold climate sites, intermediately developed soils at the cool climate sites, and highly weathered soils at the warm climate sites. Previous work at these sites confirmed strong differences in mineral assemblages along both the parent material and climate gradients, making these sites an ideal setting for probing the relative influence of climatic and mineralogical factors on soil C dynamics.
+We turned to the western slope of the Sierra Nevada Mountains, USA, to compare and contrast the effects of climate and mineral assemblage on soil C dynamics. Drawing on earlier studies in this region (Jenny et al., 1949; Trumbore et al., 1996; Dahlgren et al., 1997; Rasmussen et al., 2006), we selected soils similar in age and vegetation along a combined gradient of parent material (granite, andesite, basalt) and MAT (12°C = "warm", 9°C = "cool", 5°C = "cold"). The climate gradient also represents a weathering gradient, with poorly developed soils at the cold climate sites, intermediately developed soils at the cool climate sites, and highly weathered soils at the warm climate sites (Harradine and Jenny, 1958; Rasmussen et al., 2010). Previous work at these sites confirmed strong differences in mineral assemblages along both the parent material and climate gradients, making these sites an ideal setting for probing the relative influence of climatic and mineralogical factors on soil C dynamics (Rasmussen et al., 2006; others?).
 
-We were able to construct a time series of both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ at these sites by combining data from samples newly collected in 2019 with data from archived samples collected in 2001 and 2009. Such a time series provides a crucial constraint for determining the trajectory of bomb-derived ^14^C concentrations over time (Beem-Miller et al., 2020; Stoner et al., 2020). Whether bomb-C concentrations are increasing or decreasing with time depends on both on the  distribution of soil C among pools with different cycling rates as well as the year in which the soil was sampled, and thus cannot be easily determined from observations at a single point in time (Baisden et al. 2003). Using the radiocarbon time series in combination with previously determined mineralogical data, we were able to test several hypotheses regarding the roles of mineralogical versus climatic factors in determining both overall cycling rates and the dynamics of transiently cycling soil C.
+We were able to construct a time series of both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ at these sites by combining data from samples newly collected in 2019 with data from archived samples collected in 2001 and 2009. Such a time series provides a crucial constraint for determining the trajectory of bomb-derived ^14^C concentrations over time (Beem-Miller et al., 2020; Stoner et al., 2020). Whether bomb-C concentrations are increasing or decreasing with time depends on the distribution of soil C among pools with different cycling rates as well as the year in which the soil was sampled, and thus cannot be easily determined from observations at a single point in time (Baisden et al. 2003). Using the radiocarbon time series in combination with previously determined mineralogical data, we were able to test several hypotheses regarding the roles of mineralogical versus climatic factors in determining both overall cycling rates and the dynamics of transiently cycling soil C.
 
-We can expect soils dominated by persistent soil C to have depleted values of $\Delta$^14^C~*bulk*~ relative to soils dominated by fast cycling soil C. If climate is more important than parent material for determining soil C persistence, than we would expect to see large differences in $\Delta$^14^C~*bulk*~ among climate regimes when comparing soils within a given parent material, but minimal differences among different parent materials when comparing soils within a given climate regime. If parent material is more important than climate for soil C persistence, we would expect the opposite trends in $\Delta$^14^C~*bulk*~: differences would be greater among parent materials within a given climate regime than among climate regimes within a given parent material. However, if persistent soil C is associated with specific soil minerals, we can expect an interactive effect of parent material and climate factors. For example, if soil C persistence is due to the association of soil organic matter with poorly crystalline metal oxides, we would expect to observe the most depleted $\Delta$^14^C~*bulk*~ values where the combination of parent material and climate factors has led to the greatest abundance of these specific soil minerals. 
+We can expect soils with large stocks of persistent soil C to have depleted values of $\Delta$^14^C~*bulk*~ relative to soils dominated by fast cycling soil C. If climate proves more important than parent material for determining soil C persistence, then we would expect to see large differences in $\Delta$^14^C~*bulk*~ among climate regimes when comparing soils within a given parent material, but minimal differences among parent materials when comparing soils within the same climate regime. However, if parent material proves more important than climate for soil C persistence, we would expect the opposite trends in $\Delta$^14^C~*bulk*~: differences would be greater among parent materials within a given climate regime than among climate regimes within a given parent material. Alternatively, if persistent soil C is associated with specific soil minerals, we would expect an interactive effect of parent material and climate on $\Delta$^14^C~*bulk*~. For example, if soil C persistence is due to the association of soil organic matter with poorly crystalline metal oxides, we would expect to observe the most depleted $\Delta$^14^C~*bulk*~ values where the combination of parent material and climate factors has led to the greatest abundance of these specific soil minerals. 
 
-Soil C found in association with minerals is typically older than organic matter found in free particulate forms [cite]. Accordingly, we might expect climate to be the dominant factor controlling the amount and cycling rates of transiently cycling soil C, with mineral factors being less relevant at these timescales. If this hypothesis is correct, we would expect to see greater differences in $\Delta$^14^C~*respired*~ among different climate regimes and within a given parent material than we would among different parent materials within the same climate regime. Furthermore, we would expect warmer climate soils to have $\Delta$^14^C~*respired*~ values closer to the atmosphere than colder climate soils, due to faster decomposition rates in the actively cycling soil C pools, and accordingly, we would expect $\Delta$^14^C~*respired*~ to change more over time at the warmer climate sites than at the colder climate sites. 
+Soil C found in association with minerals is typically older than organic matter found in free particulate forms [cite]. Accordingly, we might expect climate to be the dominant factor controlling the amount and cycling rates of C in transiently cycling soil C pools, with mineral factors being less relevant at these shorter timescales. If this hypothesis is correct, we would expect to see greater differences in $\Delta$^14^C~*respired*~ among different climate regimes and within a given parent material than we would among different parent materials within the same climate regime. Furthermore, we would expect warmer climate soils to have $\Delta$^14^C~*respired*~ values closer to the atmosphere than colder climate soils, due to faster decomposition rates in the actively cycling soil C pools, and accordingly, we would expect $\Delta$^14^C~*respired*~ to change more over time at the warmer climate sites than at the colder climate sites. 
 
 # Methods
+
 ## Site descriptions
-We collected samples from 9 sites across a combined gradient of parent material and climate in the Sierra Nevada Mountains of California (**Fig. \@ref(fig:exp-design-ras18)**). Parent material changes from basalt to andesite to granite along the north-south axis of the cordillera, while mean annual temperature (MAT) decreases as a function of increaing elevation along the east-west axis. Total mean annual precipitation (MAP) ranges from 910 to 1400 mm yr^-1^ across the sites. Precipitation increases slightly with elevation (**Fig. \@ref(fig:exp-design-ras18)**), and falls mainly as rain at lower elevations, but mainly as snow at higher elevations. The andesitic and basaltic parent materials receive slightly more precipitation on average than the granitic soils, with MAP values of 1330 (± 75) mm  yr^-1^, 1160 (± 175) mm yr^-1^, and 1000 (± 85) mm yr-1 for the andesite, basalt, and granite transects, respectively.
 
-Vegetation at the study sites is typical of the Sierra Mixed Conifer habitat (Parker, I., and W. J. Matyas. 1981. CALVEG: a classification of Californian vegetation. U.S. Dep. Agric., For. Serv., Reg. Ecol. Group, San Francisco). All of the sites are forested and dominated by conifers, although the species composition changes along with climate. Tree species at the lowest elevation, “warm”, sites are predominantly *Pinus ponderosa* mixed with lesser amounts of *Quercus* spp. The canopy species at the mid-elevation "cool" sites are composed primarily of *Abies concolor* and *Pinus lambertiana*, while *Abies magnifica* is the dominant species at the highest elevation “cold” sites. Species present at all sites include *Calocedrus decurrens* in the canopy, the shrubs *Arctostaphylos* spp., *Chamaebatia foliolosa*, and *Ceanothus* spp. to varying degrees, and ground cover of grasses and forbs (**Fig. \@ref(fig:exp-design-ras18)**).
+We collected samples from nine sites across a combined gradient of parent material and climate in the Sierra Nevada Mountains of California (**Table \@ref(tab:site-data-t1)**). Parent material changes from basalt to andesite to granite along the north-south axis of the cordillera, while MAT decreases as a function of increasing elevation along the east-west axis. Total mean annual precipitation (MAP) ranges from 910 to 1400 mm yr^-1^ across the sites. Precipitation increases slightly with elevation (**Table \@ref(tab:site-data-t1)**), and falls mainly as rain at lower elevations (< 1400 m), but mainly as snow at higher elevations (> 1800 m). The andesitic and basaltic parent materials receive slightly more precipitation on average than the granitic soils, with MAP values of 1330 (± 75) mm  yr^-1^, 1160 (± 175) mm yr^-1^, and 1000 (± 85) mm yr-1 for the andesite, basalt, and granite transects, respectively.
 
-(ref:exp-design-ras18-cap) *NB: this is a placeholder---copied verbatim from Rasmussen et al. 2018* Dominant vegetation, climate parameters, and soil taxonomy for sampled ecosystems.^1^ MAP—mean annual precipitation; MAT—Ecosystem abbreviations: PP—ponderosa pine; WF—white fir; RF—red fir. Dominant vegetation is listed in order of over-story dominance. Parent material abbreviations: GR—granite;
-BS—basalt; AN—andesite.
-
-```{r exp-design-ras18, out.width="100%", fig.cap="(ref:exp-design-ras18-cap)"}
-knitr::include_graphics("../data/img/exp_design_ras18.png")
-```
+Vegetation at the study sites is typical of the Sierra Mixed Conifer habitat (Parker, I., and W. J. Matyas. 1981. CALVEG: a classification of Californian vegetation. U.S. Dep. Agric., For. Serv., Reg. Ecol. Group, San Francisco). All of the sites are forested and dominated by conifers, although the exact species composition changes along with climate. Tree species at the lowest elevation warm climate sites are predominantly *Pinus ponderosa* mixed with lesser amounts of *Quercus* spp. The canopy species at the mid-elevation cool climate sites consist primarily of *Abies concolor* and *Pinus lambertiana*, while *Abies magnifica* dominates at the high elevation cold climate sites. Species present at all sites include *Calocedrus decurrens* in the canopy, the shrubs *Arctostaphylos* spp., *Chamaebatia foliolosa*, and *Ceanothus* spp. in the understory, and patchy ground cover of grasses and forbs (**Table \@ref(tab:site-data-t1)**).
 
 ## Sample collection
-Site locations were initially established in 2001 by C. Rasmussen (Rasmussen et al., 2006), and resampled in 2009 (Rasmussen et al., 2018) and 2019 (this study). Three replicate pits were dug to the depth of the B horizon (2001 sampling), or down to the C horizon (2009 and 2019 sampling). Samples were collected from the pit sidewalls by horizon in 2001 and 2009, and by 0.1 m increments in 2019. For the 2019 resampling, we located the sites using GPS and geospatial coordinates recorded during site establishment. Prior to sample collection we compared the soil profiles to the pedon descriptions from the previous sampling campaigns. In 2019 we also measured the depth of the litter layer and collected representative litter samples from each site. We only focus on the upper soil layers in this study (0 to ca. 0.3m) as the 2001 sampling was restricted to this depth range.
+
+Site locations were initially established in 2001 by C. Rasmussen (Rasmussen et al., 2006), and resampled in 2009 (Rasmussen et al., 2018) and 2019 (this study). Three replicate pits were dug to the depth of the B horizon (2001 sampling), or down to the C horizon (2009 and 2019 sampling). Samples were collected from the pit sidewalls by horizon in 2001 and 2009, and by 0.1 m increments in 2019. For the 2019 resampling, we located the sites using GPS and geospatial coordinates recorded during site establishment. Prior to sample collection we compared the soil profiles to the pedon descriptions from the 2001 sampling campaign to confirm the profiles matched. In 2019 we also measured the depth of the litter layer and collected representative litter samples from each site. However, we only focus on the upper mineral soil layers in this study (0 to ca. 0.3m) as the 2001 sampling was restricted to this depth range.
 
 ## Incubations
-Laboratory soil incubations were performed on composite samples from the three replicate pedons sampled at each site in 2001 and 2019. We omitted the 2009 samples from the incubation experiment to save on time and analysis costs. We composited and incubated each depth increment separately in 1 L glass mason jars fitted with sampling ports in the lids. Incubations were performed in duplicate. Prior to the start of incubations we adjusted the soil moisture content to 60% of water holding capacity (WHC). Samples from 2001 were air-dried prior to archiving, and therefore we also air-dried the freshly collected soils from 2019 in order to control for the known effects of drying and rewetting on $\Delta$^14^C~*respired*~ (Beem-Miller et al., 2021). We defined WHC as the gravimetric water content of water-saturated soil placed in mesh-covered (50µm) tubes (50ml) weighed after draining for 30 minutes on a bed of fine sand. Following rewetting we allowed the soils to respire for one week before closing the jars. Incubations proceeded until CO~2~ concentrations in the jar headspace reached approximately 10,000 ppm, at which point we collected a 400 ml gas subsample for radiocarbon analysis. Gas samples were collected with pre-evacuated stainless-steel (Restec) vacuum canisters. All incubations were performed in the dark at 20°C.
+
+Laboratory soil incubations were performed on composite samples from the three replicate pedons sampled at each site in 2001 and 2019. We omitted the 2009 samples from the incubation experiment to save on time and analysis costs, and because sample material was only available from a single profile at each site. We composited and incubated each depth increment separately in 1 L glass mason jars fitted with air tight sampling ports in the lids. Incubations were performed in duplicate. Prior to the start of incubations we adjusted the soil moisture content to 60% of water holding capacity (WHC). Samples from 2001 were air-dried prior to archiving, and therefore we also air-dried the freshly collected soils from 2019 in order to control for the known effects of drying and rewetting on $\Delta$^14^C~*respired*~ (Beem-Miller et al., 2021). We defined WHC as the gravimetric water content of water-saturated soil placed in mesh-covered (50µm) tubes (50ml) weighed after draining for 30 minutes on a bed of fine sand. Following rewetting we allowed the soils to respire for one week before closing the jars. Incubations proceeded until CO~2~ concentrations in the jar headspace reached approximately 10,000 ppm, at which point we collected a 400 ml gas subsample for radiocarbon analysis. Gas samples were collected with pre-evacuated stainless-steel (Restec) vacuum canisters. All incubations were performed in the dark at 20°C.
 
 ## Soil Physical Analyses and Mineral Characterization
-Data on soil particle size distributions, bulk density, and mineral characterization were obtained from previously published analyses of samples collected at the study sites in 2001 and 2009 (Rasmussen et al. 2006, Rasmussen et al., 2018). Both qualitative and quantitative approaches were used to characterize soil mineral assemblages, including X-ray diffraction (XRD) for the clay (<2µm) fraction, atomic absorption spectroscopy, and non-sequential selective dissolution. These previous analyses revealed that the dominant mineral species in the soils of the highly weathered warm climate zone were similar across parent materials, but differed substantially across parent materials at the less weathered cool and cold climate sites. Mineral assemblages at the warm climate sites are dominated by 1:1 clays and large accumulations of crystalline iron oxides [Dahlgren et al. 1997 "Soil development along an elevational transect in the western Sierra Nevada, California"; Rasmussen et al. 2007 "Soil Genesis and Mineral Transformation Across an Environmental Gradient on Andesitic Lahar"; Rasmussen et al. 2010 "Basalt weathering and pedogenesis across an environmental gradient in the southern Cascade Range, California, USA"]. In contrast, poorly crystalline short-range order (SRO) minerals such as allophane and iron oxyhydroxides dominate the mineral assemblages in the cool and cold climate andesitic soils. The cool and cold climate basaltic soils have intermediate amounts of SRO minerals, while the granitic soils lack SRO minerals almost entirely, but contain relatively more hydroxyl-interlayered vermiculite. 
 
-The previous work at these sites showed that poorly crystalline mineral content was the best predictor of both C abundance and $\Delta$^14^C. Accordingly, our analyses focus on the relationship between radiocarbon measurements and the abundance of poorly crystalline versus crystalline metal oxides as well as 2:1 versus 1:1 clays, but not the whole suite of mineralogical data. For simplification, we use the sum of ammonium-oxalate extractable aluminum and half of the ammonium-oxalate extractable iron selectively dissolved from bulk soils as a proxy for the abundance of poorly and non-crystalline minerals, and the difference of dithionite-citrate extractable iron and ammonium-oxalate extractable iron for the abundance of crystalline iron in the main text. See the supplemental information document for the results of additional regression analyses looking at the specific relationships between $\Delta$^14^C and the concentration of Fe or Al extracted with ammonium-oxalate, Fe extracted with dithionite-citrate, and Al extracted with sodium-pyrophosphate.
+Data on soil particle size distributions, bulk density, and mineral characterization were obtained from previously published analyses of samples collected at the study sites in 2001 and 2009 (Rasmussen et al. 2006, Rasmussen et al., 2018). Both qualitative and quantitative approaches were used to characterize soil mineral assemblages, including X-ray diffraction (XRD) for the clay (<2 µm) fraction, atomic absorption spectroscopy, and non-sequential selective dissolution. These previous analyses revealed that the dominant mineral species in the soils of the highly weathered warm climate zone were similar across parent materials, but differed substantially across parent materials at the less weathered cool and cold climate sites. Mineral assemblages at the warm climate sites are dominated by 1:1 clays and large accumulations of crystalline iron oxides [Dahlgren et al. 1997 "Soil development along an elevational transect in the western Sierra Nevada, California"; Rasmussen et al. 2007 "Soil Genesis and Mineral Transformation Across an Environmental Gradient on Andesitic Lahar"; Rasmussen et al. 2010 "Basalt weathering and pedogenesis across an environmental gradient in the southern Cascade Range, California, USA"]. In contrast, the cool and cold climate andesitic soils contain high concentrations of poorly crystalline short-range order (SRO) minerals such as allophane and iron oxyhydroxides. The cool and cold climate basaltic soils contain intermediate amounts of SRO minerals, while the granitic soils lack SRO minerals almost entirely, but are rich in quartz and contain relatively more hydroxyl-interlayered vermiculite than soils from the other lithologies. 
+
+The previous work at these sites showed that poorly crystalline metal oxide content was the best predictor of both C abundance and $\Delta$^14^C~*bulk*~. Accordingly, our analyses focus on the relationship between radiocarbon measurements and the abundance of poorly crystalline versus crystalline metal oxides as well as 2:1 versus 1:1 clays, but not the whole suite of mineralogical data. For simplification, we use the sum of ammonium-oxalate extractable aluminum and half of the ammonium-oxalate extractable Fe selectively dissolved from bulk soils as a proxy for the abundance of poorly and non-crystalline metal oxides, and the difference of dithionite-citrate extractable Fe and ammonium-oxalate extractable Fe for the abundance of crystalline Fe in the main text. We present the results of additional regression analyses looking at the specific relationships between $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~, and the concentration of Fe or Al extracted with ammonium-oxalate, Fe extracted with dithionite-citrate, and Al extracted with sodium-pyrophosphate in the supplemental information.
 
 ## Carbon, Nitrogen, and Radiocarbon Analysis
-Total carbon and nitrogen content was determined by dry combustion (2019 samples: Vario Max, Elementar Analysensysteme GmbH) on finely ground soils (2019 samples: Retch MM400). For radiocarbon analysis, we first purified CO~2~ from combusted soil samples (bulk soils) and incubation flask samples (respired CO~2~) on a vacuum line using liquid N~2~. Following purification, samples were graphitized with an iron catalyst under an H~2~ enriched atmosphere at 550°C. Radiocarbon content was then measured by accelerator mass spectrometry (Micadas, Ionplus, Switzerland) at the Max Planck Institute for Biogeochemisty (Steinhof, 2017).
+
+Total carbon and nitrogen content was determined by dry combustion (2019 samples: Vario Max, Elementar Analysensysteme GmbH) on finely ground soils (2019 samples: Retsch MM400). For radiocarbon analysis of 2001 and 2019 samples, we first purified CO~2~ from combusted soil samples (bulk soils) and incubation flask samples (respired CO~2~) on a vacuum line using liquid N~2~. Following purification, samples were graphitized with an iron catalyst under an H~2~ enriched atmosphere at 550°C. Radiocarbon content was then measured by accelerator mass spectrometry (Micadas, Ionplus, Switzerland) at the Max Planck Institute for Biogeochemisty (Steinhof, 2017). See Rasmussen et al. (2018) for details of C, N, and radiocarbon analysis of the 2009 samples.  
 
 We report radiocarbon values using units of $\Delta$^14^C, defined as the deviation in parts per thousand of the ratio of ^14^C–^12^C from that of the oxalic acid standard measured in 1950. This unit also contains a correction for the potential effect of mass-dependent fractionation by normalizing sample $\delta$^13^C to a common $\delta$^13^C value of -25 per mil (Stuiver & Polach, 1977). Values with $\Delta$^14^C >0 indicate the presence of ‘bomb’ C produced by atmospheric weapons testing in the early 1960s. Values with $\Delta$^14^C < 0 indicate the influence of radioactive decay of ^14^C, which has a half-life of 5730 years.
  
 ## Spline fitting
-We used a spline function to compare soil properties from samples collected from different depth intervals in different years and at different sites. We were motivated to use consistent depth increments across sites when resampling in 2019 because of the strong correlation between depth and $\Delta$^14^C observed in the 2009 dataset, a correlation also noted in numerous other studies (Mathieu et al., 2015; Shi et al., 2020; others...). We fit a mass-preserving quadratic spline to the 2001 and 2009 profiles in order to convert soil property data to the equivalent depth increments sampled in 2019 (Bishop et al., 2001). We weighted the $\Delta$^14^C ~*bulk*~ profiles by carbon content and $\Delta$^14^C~*respired*~ profiles by CO~2~ fluxes per layer. We performed the spline fitting with the mpspline function of the GSIF package in R, using a $\lambda$ value of 0.1 (Hengl 2019). 
+
+We used a spline function to compare soil properties from samples collected from different depth intervals in different years and at different sites. We were motivated to use consistent depth increments across sites when resampling in 2019 because of the strong correlation between depth and $\Delta$^14^C observed in the 2009 dataset, a correlation also noted in numerous other studies (Mathieu et al., 2015; Shi et al., 2020; others...). We fit a mass-preserving quadratic spline to the 2001 and 2009 profiles in order to convert soil property data to the equivalent depth increments sampled in 2019 (Bishop et al., 2001). We performed the spline fitting with the mpspline function of the GSIF package in R, using a $\lambda$ value of 0.1 (Hengl 2019). 
  
 ## Statistical analysis
-We used a linear modeling approach to assess the relative explanatory power of climate versus parent material on the observed variation in $\Delta$^14^C, as well as potential interactions between these two factors. We constructed separate models for $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ but with the same equation structure (Eq. 1). For each model we considered the two-way interaction between parent material and climate as well as the three-way interaction with time (**Eq. 1**). For ease of interpretation, we considered the effect of depth by modeling each depth layer separately (0-10 cm, 10-20 cm, 20-30 cm). We also made pairwise comparisons of $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ across sites and within years, as well as comparisons of individual sites across years. We assessed the significance of the temporal trend for pairwise combinations of parent material and climate using the emmtrends function of the emmeans package (Lenth, 2021). We corrected for multiple comparisons using Tukey’s honestly significant mean difference.
+
+We used a linear modeling approach to assess the relative explanatory power of climate versus parent material on the observed variation in $\Delta$^14^C, as well as potential interactions between these two factors. We constructed separate models for $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ but with the same equation structure (Eq. 1). For each model we considered the two-way interaction between parent material and climate as well as the three-way interaction with time (**Eq. 1**). For ease of interpretation, we considered the effect of depth by modeling each depth layer separately (0-10 cm, 10-20 cm, 20-30 cm). We also made pairwise comparisons of $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ across sites and within years, and across years for individual sites. We assessed the significance of the temporal trend for pairwise combinations of parent material and climate using the emmtrends function of the emmeans package (Lenth, 2021). We corrected for multiple comparisons using Tukey’s honestly significant mean difference.
 
 **Eq. 1**
-$$\Delta^{14}C = \alpha + \beta_{1}(Parent\_material) \times \beta_{2}(Climate) \times \beta_{3}(Year) + \epsilon$$
-Where $\alpha$ is the intercept term, the $\beta$ terms are coefficients, and $\epsilon$ is random error.
 
-The relationship between $\Delta$^14^C of bulk soil and respired CO~2~ provides insight into soil C dynamics and potential retention mechanisms (Sierra et al. 2018). We modeled the effects of parent material (**Eq. 2**) and climate (**Eq. 3**) on this relationship  separately, as we did not have an adequate number of observations to consider the interaction between these two explanatory variables.
-We used $\Delta$^14^C measurements made on samples collected in 2001 and 2019, and data from all depths. The three-way interactions of $\Delta$^14^C~*bulk*~ and the explanatory variables were not significant with either depth or time for either **Eq. 3** or **Eq. 4**, so we did not include those variables in the models.
+$$\Delta^{14}C = \alpha + \beta_{1}(Parent\_material) \times \beta_{2}(Climate) \times \beta_{3}(Year) + \varepsilon$$
+Where $\alpha$ is the intercept term, the $\beta$ terms are coefficients, and $\varepsilon$ is random error.
+
+We also considered the relationship between $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ to gain insight into potential differences in soil C dynamics and persistence mechanisms across our sites (Sierra et al. 2018). We modeled the effects of parent material (**Eq. 2**) and climate (**Eq. 3**) on this relationship  separately, as we did not have an adequate number of observations to consider the interaction between these two explanatory variables. For this analysis we used $\Delta$^14^C measurements made on samples collected in 2001 and 2019, and data from all depths. The three-way interactions of $\Delta$^14^C~*bulk*~ and the explanatory variables (parent material or climate) were not significant with either depth or time for either **Eq. 2** or **Eq. 3**, so we did not include either depth or time as variables in the models.
 
 **Eq. 2**
+
 $$\Delta^{14}C_{respired} = \alpha + \beta_{1}(\Delta^{14}C_{bulk}) \times \beta_{2}(Parent\_material) + \epsilon$$
 
 **Eq. 3**
+
 $$\Delta^{14}C_{respired} = \alpha + \beta_{1}(\Delta^{14}C_{bulk}) \times \beta_{2}(Climate) + \epsilon$$
 
-We assessed the relative importance of poorly crystalline versus crystalline iron minerals in protecting soil C from microbial decomposition by regressing $\Delta$^14^C against the concentrations of ammonium-oxalate extractable iron, ammonium-oxalate extractable aluminum, pyrophosphate extractable aluminum, and dithionite-citrate extractable iron (**Eq. 4**). We fit the model for $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~, and the difference between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ ($\Delta$^14^C~*bulk-respired*~). We used $\Delta$^14^C data from 2001 and 2019. Selective dissolution was only performed for the soils collected in 2001, but were assumed to be comparable for the other time points as these data reflect weathering processes operating at timescales beyond the 18-year duration of this study. We conducted regressions for the entire 0-30 cm depth as extracted metal concentrations did not change substantially by horizon, and this approach allowed us to control for the depth dependence of $\Delta$^14^C as well as simplify interpretation of the data. In order to obtain estimates of these data for the 0-30 cm depth increment we computed carbon mass-weighted means for $\Delta$^14^C~*bulk*~ and flux-weighted means for $\Delta$^14^C~*respired*~; these calculations were made prior to determining $\Delta$^14^C~*bulk-respired*~.
+We assessed the relative importance of poorly crystalline versus crystalline iron minerals in protecting soil C from microbial decomposition by regressing $\Delta$^14^C against the concentrations of ammonium-oxalate extractable iron, ammonium-oxalate extractable aluminum, pyrophosphate extractable aluminum, and dithionite-citrate extractable iron (**Eq. 4**). We fit the model for $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~, and the difference between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ ($\Delta$^14^C~*bulk-respired*~). We used $\Delta$^14^C data from 2001, 2009, and 2019 for the $\Delta$^14^C~*bulk*~ model, but only data from 2001 and 2019 for the $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk-respired*~ models. Selective dissolution was only performed on the soils collected in 2001, but these data were assumed to be comparable for the other time points as they reflect weathering processes operating at timescales beyond the 18-year duration of this study. The regression analysis conducted with **Eq. 4** was done for the combined depth increment of 0 to 0.3 m, as extracted metal concentrations did not change substantially over this increment. Combining depth increments allowed us to control for the depth dependence of $\Delta$^14^C as well as simplify interpretation of the data. In order to obtain values for the necessary data over the 0 to 0.3 m depth increment we computed mass-weighted estimates of extractable metal concentrations, carbon mass-weighted means of $\Delta$^14^C~*bulk*~ and flux-weighted means of $\Delta$^14^C~*respired*~; these calculations were made prior to determining $\Delta$^14^C~*bulk-respired*~.
 
->**Eq. 4**
-$$\Delta^{14}C = \alpha + \beta_{1}(Metal_{x}) + \beta_{2}(time) + \epsilon$$
->where $\alpha$ is the intercept term, $\Beta$ is the coefficient for each factor in the model, *Metal~x~* is ammonium-oxalate extractable iron, ammonium-oxalate extractable aluminum, pyrophosphate extractable aluminum, or dithionite-citrate extractable iron, and $\epsilon$ is random error
+**Eq. 4**
+
+$$\Delta^{14}C = \alpha + \beta_{1}(Metal_{x}) + \beta_{2}(time) + \varepsilon$$
+
+Where $\alpha$ is the intercept term, $\beta$ is the coefficient for each factor in the model, *Metal~x~* is the concentration of selectively dissolved metal oxides, time is the year of sampling, and $\varepsilon$ is random error.
 
 # Results
-## Soil carbon concentration depth profiles
+
+## Soil carbon concentrations and flux rates 
 
 ```{r soil-C-stats, include = FALSE}
 # reps df
-sra.01.09.19.blkC.reps <- rbind(sra.01.blkC.sp.reps, sra.09.blkC.sp.reps, sra.19.blkC.reps.30)
+sra.01.09.19.blkC.reps <- rbind(
+  blkC.rep.C.sp.01.df, 
+  blkC.rep.C.sp.09.df, 
+  sra.19.blkC %>%
+    select(PMeco, rep, C, lyr_bot, year) %>%
+    rename(c_pct = C))
 sra.01.09.19.blkC.reps$Year <- factor(sra.01.09.19.blkC.reps$year)
 sra.01.09.19.blkC.reps$PM <- substr(sra.01.09.19.blkC.reps$PMeco, 1, 2)
 sra.01.09.19.blkC.reps$ECO <- factor(
@@ -570,54 +1555,144 @@ sra.01.09.19.blkC.reps$ECO <- factor(
   levels = c("pp", "wf", "rf"), 
   labels = c("warm", "cool", "cold")
 )
-# write.csv(sra.01.09.19.blkC.reps, file = "sra.01.09.19.blkC.reps.csv")
+save(sra.01.09.19.blkC.reps, file = "sra.01.09.19.blkC.reps.RData")
 
 # 0-10
-blkC.ts.10.lm <- lm(c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$depth == "0-10", ])
+blkC.ts.10.lm <- lm(
+  c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$lyr_bot == 10, ])
 blkC.ts.10.emt <- emtrends(blkC.ts.10.lm, pairwise ~ PMeco, var = "year")
-# -ANpp, +ANrf, -BSrf
+# -ANpp, -BSrf, +ANrf
 
 # 10-20
-blkC.ts.20.lm <- lm(c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$depth == "10-20", ])
+blkC.ts.20.lm <- lm(
+  c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$lyr_bot == 20, ])
 blkC.ts.20.emt <- emtrends(blkC.ts.20.lm, pairwise ~ PMeco, var = "year")
 # +ANrf, +GRpp
 
 # 20-30
-blkC.ts.30.lm <- lm(c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$depth == "20-30", ])
+blkC.ts.30.lm <- lm(
+  c_pct ~ year * PMeco, sra.01.09.19.blkC.reps[sra.01.09.19.blkC.reps$lyr_bot == 30, ])
 blkC.ts.30.emt <- emtrends(blkC.ts.30.lm, pairwise ~ PMeco, var = "year")
 # +ANrf
 ```
 
 We observed both parent material and climate effects on soil organic C (SOC) concentration. SOC concentrations were similar among parent materials for the warm climate sites (**Fig. \@ref(fig:plot-C-profiles), a**), while at the cool and cold climate sites (**Fig. \@ref(fig:plot-C-profiles), b, c**) the andesitic soils had higher SOC concentrations than either the basaltic or granitic soils. The basaltic and granitic soils had similar SOC concentrations across climate zones, while the cool and cold climate andesitic soils were enriched in C relative to the warm climate soils. Soils showed a similar decrease in SOC concentration with depth across all sites (**Fig. \@ref(fig:plot-C-profiles)**). 
 
-We did not observe significant changes in SOC concentration over time for the majority of our sites. We saw the most substantial variation in SOC concentration between 2001, 2009, and 2019 in the surface layers, with significant differences between years for the warm climate andesitic and basaltic sites, and for both the surface and deeper (10-20, 20-30 cm) depth layers at the cold climate andesitc site (**SI Fig. 1**). We observed similar trends in SOC stocks with depth as with SOC concentration (**SI Fig. 2**). However, we did not assess soil carbon stock changes over time in this study because we did not measure bulk density in 2019, and our study design did not accommodate adequate spatial replication for making such an assessment (Harrison et al., 2009?; Schrumpf et al., 2011). 
+We did not observe significant changes in SOC concentration over time for the majority of our sites. We saw the most substantial variation in SOC concentration between 2001, 2009, and 2019 in the surface layers (0-0.1 m), with significant differences observed between years for the warm climate andesitic and basaltic sites, and for all three depth layers at the cold climate andesitic site (**SI Fig. 1**). We observed similar overall trends in SOC stocks across sites as with SOC concentration (andesite > basalt > granite), despite lower bulk densities in the andesitic sites with high C concentrations (**SI Fig. 2**). However, we did not assess soil carbon stock changes over time in this study as we did not measure bulk density or coarse fragment content in 2019 (Schrumpf et al., 2013; Beem-Miller et al., 2016). 
 
-(ref:plot-C-profiles-cap) Profiles of soil C concentration. Points show mean of 2001, 2009, and 2019 data; error bars show ±2SE.
+Flux rates of heterotrophic respiration differed among parent materials and among climate zones. When compared on a carbon basis (mg CO~2~ g C^-1^ d^-1^), flux rates tended to be higher for the andesitic soils than soils from either basaltic or andesitic soils, particularly at depth (**SI Fig. 2**). The exceptions to this trend were the surface (0-0.1 m, 2001 and 2019) and near-surface (0.1-0.2 m, 2019) soils from the warm climate sites (**SI Fig. 2**). Respiration rates for granitic and basaltic soils tended to decrease with decreasing MAT (warm > cool > cold); however, we did not see any clear trend in respiration rates with respect to climate for the andesitic soils (**SI Fig. 2**).
 
-```{r plot-C-profiles, fig.cap="(ref:plot-C-profiles-cap)", fig.width = 4, fig.height = 4.05, out.height="65%", out.width="65%"}
+(ref:plot-C-profiles-cap) Profiles of SOC concentration (a-c) and stocks (d-f). Points show mean of 2001, 2009, and 2019 data for SOC concentration, and 2001 and 2009 data for SOC stocks (bulk density was not measured in 2019); error bars show ±2SE. 
+
+```{r plot-C-profiles, fig.cap="(ref:plot-C-profiles-cap)", fig.width = 6, fig.height = 4.5, out.height="65%", out.width="65%"}
+# 2001
+load("sra.01.blkC.RData")
+sra.01.soc.df <- bind_rows(
+  lapply(split(sra.01.blkC, sra.01.blkC$PMeco), function(df) {
+    depths(df) <- pro_name ~ lyr_top + lyr_bot
+    sp.df <- suppressMessages(
+      mpspline(df, var.name = "soc_kgm2", d = c(0, 10, 20, 30), 
+               show.progress = FALSE))$var.std 
+    sp.df$pro_rep <- seq(1, nrow(sp.df))
+    sp.df %>%
+      pivot_longer(cols = 1:3, names_to = "depth", values_to = "soc_kgm2")
+  }), .id = "PMeco") %>%
+  mutate(middepth = as.numeric(sapply(strsplit(depth, "-"), "[", 1)) + 5)
+
+# 2009
+load("sra.09.blkC.RData")
+
+# create plotting df
+sra.09.soc.df <- bind_rows(
+  lapply(split(sra.09.blkC, sra.09.blkC$PMeco), function(df) {
+    df$soc_kgm2 <- df$Thickness_cm * df$BD_g_cm_3 * df$C_pct * df$Soil_finefraction * 10^-1
+    depths(df) <- pro_name ~ top.mineral + bottom.mineral
+    sp.df <- suppressMessages(
+      mpspline(df, var.name = "soc_kgm2", d = c(0, 10, 20, 30), 
+               show.progress = FALSE))$var.std 
+    sp.df$pro_rep <- seq(1, nrow(sp.df))
+    sp.df %>%
+      pivot_longer(cols = 1:3, names_to = "depth", values_to = "soc_kgm2")
+  }), .id = "PMeco") %>%
+  mutate(middepth = as.numeric(sapply(strsplit(depth, "-"), "[", 1)) + 5)
+
+# 2019 data
+# note: uses 2009 mass data splined to 2019 depths (BD, RF)
+load("sra.2019.ls.RData")
+sra.19.soc.df <- bind_rows(sra.2019.ls)
+
+# Combine
+nms.soc <- c("PMeco", "middepth", "year", "soc_kgm2")
+sra.19.09.01.soc.df <- rbind(
+  # sra.19.soc.df %>% 
+  #   mutate(year = 2019, middepth = lyr_bot - 5) %>% 
+  #   select(all_of(nms.soc)),
+  sra.09.soc.df %>% 
+    mutate(year = 2009) %>%
+    select(all_of(nms.soc)),
+  sra.01.soc.df %>% 
+    mutate(year = 2001) %>%
+    select(all_of(nms.soc))) %>%
+  mutate(PM = substr(PMeco, 1, 2),
+         eco = factor(substr(PMeco, 3, 4), levels = c("pp", "wf", "rf"),
+                      labels = c("warm", "cool", "cold")))
+
+# average years
+f_labs <- data.frame(soc_kgm2_mean = .5, middepth = 1.1, eco = c("warm", "cool", "cold"), type = "C stocks")
+f_labs$label <- paste0("(", letters[4:6], ") ", f_labs$eco, ", ", f_labs$type)
+
+c.stk <- sra.19.09.01.soc.df %>%
+  group_by(PMeco, PM, eco, middepth) %>%
+  summarize(across(soc_kgm2, .fns = list(mean = mean, sd = sd)),
+            n = n(), .groups = "drop") %>%
+  mutate(se = soc_kgm2_sd / sqrt(n)) %>%
+  ggplot(., aes(soc_kgm2_mean, middepth / 100)) +
+  geom_point(aes(shape = eco, color = PM), size = 3) +
+  geom_text(data = f_labs, aes(label = label), show.legend = FALSE,
+            size = .36 * 9, fontface = "bold", hjust = "left") +
+  geom_errorbarh(aes(xmin = soc_kgm2_mean - 2 * se,
+                     xmax = soc_kgm2_mean + 2 * se,
+                     color = PM),
+                 height = 2) +
+  geom_path(aes(group = PMeco, color = PM)) +
+  scale_color_manual(name = NULL, 
+                     values = c("AN" = andesite, 
+                                "BS" = basalt,
+                                "GR" = granite),
+                     labels = c("AN" = "andesite", 
+                                "BS" = "basalt",
+                                "GR" = "granite")) +
+  scale_shape_manual(name = NULL,
+                     values = c("warm" = 15,
+                                "cool" = 17,
+                                "cold" = 16)) +
+  scale_y_reverse(breaks = c(.3, .2, .1, 0), limits = c(.34, 0),
+                  expand = expansion(add = c(0, .02))) +
+  facet_grid(rows = vars(eco)) +
+  ylab("Depth (cm)") +
+  xlab(expression('SOC (kg m'^-2*')')) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 14),
+        strip.background = element_blank(),
+        strip.text = element_blank())
+
 # combine 01, 09, 19 data
-sra.01.09.19.blkC.avg <- rbind(
-  sra.01.blkC.sp, 
-  sra.09.blkC.sp,sra.19.blkC.reps.30[ , names(sra.19.blkC.reps.30) %in% names(sra.01.blkC.sp)]) %>% 
-  mutate(PM = substr(pro_name, 1, 2), 
-         ECO = factor(substr(pro_name, 3, 4), levels = c("pp", "wf", "rf")),
-         PMeco = paste0(PM, ECO)) %>%
-  group_by(PM, ECO, depth) %>%
-  summarize(across(c_pct, .fns = c(mean = mean, sd = sd)), .groups = "keep") %>% 
-  mutate(lyr_bot = as.numeric(sapply(strsplit(depth, "-"), "[", 2)),
-         lyr_top = as.numeric(sapply(strsplit(depth, "-"), "[", 1)),
-         middepth = lyr_top + (lyr_bot - lyr_top) / 2) %>%
+sra.01.09.19.blkC.avg <- sra.01.09.19.blkC.reps %>%
+  group_by(PM, ECO, lyr_bot) %>%
+  summarize(across(c_pct, .fns = c(mean = mean, sd = sd)), .groups = "drop") %>% 
+  mutate(middepth = ifelse(lyr_bot == 10, 5, ifelse(lyr_bot == 20, 15, 25)),
+         eco = ECO) %>%
   data.frame
 
 # facet labels
-f_labs <- data.frame(c_pct_mean = .8, middepth = 4, eco = c("warm", "cool", "cold"))
-f_labs$label <- paste0(letters[1:3], ") ", f_labs$eco)
+f_labs <- data.frame(c_pct_mean = -1.5, middepth = 1.1, eco = c("warm", "cool", "cold"), type = "%C")
+f_labs$label <- paste0("(", letters[1:3], ") ", f_labs$eco, ", ", f_labs$type)
 
 # plot profiles
-sra.01.09.19.blkC.avg %>%
-  mutate(pm = ifelse(PM == "AN", "andesite", ifelse(PM == "BS", "basalt", "granite")),
-         eco = factor(ifelse(ECO == "pp", "warm", ifelse(ECO == "wf", "cool", "cold")), levels = c("warm", "cool", "cold"))) %>%
-  ggplot(., aes(c_pct_mean, middepth)) +
+c.pct <- sra.01.09.19.blkC.avg %>%
+  mutate(pm = ifelse(PM == "AN", "andesite", ifelse(PM == "BS", "basalt", "granite"))) %>%
+  ggplot(., aes(c_pct_mean, middepth / 100)) +
   geom_line(aes(color = pm)) +
   geom_point(size = 3, aes(color = pm, shape = eco)) +
   geom_errorbarh(aes(xmin = c_pct_mean - 2 * c_pct_sd/sqrt(9),
@@ -636,10 +1711,11 @@ sra.01.09.19.blkC.avg %>%
                         values = c("2001" = 1,
                                    "2009" = 2,
                                    "2019" = 3)) +
-  scale_y_reverse(breaks = c(30, 20, 10, 0), limits = c(34, 0),
-                  expand = expansion(add = c(0, 0))) +
+  scale_x_continuous(breaks = seq(0, 12, 3)) +
+  scale_y_reverse(breaks = c(.3, .2, .1, 0), limits = c(.34, 0),
+                  expand = expansion(add = c(0, .02))) +
   geom_text(data = f_labs, aes(label = label), 
-            show.legend = FALSE, size = .36 * 12, fontface = "bold", hjust = "left") +
+            show.legend = FALSE, size = .36 * 9, fontface = "bold", hjust = "left") +
   ylab("Depth (cm)") +
   xlab("%C") +
   facet_grid(rows = vars(eco)) +
@@ -648,46 +1724,78 @@ sra.01.09.19.blkC.avg %>%
         text = element_text(size = 14),
         strip.background = element_blank(),
         strip.text = element_blank())
+
+# plot together
+pg <- arrangeGrob(
+  plot_grid(
+    plotlist = list(
+      c.pct + 
+        theme(axis.title.y = element_blank(),
+              legend.position = "none"),
+      c.stk + 
+        theme(axis.title.y = element_blank(),
+              legend.position = "none",
+              axis.text.y = element_text(color = "white"))),
+    align = "hv"),
+  left = textGrob("Depth (m)", gp = gpar(fontface = "bold", 
+                                         fontsize = 12), rot = 90))
+lg <- get_legend(c.pct)
+plot_grid(pg, lg, rel_widths = c(4, 1))
 ```
 
 ## Radiocarbon depth profiles
-### Bulk soil
-$\Delta$^14^C~*bulk*~ covaried with both parent material and climate. We observed the most enriched $\Delta$^14^C~*bulk*~ at the warm climate sites, but contrary to what would be expected from the decomposition-temperature relationship, $\Delta$^14^C~*bulk*~ of soils at the cool climate sites was equally or more depleted than what we observed at the cold climate sites (**Fig. \@ref(fig:blk-inc-pro-19), b, c**) (**Fig. \@ref(fig:blk-inc-pro-19), a**). When comparing $\Delta$^14^C~*bulk*~ from different parent materials within a given climate zone, $\Delta$^14^C~*bulk*~ of andesitic soils tended to be the most depleted, while the granitic soils tended to be the most enriched (**Fig. \@ref(fig:blk-inc-pro-19)**). We focus on the 2019 data here for simplicity, as $\Delta$^14^C~*bulk*~ profiles showed similar patterns in both 2001 (**SI Fig. 2**) and 2009 (Rasmussen et al., 2018).
 
-Analysis of variance for $\Delta$^14^C~*bulk*~ revealed significant two-way interactions between parent material and climate at all depths (**Table \@ref(tab:models-anova)**). This interaction was evident in the differences in $\Delta$^14^C~*bulk*~ that we observed among parent materials within a given climate zone. We observed the greatest differences in $\Delta$^14^C~*bulk*~ among parent materials at the warm and cool sites (**Fig. \@ref(fig:blk-inc-pro-19), a, b**), while $\Delta$^14^C~*bulk*~ was similar among parent materials at the coldest sites (**Fig. \@ref(fig:blk-inc-pro-19), c**). We also found depth to be an important factor influencing the relative importance of climate versus parent material effects on $\Delta$^14^C~*bulk*~. Although $\Delta$^14^C~*bulk*~ declined with depth for all sites, climate explained more of the variance in $\Delta$^14^C~*bulk*~ in the uppermost soil layer (0-10 cm) whereas parent material explained more in the bottom two layers (10-20 cm, 20-30 cm) (**Table \@ref(tab:models-anova)**).  
+### Bulk soil
+
+$\Delta$^14^C~*bulk*~ covaried with both parent material and climate. We observed the most enriched $\Delta$^14^C~*bulk*~ at the warm climate sites, indicating a preponderance of relatively young, fast-cycling C. However, contrary to what would be expected from the decomposition-temperature relationship, we observed the oldest soil C (i.e. most depleted $\Delta$^14^C~*bulk*~ values) at the intermediate MAT cool climate sites rather than at the cold climate sites (**Fig. \@ref(fig:blk-inc-pro-19), b, c**) (**Fig. \@ref(fig:blk-inc-pro-19), a**). When comparing $\Delta$^14^C~*bulk*~ from different parent materials within a given climate zone, $\Delta$^14^C~*bulk*~ of andesitic soils tended to be the most depleted, while the granitic soils tended to be the most enriched (**Fig. \@ref(fig:blk-inc-pro-19)**). We focus on the 2019 data here for simplicity, but $\Delta$^14^C~*bulk*~ profiles showed similar patterns in both 2001 (**SI Fig. 2**) and 2009 (Rasmussen et al., 2018).
+
+Analysis of variance for $\Delta$^14^C~*bulk*~ revealed significant two-way interactions between parent material and climate at all depths (**Table \@ref(tab:models-anova)**). This interaction was evident in the differences in $\Delta$^14^C~*bulk*~ that we observed among parent materials within each climate zone. We observed the greatest differences in $\Delta$^14^C~*bulk*~ among parent materials at the warm and cool sites (**Fig. \@ref(fig:blk-inc-pro-19), a, b**), while $\Delta$^14^C~*bulk*~ was similar among parent materials at the coldest sites (**Fig. \@ref(fig:blk-inc-pro-19), c**). We also found depth to be an important factor influencing the relative importance of climate versus parent material effects on $\Delta$^14^C~*bulk*~. Although $\Delta$^14^C~*bulk*~ declined with depth for all sites, climate explained more of the variance in $\Delta$^14^C~*bulk*~ in the uppermost soil layer (0-10 cm) whereas parent material explained more in the bottom two layers (10-20 cm, 20-30 cm) (**Table \@ref(tab:models-anova)**).  
 
 ### Heterotrophically respired CO~2~
-Flux rates of heterotrophic respiration differed among parent materials and among climate zones. When compared on a carbon basis (mg CO~2~ g C^-1^ d^-1^), flux rates tended to be higher for the andesitic soils than soils from either basaltic or andesitic soils, particularly at depth (**SI Fig. 2**). The exceptions to this trend were the surface (0-10 cm, 2001 and 2019) and near-surface (10-20 cm, 2019) soils from the warm climate sites (**SI Fig. 2**). Respiration rates for granitic and basaltic soils tended to decrease with decreasing MAT (warm > cool > cold); however, we did not see any clear trend in respiration rates with respect to climate for the andesitic soils (**SI Fig. 2**).
 
-The patterns we observed in $\Delta$^14^C~*respired*~ were similar to those we observed in $\Delta$^14^C~*bulk*~ (**Fig. \@ref(fig:blk-inc-pro-19)**). We found climate to be the most significant factor for explaining the variance observed in $\Delta$^14^C~*respired*~ for the uppermost soil layer, and parent material to be more important than climate for explaining $\Delta$^14^C~*respired*~ variance at the deepest depth. However, in contrast to $\Delta$^14^C~*bulk*, parent material was not significant for explaining the variance of $\Delta$^14^C~*respired*~ in the uppermost soil layer (**Table \@ref(tab:models-anova)**). Additionally, the two-way interaction between parent material and climate explained more of the variance in $\Delta$^14^C~*respired*~ data than in the $\Delta$^14^C~*bulk*~ data (**Table \@ref(tab:models-anova), $F$ values**). 
+The patterns we observed in $\Delta$^14^C~*respired*~ were similar to those we observed in $\Delta$^14^C~*bulk*~ (**Fig. \@ref(fig:blk-inc-pro-19)**). We found climate to be the only significant factor for explaining the variance observed in $\Delta$^14^C~*respired*~ in the uppermost soil layer (0-0.1 m), while at the deepest depth (0.2-0.3 m) parent material was more important than climate (**Table \@ref(tab:models-anova)**). Overall, we found the two-way interaction between parent material and climate explained more of the variance in $\Delta$^14^C~*respired*~ than it did in $\Delta$^14^C~*bulk*~ (**Table \@ref(tab:models-anova), $F$ values**). 
 
-In general, the effect of climate on $\Delta$^14^C~respired~ appeared to be moderated by the effect of parent material. For example, we did not observe significant differences in $\Delta$^14^C~*respired*~ among the andesitic soils when compared across climate zones at any depth (SI Table X Tukey results for emm?). In contrast, $\Delta$^14^C~*respired*~ for the basaltic and granitic soils diverged substantially between climate zones, particularly for the 10-20 cm and 20-30 cm depth layers (**Fig. \@ref(fig:blk-inc-pro-19)**). Overall, $\Delta$^14^C~*respired*~ across sites was most similar at the soil surface, and most divergent at the intermediate depth (10-20 cm) (**Fig. \@ref(fig:blk-inc-pro-19)**). 
+The effect of climate on $\Delta$^14^C~respired~ appeared to be moderated by parent material. Accordingly, we did not observe significant differences in $\Delta$^14^C~*respired*~ among the andesitic soils when compared across climate zones at any depth (SI Table XX Tukey results for emm). In contrast, $\Delta$^14^C~*respired*~ diverged substantially between climate zones for the basaltic and granitic soils, particularly for the 0.1-0.2 m and 0.2-0.3 m depth layers (**Fig. \@ref(fig:blk-inc-pro-19)**). Overall, $\Delta$^14^C~*respired*~ values across sites were most similar at the soil surface (0-0.1 m), and most divergent at the intermediate depth (0.1-0.2 m) (**Fig. \@ref(fig:blk-inc-pro-19)**). 
 
 (ref:blk-inc-pro-19-cap) Depth profiles of $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ in 2019. Top panels show bulk data, bottom panels show respired data. Panels (a) and (d) show data from the warm climate sites, (b) and (e) from the cool climate sites, and (c) and (f) from the cold climate sites. Black vertical lines show $\Delta$^14^C of the atmosphere in 2019. Points show the mean of three replicate profiles for bulk soil, and the mean of laboratory duplicates for respired CO~2~. Error bars show ±1 SD for bulk soils and the minimum and maximum for respired CO~2~.
 
 ```{r blk-inc-pro-19, fig.cap = "(ref:blk-inc-pro-19-cap)", fig.height=5}
-# 2019
-load("sra.19.inc.blk.RData")
-# 2001
-load("sra.01.inc.blk.RData")
-
 # atm 14c
 atm.01.19 <- data.frame(d14c = atm.14c[atm.14c$Year == 2001.5 | atm.14c$Year == 2019.5, "d14c"],
                         Year = c("2001", "2019"),
                         Type = "atmosphere")
 
-# plot 2019 by climate, bulk and inc separated
-# make df
-sra.blk.inc.19.df <- sra.19.inc.blk %>%
-  mutate(Type = ifelse(Type == "inc", "respired", "bulk soil"),) %>%
-  mutate(ECOtype = factor(paste0(eco, " (", Type, ")"),
+# make df for '01 data (to use in SI)
+sra.blk.inc.01.df <- rbind(
+  sra.2001.14c.inc.sum.df %>% filter(d14c_mean > -200) %>% mutate(Type = "respired"),
+  sra.2001.14c.blk.sum.df %>% select(-d14c_sd) %>% mutate(Type = "bulk soil")) %>%
+  mutate(pm = ifelse(PM == "AN", "andesite", ifelse(PM == "BS", "basalt", "granite")),
+         eco = factor(ifelse(ECO == "pp", "warm", ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         ECOtype = factor(paste0(eco, " (", Type, ")"),
                           levels = c("warm (bulk soil)",
                                      "cool (bulk soil)",
                                      "cold (bulk soil)",
                                      "warm (respired)",
                                      "cool (respired)",
-                                     "cold (respired)"))) %>%
-  filter(lyr_bot > 0)
+                                     "cold (respired)")))
+
+# plot 2019 by climate, bulk and inc separated
+# make df
+sra.blk.inc.19.df <- rbind(
+  sra.2019.14c.inc.sum.df %>% filter(d14c_mean > -200) %>% mutate(Type = "respired"),
+  sra.2019.14c.blk.sum.df %>% select(-d14c_sd) %>% mutate(Type = "bulk soil")) %>%
+  filter(lyr_bot < 31) %>%
+  mutate(pm = ifelse(PM == "AN", "andesite", ifelse(PM == "BS", "basalt", "granite")),
+         eco = factor(ifelse(ECO == "pp", "warm", ifelse(ECO == "wf", "cool", "cold")),
+                      levels = c("warm", "cool", "cold")),
+         ECOtype = factor(paste0(eco, " (", Type, ")"),
+                          levels = c("warm (bulk soil)",
+                                     "cool (bulk soil)",
+                                     "cold (bulk soil)",
+                                     "warm (respired)",
+                                     "cool (respired)",
+                                     "cold (respired)")))
 
 # make list, split by desired facet (Type)
 sra.blk.inc.19.ls <- split(sra.blk.inc.19.df, sra.blk.inc.19.df$Type)
@@ -698,15 +1806,17 @@ sra.blk.inc.pro.p.fx2 <- function(df) {
   # labels
   f_labs <- data.frame(eco = c("warm", "cool", "cold"))
   if (grepl("bulk soil", unique(df$Type))) {
-    f_labs$label <- paste0(letters[1:3], ") ", f_labs$eco)
-    xlab <- expression(Delta*''^14*'C'[italic(bulk)]*' (‰)')
+    f_labs$label <- paste0("(", letters[1:3], ") ", f_labs$eco)
+    xlab <- expression(bold(Delta*''^14*'C'[bolditalic(bulk)]*' (‰)'))
   } else {
-    f_labs$label <- paste0(letters[4:6], ") ", f_labs$eco)
-    xlab <- expression(Delta*''^14*'C'[italic(respired)]*' (‰)')
+    f_labs$label <- paste0("(", letters[4:6], ") ", f_labs$eco)
+    xlab <- expression(bold(Delta*''^14*'C'[bolditalic(respired)]*' (‰)'))
   }
   
   # plot
-  ggplot(df, aes(d14c_mean, lyr_bot)) +
+  df %>%
+    mutate(middepth = (lyr_bot - 5) / 100) %>%
+    ggplot(., aes(d14c_mean, middepth)) +
     geom_vline(data = atm.01.19[atm.01.19$Year == 2019, ], 
                aes(xintercept = d14c, linetype = Type), color = "darkgray", show.legend = FALSE) +
     geom_hline(yintercept = 0) +
@@ -715,8 +1825,10 @@ sra.blk.inc.pro.p.fx2 <- function(df) {
       aes(xmin = d14c_l, 
           xmax = d14c_u,
           color = pm), 
-      height = .6, show.legend = FALSE) +
+      height = .006, show.legend = FALSE) +
     geom_path(aes(color = pm, linetype = Type)) +
+    geom_text(data = f_labs, aes(x = -100, y = .025, label = label), 
+              size = .36 * 12, fontface = "bold", hjust = "left") +
     scale_y_reverse() +
     scale_color_manual(name = NULL,
                        values = c("andesite" = andesite, 
@@ -744,12 +1856,10 @@ sra.blk.inc.pro.p.fx2 <- function(df) {
                                      "atmosphere" = 3)) +
     coord_cartesian(
       xlim = c(-130, 144), 
-      ylim = c(34, 0),
+      ylim = c(.34, 0),
       expand = FALSE) +
     scale_x_continuous(breaks = c(-100, -50, 0, 50, 100)) +
     facet_grid(cols = vars(eco)) +
-    geom_text(data = f_labs, aes(x = -100, y = 4, label = label), 
-              size = .36 * 12, fontface = "bold", hjust = "left") +
     xlab(xlab) +
     theme_bw() +
     theme(panel.grid = element_blank(),
@@ -768,7 +1878,7 @@ sra.blk.inc.pro.p.ls2 <- lapply(sra.blk.inc.19.ls, sra.blk.inc.pro.p.fx2)
 sra.blk.inc.pro.p.g2 <- plot_grid(plotlist = sra.blk.inc.pro.p.ls2, nrow = 2)
 
 # add common labels for axes
-y.grob <- textGrob("Depth (cm)", 
+y.grob <- textGrob("Depth (m)", 
                    gp = gpar(fontface = "bold", fontsize = 12), rot = 90)
 pg <- arrangeGrob(sra.blk.inc.pro.p.g2, left = y.grob)
 
@@ -784,11 +1894,11 @@ plot_grid(pg, blk.inc.pro.legend, rel_widths = c(4, 1))
 
 ## Radiocarbon time series
 
-The average annual decline in $\Delta$^14^C atmospheric CO~2~ between 2001 and 2009 for the northern hemisphere was `r slope.atm14c.01.19` per mille yr^-1^ (Graven et al., 2017; Sierra, 2018) (**Fig. \@ref(fig:plot-ts-14c), dotted lines**). Temporal trends in bulk and respired $\Delta$^14^C therefore reflect the degree to which soil C is exchanging with C fixed from the atmosphere. For example, changes in $\Delta$^14^C of soil C that parallel the atmospheric trend must be exchanging relatively rapidly compared to those that are flat over the same time period.
+Temporal trends in bulk and respired $\Delta$^14^C reflect the degree to which soil C is exchanging with C fixed from the atmosphere. The average annual decline in $\Delta$^14^C atmospheric CO~2~ between 2001 and 2009 for the northern hemisphere was `r slope.atm14c.01.19` per mille yr^-1^ (Graven et al., 2017; Sierra, 2018) (**Fig. \@ref(fig:plot-ts-14c), dotted lines**). Therefore, changes in $\Delta$^14^C of soil C that parallel the atmospheric trend must be exchanging relatively rapidly compared to those that change little over the same time period. 
 
 (ref:plot-ts-14c-cap) Temporal trends in $\Delta$^14^C for 0-10 cm and 10-20 cm depth layers. Panels a-f show $\Delta$^14^C~*bulk*~ data; from left, the first column (panels a, c, and e) show 0-10 cm data, and the second column (panels b, d, and f) shows 10-20 cm data. Panels g-l show $\Delta$^14^C~*respired*~ data; the third column from left (panels g, i, k) shows 0-10 cm data, and the rightmost column (panels h, j, and l) shows 10-20 cm data. Points show observed data; lines show linear trend estimates for marginal means; ribbons show 95% confidence intervals for trends. Dotted line shows atmospheric $\Delta$^14^C.
 
-```{r plot-ts-14c, fig.cap = "(ref:plot-ts-14c-cap)", fig.height=5, fig.width=5.4}
+```{r plot-ts-14c, fig.cap = "(ref:plot-ts-14c-cap)", fig.height=5.56, fig.width=6}
 # bulk plot list
 blk.ts.p.ls <- emmip.plot.all.fx(var = "PM", split_var = "ECO", 
                                  depths = c(1, 2), Type = "bulk soil")
@@ -824,17 +1934,23 @@ inc.ts.p.ls <- x.axis.white.fx(inc.ts.p.ls)
   
 # arrange in rows by ECO, cols by depth
 pg.fx <- function(plot.list, labs, lab_x) {
-  plot_grid(plotlist = plot.list, ncol = 1, labels = labs, label_x = .1, hjust = 0, label_size = 10)
+  plot_grid(plotlist = plot.list, ncol = 1, labels = labs, label_x = .3,
+            hjust = .05, label_size = 8, label_fontface = "plain")
 }
-blk.ts.10.p.g <- pg.fx(blk.ts.p.ls[[1]], labs = paste0(letters[seq(1, 5, 2)], ")")) 
-blk.ts.20.p.g <- pg.fx(blk.ts.p.ls[[2]], labs = paste0(letters[seq(2, 6, 2)], ")")) 
-inc.ts.10.p.g <- pg.fx(inc.ts.p.ls[[1]], labs = paste0(letters[seq(7, 11, 2)], ")")) 
-inc.ts.20.p.g <- pg.fx(inc.ts.p.ls[[2]], labs = paste0(letters[seq(8, 12, 2)], ")")) 
+clms <- c(" warm", " cool", " cold")
+blk.ts.10.p.g <- pg.fx(
+  blk.ts.p.ls[[1]], labs = paste0("(", letters[seq(1, 5, 2)], ")", clms, ", 0–0.1 m"))
+blk.ts.20.p.g <- pg.fx(
+  blk.ts.p.ls[[2]], labs = paste0("(", letters[seq(2, 6, 2)], ")", clms, ", 0.1–0.2 m")) 
+inc.ts.10.p.g <- pg.fx(
+  inc.ts.p.ls[[1]], labs = paste0("(", letters[seq(7, 11, 2)], ")", clms, ", 0–0.1 m")) 
+inc.ts.20.p.g <- pg.fx(
+  inc.ts.p.ls[[2]], labs = paste0("(", letters[seq(8, 12, 2)], ")", clms, ", 0.1–0.2 m")) 
 
 # common y-axis labels by type
-blk.y.grob <- textGrob(expression(Delta*''^14*'C'[italic(bulk)]*' (‰)'), 
+blk.y.grob <- textGrob(expression(Delta*''^14*'C'[bolditalic(bulk)]*' (‰)'), 
                        gp = gpar(fontface = "bold", fontsize = 12), rot = 90)
-inc.y.grob <- textGrob(expression(Delta*''^14*'C'[italic(respired)]*' (‰)'), 
+inc.y.grob <- textGrob(expression(Delta*''^14*'C'[bolditalic(respired)]*' (‰)'), 
                        gp = gpar(fontface = "bold", fontsize = 12), rot = 90)
 
 # put plots together
@@ -957,7 +2073,7 @@ sra.PMeco.con.fx(sra.01.19.inc.d.10.df, 2019, "PM | ECO", out = "atm")
 # mean trends
 inc.PMeco.10.et.ECO.sum <- data.frame(inc.PMeco.10.et$emtrends) %>% 
   group_by(ECO) %>% 
-  summarize(across(year.trend, .fns = c(mean = mean, sd = sd)))
+  summarize(across(year.trend, .fns = c(mean = mean, sd = sd)), .groups = "drop")
 
 # 10-20
 inc.PMeco.20.lm <- lm(d14c ~ PM * ECO * year, sra.01.19.inc.d.20.df)
@@ -1059,19 +2175,19 @@ sra.blk.inc.aov.df %>%
 
 
 ### Bulk soil
-We observed a significant three-way interaction between parent material, climate, and time at all three depths in the linear models (**Eq. 1**) for $\Delta$^14^C~*bulk*~ (**Table \@ref(tab:models-anova)**). The change over time in $\Delta$^14^C~*bulk*~ was also affected by depth, with greater differences between 2001 and 2019 seen in the uppermost soil layer than in the deeper layers (**Fig. \@ref(fig:plot-ts-14c)**). We observed a significant decrease in $\Delta$^14^C~*bulk*~ in both warm and cool climate granitic soils for the uppermost soil layer, and additionally for the warm climate andesitic soils (**Fig. \@ref(fig:plot-ts-14c), a**). In the deeper soil layers (10-20 cm and 20-30 cm), we only observed a significant change over time in $\Delta$^14^C~*bulk*~ in the cool climate basalt and granite soils (**Fig. \@ref(fig:plot-ts-14c), b, c**).  $\Delta$^14^C~*bulk*~ of the cool climate andesitic soils remained essentially unchanged between 2001 and 2019 for all depths (**Fig. \@ref(fig:plot-ts-14c), a, b, c**), underscoring the importance of the interaction between parent material and climate for explaining temporal trends in $\Delta$^14^C~*bulk*~ as well as variance in a given year. 
 
-The relationship of $\Delta$^14^C~*bulk*~ to atmospheric $\Delta$^14^C also depended on the combination of parent material and climate. In 2001, the warm climate sites were the only sites where the basaltic and andesitic soils were enriched relative to the atmosphere, and this enrichment was only observed for the uppermost soil layer (**Fig. \@ref(fig:plot-ts-14c))**). In contrast, granitic soils at both the warm and cool granitic sites were enriched relative to the atmosphere in 2001 (**Fig. \@ref(fig:plot-ts-14c)**). For the cold climate sites, where $\Delta$^14^C~*bulk*~ was most similar, all three lithologies were depleted relative to atmospheric in both surface and subsoil layers (**Fig. \@ref(fig:plot-ts-14c)**). 
+We observed a significant three-way interaction between parent material, climate, and time at all three depths in the linear models (**Eq. 1**) for $\Delta$^14^C~*bulk*~ (**Table \@ref(tab:models-anova)**). The change over time in $\Delta$^14^C~*bulk*~ was also affected by depth, with greater differences seen between 2001 and 2019 in the uppermost soil layer than in the deeper layers (**Fig. \@ref(fig:plot-ts-14c)**). We observed a significant decrease in $\Delta$^14^C~*bulk*~ over time in both warm and cool climate granitic soils for the uppermost soil layer (0-0.1 m), and additionally for the warm climate andesitic soils (**Fig. \@ref(fig:plot-ts-14c), a**). In the deeper soil layers (0.1-0.2 m and 0.2-0.3 m), we only observed a significant change over time in $\Delta$^14^C~*bulk*~ for the cool climate basalt and granite soils (**Fig. \@ref(fig:plot-ts-14c), c, d**, 0.2-0.3 m data not shown).  $\Delta$^14^C~*bulk*~ of the cool climate andesitic soils remained essentially unchanged between 2001 and 2019 for all depths (**Fig. \@ref(fig:plot-ts-14c), c, d**, 0.2-0.3 m data not shown), underscoring the importance of the interaction between parent material and climate for explaining temporal trends in $\Delta$^14^C~*bulk*~. 
 
-We observed that $\Delta$^14^C~*bulk*~ tended to decrease or remain unchanged between 2001 and 2019 across sites, but the rates of change in $\Delta$^14^C~*bulk*~ were typically smaller than the corresponding change in atmospheric $\Delta$^14^C over the same period. Accordingly, $\Delta$^14^C~*bulk*~ measured in 2019 tended to be enriched relative to the atmosphere at more sites, and also deeper into the soil than in 2001. We observed surface soil $\Delta$^14^C~*bulk*~ (0-10 cm) in 2019 to be enriched relative to the atmosphere at all sites except for the cool climate andesite soils (**Fig. \@ref(fig:plot-ts-14c); Fig. \@ref(fig:blk-inc-pro-19), d-f**). Furthermore, $\Delta$^14^C~*bulk*~ remained enriched relative to the atmosphere down to 30 cm at two of the sites in 2019: the warm climate granite soil (**Fig. \@ref(fig:blk-inc-pro-19), d**) and cold climate basalt soil (**Fig. \@ref(fig:blk-inc-pro-19), f**). $\Delta$^14^C~*bulk*~ at the cool andesite site was the most depleted relative to the atmosphere at all time points (**Fig. \@ref(fig:plot-ts-14c)**).
+The relationship of $\Delta$^14^C~*bulk*~ to atmospheric $\Delta$^14^C also depended on the combination of parent material and climate. In 2001, the warm climate sites were the only sites where the basaltic and andesitic soils were enriched relative to the atmosphere, and this enrichment was only observed for the uppermost soil layer (**Fig. \@ref(fig:plot-ts-14c))**). In contrast, granitic soils at both the warm and cool climate sites were enriched relative to the atmosphere in 2001 (**Fig. \@ref(fig:plot-ts-14c)**). For the cold climate sites, where $\Delta$^14^C~*bulk*~ was most similar, all three lithologies were depleted relative to atmospheric in both surface and subsoil layers in 2001 (**Fig. \@ref(fig:plot-ts-14c), e, f**). 
+
+We observed that $\Delta$^14^C~*bulk*~ tended to decrease or remain unchanged between 2001 and 2019 across sites, but the rates of change in $\Delta$^14^C~*bulk*~ were typically smaller than the corresponding change in atmospheric $\Delta$^14^C over the same period. Accordingly, $\Delta$^14^C~*bulk*~ measured in 2019 tended to be enriched relative to the atmosphere at more sites, and also more enriched at depth than in 2001. We observed surface soil $\Delta$^14^C~*bulk*~ (0-0.1 m) in 2019 to be enriched relative to the atmosphere at all sites except for the cool climate andesite soils (**Fig. \@ref(fig:plot-ts-14c); Fig. \@ref(fig:blk-inc-pro-19), d-f**). Furthermore, $\Delta$^14^C~*bulk*~ was enriched relative to the atmosphere down to 30 cm at two of the sites in 2019: the warm climate granite soil (**Fig. \@ref(fig:blk-inc-pro-19), d**) and cold climate basalt soil (**Fig. \@ref(fig:blk-inc-pro-19), f**). $\Delta$^14^C~*bulk*~ at the cool climate andesite site was the most depleted relative to the atmosphere at all time points (**Fig. \@ref(fig:plot-ts-14c)**).
 
 ### Heterotrophically respired CO~2~
+Temporal trends in $\Delta$^14^C~*respired*~ tended to be of greater magnitude than what we observed for $\Delta$^14^C~*bulk*~ (**Fig. \@ref(fig:plot-ts-14c), g-l**). However, changes in $\Delta$^14^C~*respired*~ between 2001 and 2019 still tended to be smaller in magnitude than the change observed in the atmosphere over this period (**Fig. \@ref(fig:plot-ts-14c), g-l**). In contrast to $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~ values of both surface and near surface soils (0-0.2 m) were close to atmospheric levels in 2001, while in 2019, $\Delta$^14^C~*respired*~ tended to be enriched relative to the atmosphere, even for the deeper soil layers (**Fig. \@ref(fig:plot-ts-14c), g-l**).
 
-Temporal trends in $\Delta$^14^C~*respired*~ were similar to what we observed for $\Delta$^14^C~*bulk*~, but tended to be of greater magnitude (**Fig. \@ref(fig:plot-ts-14c), g-l**). Although greater than the change over time we observed in $\Delta$^14^C~*bulk*~, changes in $\Delta$^14^C~*respired*~ between 2001 and 2019 still tended to be smaller in magnitude than the change observed in the atmosphere over this period (**Fig. \@ref(fig:plot-ts-14c), g-l**). In contrast to $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~ tended to be indistinguishable or enriched relative to the atmosphere in 2001, while the majority of samples were enriched relative to the atmosphere in 2019, even at depth (**Fig. \@ref(fig:plot-ts-14c), g-l**).
+We saw significant decreases in $\Delta$^14^C~*respired*~ values of surface (0-0.1 m) soils at seven of the nine sites, with the only exceptions being the cool climate andesitic and cold climate granitic sites (**Fig. \@ref(fig:plot-ts-14c), g-l**). In absolute terms, the changes in $\Delta$^14^C~*respired*~ over time in the uppermost soil layer were greatest at the warm sites (`r round(inc.PMeco.10.et.ECO.sum[1,2],1)` ±`r round(inc.PMeco.10.et.ECO.sum[1,3],1)` per mil yr^-1^), while changes were similar for the cool and cold sites (`r round(inc.PMeco.10.et.ECO.sum[2,2],1)` ±`r round(inc.PMeco.10.et.ECO.sum[2,3],1)` per mil yr^-1^, and `r round(inc.PMeco.10.et.ECO.sum[3,2],1)` ±`r round(inc.PMeco.10.et.ECO.sum[3,3],1)` per mil yr^-1^, respectively). When considered within parent materials, granitic soils showed the greatest decrease in $\Delta$^14^C~*respired*~ over time at the warm climate site and the least change at the cold climate site. In contrast, the andesitic soils showed the least amount of change over time at the cool climate sites, while changes over time in the basaltic soils were similar across all three climate regimes. The magnitude of the change in $\Delta$^14^C~*respired*~ over time tended to decrease with depth for all soils. We observed significant negative trends over time for $\Delta$^14^C~*respired*~ at only four of the nine sites for the 0.1-0.2 m layer (warm andesite, cool basalt, cool granite, and cold basalt) (**Fig. \@ref(fig:plot-ts-14c)**), and only one site for the 0.2-0.3 m layer (cold basalt) (SI Fig. XX). $\Delta$^14^C~*respired*~ at the cool andesitic soils remained unchanged at all depths over the study period. 
 
-We saw significant decreases in surface (0-10 cm) soil $\Delta$^14^C~*respired*~ at seven of the nine sites, with the only exceptions being the cool andesitic and cold granitic sites (**Fig. \@ref(fig:plot-ts-14c), g-l**). In absolute terms, the changes in $\Delta$^14^C~*respired*~ over time in the uppermost soil layer were greatest at the warm sites (`r round(inc.PMeco.10.et.ECO.sum[1,2],1)` per mil ±`r round(inc.PMeco.10.et.ECO.sum[1,3],1)` yr^-1^), while changes were similar for the cool and cold sites (`r round(inc.PMeco.10.et.ECO.sum[2,2],1)` per mil ±`r round(inc.PMeco.10.et.ECO.sum[2,3],1)` yr^-1^, and `r round(inc.PMeco.10.et.ECO.sum[3,2],1)` per mil ±`r round(inc.PMeco.10.et.ECO.sum[3,3],1)` yr^-1^, respectively). When considered within parent materials, granitic soils showed the greatest decrease in $\Delta$^14^C~*respired*~ over time at the warm climate site and the least change at the cold climate site. In contrast, the andesitic soils showed the least amount of change over time at the cool climate sites, while changes over time in the basaltic soils were similar across all three climate regimes. The magnitude of the change in $\Delta$^14^C~*respired*~ over time tended to decrease with depth for all soils. We observed significant negative trends over time for $\Delta$^14^C~*respired*~ at only four of the nine sites for the 10-20 cm layer (warm andesite, cool basalt, cool granite, and cold basalt) (**Fig. \@ref(fig:plot-ts-14c)**), and only one site for the 20-30 cm layer (cold basalt) (SI). $\Delta$^14^C~*respired*~ at the cool andesitic soils remained unchanged at all depths over the study period. 
-
-We observed a significant increase in $\Delta$^14^C~*respired*~ from 2001 to 2019 at only one site: from the cold climate granitic soils (**Fig. \@ref(fig:plot-ts-14c)**). These were also the only soils for which $\Delta$^14^C~*respired*~ was more depleted than $\Delta$^14^C~*bulk*~. We observed this anomaly for the deeper soil layers in both 2001 and 2019. We observed $\Delta$^14^C~*respired*~ values of `r round(range(sra.01.inc.GRrf.df[3:4, 11]),1)` per mil for the 8-27 cm layer in 2001, compared to $\Delta$^14^C~*bulk*~ values between `r round(range(sra.2001.ls$GRrf %>% filter(lyr_bot == 27) %>% select(d14c)),1)`. Similarly, we observed $\Delta$^14^C~*respired*~ values of `r round(range(sra.19.inc.GRrf.df[3:4, 11]),1)` per mil for the 10-20 cm layer in 2019, compared to `r round(range(sra.2019.ls$GRrf %>% filter(lyr_bot == 20) %>% select(d14c)),1)` for $\Delta$^14^C~*bulk*~ (SI Table X). However, since these anomalous values of $\Delta$^14^C~*respired*~ were restricted to the deeper soil layers from this one site and were consistent over time, the response appears to be a laboratory artifact unique to these soils. Accordingly, we have excluded these highly depleted samples from the statistical analyses.
+We observed a significant increase in $\Delta$^14^C~*respired*~ from 2001 to 2019 at only one site: the cold climate granitic soil (**Fig. \@ref(fig:plot-ts-14c)**). This was also the only soil for which $\Delta$^14^C~*respired*~ was more depleted than $\Delta$^14^C~*bulk*~. We observed this anomaly for the deeper soil layers in both 2001 and 2019. We observed $\Delta$^14^C~*respired*~ values of `r as.character(round(range(sra.01.inc.GRrf.df[3:4, 12]),0))` per mil for the 0.08-0.27 m layer in 2001, compared to $\Delta$^14^C~*bulk*~ values between `r round(range(sra.2001.ls$GRrf %>% filter(lyr_bot == 27) %>% select(d14c)),0)`. Similarly, we observed $\Delta$^14^C~*respired*~ values of `r round(range(sra.19.inc.GRrf.df[3:4, 12]),0)` per mil for the 0.1-0.2 m layer in 2019, compared to `r round(range(sra.2019.ls$GRrf %>% filter(lyr_bot == 20) %>% select(d14c)),0)` for $\Delta$^14^C~*bulk*~ (SI Table X). However, since these anomalous values of $\Delta$^14^C~*respired*~ were restricted to the deeper soil layers from this one site, and were consistent over time, the response appears to be a laboratory artifact unique to these soils. Accordingly, we have excluded these highly depleted samples from the statistical analyses.
 
 ## Relationship of bulk soil and respired CO~2~ $\Delta$^14^C
 
@@ -1082,15 +2198,17 @@ We observed a significant increase in $\Delta$^14^C~*respired*~ from 2001 to 201
 sra.01.19.inc.blk.w <- rbind(
   pivot_wider(sra.01.inc.blk,
               names_from = Type,
-              values_from = starts_with("d14c")),
+              values_from = starts_with("d14c")) %>% 
+    mutate(Year = 2001),
   pivot_wider(sra.19.inc.blk, 
               names_from = Type,
-              values_from = starts_with("d14c"))) %>%
+              values_from = starts_with("d14c"))%>% 
+    mutate(Year = 2019)) %>%
   filter(d14c_mean_inc > -200) %>%
-  filter(lyr_bot != 0)
-
-# save data
-write.csv(sra.01.19.inc.blk.w, "sra.01.19.inc.blk.w.csv")
+  filter(lyr_bot != 0) %>%
+  mutate(pm = factor(recode(PM, `AN` = "andesite", `BS` = "basalt", `GR` = "granite")),
+         eco = factor(recode(ECO, `pp` = "warm", `wf` = "cool", `rf` = "cold"),
+                      levels = c("warm", "cool", "cold")))
 
 # Trend for means
 # NB: Model setup
@@ -1110,9 +2228,9 @@ eco.mod <- lm(d14c_mean_inc ~ d14c_mean_bulk * eco, sra.01.19.inc.blk.w)
 eco.mod.emt <- emtrends(eco.mod, pairwise ~ eco, var = "d14c_mean_bulk")
 ```
 
-We assessed the relationship between $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ using linear regression models for parent material (**Eq. 3**) and climate (**Eq. 4**). We observed $\Delta$^14^C~*respired*~ to be enriched relative to $\Delta$^14^C~*bulk*~ for almost all sites and all depths, but that the magnitude of the difference depended on both parent material and climate. Accordingly, y-intercepts for all models were equal to or greater than zero, indicating that respired CO^2^ in these soils is predominantly modern (i.e. < 60 years old) for all but the deepest soil layers, regardless of parent material or climate regime. We found the largest y-intercept values for the soils developed on andesitic parent material and for soils in the cool climate zones, indicating that these soils are relatively enriched in decadally cycling bomb-C. 
+We assessed the relationship between $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ using linear regression models for parent material (**Eq. 3**) and climate (**Eq. 4**). We observed $\Delta$^14^C~*respired*~ to be enriched relative to $\Delta$^14^C~*bulk*~ for almost all sites and all depths, but that the magnitude of the difference depended on both parent material and climate. Accordingly, y-intercepts for all models were equal to or greater than zero, indicating that respired CO~2~ in these soils is predominantly modern (i.e. < 60 years old) for all but the deepest soil layers, regardless of parent material or climate regime. We found the largest y-intercept values for the soils developed on andesitic parent material, and for soils in the cool climate zones, which indicates that CO~2~ respired from these soils is relatively enriched in decadally cycling bomb-C. 
 
-Slope values less than 1 in these models indicate that every per mille change in $\Delta$^14^C~*bulk*~ is associated with a correspondingly smaller change in $\Delta$^14^C~*respired*~. This suggests that the process or processes regulating persistence of soil C on long time scales are distinct from those that regulate the more transient soil C that is being actively respired. Similar to what we found for the y-intercepts, modeled slopes for the parent material-only model were smallest for the andesitic soils (slope = `r round(data.frame(pm.mod.emt$emtrends)[1,2],2)`, 95% CI = [`r round(data.frame(pm.mod.emt$emtrends)[1,5],2)`, `r sprintf("%.2f", round(data.frame(pm.mod.emt$emtrends)[1,6],2))`]) (**Fig. \@ref(fig:blk-inc-plots), a**), and for cool climate soils in the climate-only model (**Eq. 3**) (slope = `r round(data.frame(eco.mod.emt$emtrends)[2,2], 2)`, 95% CI = [`r round(data.frame(eco.mod.emt$emtrends)[2,5], 2)`, `r round(data.frame(eco.mod.emt$emtrends)[2,6], 2)`]) (**Fig. \@ref(fig:blk-inc-plots), b**). While we could not directly test the interaction of parent material and climate factors in these models owing to the limited number of observations, we observed that mean differences in $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ were substantially greater for the cool climate soils developed on andesitic parent material than for the other sites. 
+Slope values less than 1 in these models indicate that every per mille change in $\Delta$^14^C~*bulk*~ is associated with a correspondingly smaller change in $\Delta$^14^C~*respired*~. This suggests that the process regulating persistence of soil C on long time scales is distinct from that which regulates more transiently cycling soil C. Similar to what we found for the y-intercepts, modeled slopes for the parent material-only model (**Eq. 2**) were smallest for the andesitic soils (slope = `r round(data.frame(pm.mod.emt$emtrends)[1,2],2)`, 95% CI = [`r round(data.frame(pm.mod.emt$emtrends)[1,5],2)`, `r sprintf("%.2f", round(data.frame(pm.mod.emt$emtrends)[1,6],2))`]) (**Fig. \@ref(fig:blk-inc-plots), a**), and for cool climate soils in the climate-only model (**Eq. 3**) (slope = `r round(data.frame(eco.mod.emt$emtrends)[2,2], 2)`, 95% CI = [`r round(data.frame(eco.mod.emt$emtrends)[2,5], 2)`, `r round(data.frame(eco.mod.emt$emtrends)[2,6], 2)`]) (**Fig. \@ref(fig:blk-inc-plots), b**). While we could not directly test the interaction of parent material and climate factors in these models owing to the limited number of observations, we observed that mean differences in $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ were substantially greater for the cool climate soils developed on andesitic parent material than for the other sites. 
 
 (ref:blk-inc-plots-cap) Parent material and climate effects on the relationship of $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~. ^a)^ Parent material model **(Eq. 3)** and ^b)^ Climate model **(Eq. 4)**. Dotted line shows 1:1 relationship. Points show the mean of three replicate profiles for bulk soil, and the mean of laboratory duplicates for respired CO~2~. Error bars show ±1 SD for bulk soils and the minimum and maximum for respired CO~2~. Respired CO~2~ from the cold granite site in 2001 was extremely depleted in $\Delta$^14^C and thus is excluded for display purposes.
 
@@ -1202,7 +2320,7 @@ eco.blk.inc.p <- blk.inc.plot.fx(data = sra.01.19.inc.blk.w, var = "eco") +
 
 # plot grid
 blk.inc.p.g <- plot_grid(pm.blk.inc.p, eco.blk.inc.p, 
-                         labels = c("a)", "b)"), label_x = .25, label_y = .82,
+                         labels = c("(a)", "(b)"), label_x = .25, label_y = .82,
                          align = "hv")
 
 # get legends
@@ -1224,55 +2342,79 @@ plot_grid(blk.inc.p.g, blk.inc.legend, rel_widths = c(3, .7))
 ## Mineral assemblages and radiocarbon
 
 ```{r min-stats, include = FALSE}
-# load data
-load("sra.all.30.min.conc.wtd.RData")
-load("sra.blk.inc.rep.30.df.RData")
-load("flx.14c.rep.01.sp.RData")
-
 ## linear models
 # dif (uses means; could use all combos...?)
 sra.all.30.min.conc.wtd.wide <- sra.all.30.min.conc.wtd %>%
   filter(PMeco != "GRrf") %>%
-  pivot_wider(names_from = min, values_from = conc)
-# NB: year not significant as additive or interaction term
-summary(lm(blk.inc ~ Al_ox, sra.all.30.min.conc.wtd.wide)) # R2 = 0.49, p = 0.0015
-summary(lm(blk.inc ~ Al_py, sra.all.30.min.conc.wtd.wide)) # R2 = 0.55, p = 0.0006
-summary(lm(blk.inc ~ Fe_ox, sra.all.30.min.conc.wtd.wide)) # R2 = 0.53, p = 0.0008
-summary(lm(blk.inc ~ Fe_dc, sra.all.30.min.conc.wtd.wide)) # ns
-summary(lm(blk.inc ~ Fe_dc, sra.all.30.min.conc.wtd.wide[sra.all.30.min.conc.wtd.wide$eco != "warm", ])) 
-# R2 = 0.47, p = 0.017
+  pivot_wider(names_from = min, values_from = conc_gkg_wtd) %>%
+  mutate(blk.inc = d14c_wtd_inc_mean - d14c_wtd_blk_mean,
+         Year = year,
+         year = year - 2000)
+summary(lm(blk.inc ~ Al_ox + year, sra.all.30.min.conc.wtd.wide)) # R2 = 0.57, p = 0.0024
+summary(lm(blk.inc ~ Al_py + year, sra.all.30.min.conc.wtd.wide)) # R2 = 0.64, p = 0.0009
+summary(lm(blk.inc ~ Fe_ox + year, sra.all.30.min.conc.wtd.wide)) # R2 = 0.68, p = 0.0004
+summary(lm(blk.inc ~ Fe_dc + year, sra.all.30.min.conc.wtd.wide)) # ns
+summary(lm(blk.inc ~ Fe_dc + year, sra.all.30.min.conc.wtd.wide[-which(grepl("pp", sra.all.30.min.conc.wtd.wide$PMeco)), ])) 
+# R2 = 0.46, p = 0.067
 sra.all.30.min.conc.wtd.wide %>%
   mutate(FeCrys = Fe_dc - Fe_ox) %>%
-  lm(blk.inc ~ FeCrys, .) %>%
+  lm(blk.inc ~ FeCrys + year, .) %>%
   summary() # ns
 sra.all.30.min.conc.wtd.wide %>%
   mutate(NonCrys = Al_ox + .5 * Fe_ox) %>%
-  lm(blk.inc ~ NonCrys, .) %>%
-  summary() # R2 = 0.51 (less than Al_ox or Fe_ox alone), p = 0.0013
+  lm(blk.inc ~ NonCrys + year, .) %>%
+  summary() # R2 = 0.58 (less than Al_ox or Fe_ox alone), p = 0.0021
 
-# reps
-load("sra.blk.inc.rep.30.df.RData")
+## Reps df for mods 
+# blk.inc
 sra.blk.inc.rep.min.30.df <- merge(
-  sra.blk.inc.rep.30.df,
-  sra.all.30.min.conc.wtd[sra.all.30.min.conc.wtd$year == 2001, c("PMeco", "min", "conc")] %>%
-    pivot_wider(names_from = min, values_from = conc)) %>%
+  inc.blk.rep.30.wtd.df, # merge reps w/ min data
+  min.sp.wtd.30.df %>%
+    pivot_wider(names_from = min, values_from = conc_gkg_wtd)) %>%
   mutate(NonCrys = Al_ox + .5 * Fe_ox,
          Fe_cr = Fe_dc - Fe_ox,
-         Year = factor(year), 
-         inc.blk = d14c_inc - d14c_blk)
+         Year = factor(year),
+         year = year - 2000,
+         inc.blk = d14c_wtd_inc - d14c_wtd_blk)
+# save
+save(sra.blk.inc.rep.min.30.df, file = "sra.blk.inc.rep.min.30.df.RData")
+
+# blk
+sra.blk.30.min.conc.wtd.w <- sra.blk.30.min.conc.wtd %>%
+  pivot_wider(names_from = min, values_from = conc_gkg_wtd) %>%
+  mutate(NonCrys = Al_ox + .5 * Fe_ox,
+         Fe_cr = Fe_dc - Fe_ox,
+         Year = factor(year),
+         year = year - 2000)
+# save
+save(sra.blk.30.min.conc.wtd.w, file = "sra.blk.30.min.conc.wtd.w.RData")
+
+# inc
+sra.inc.30.min.conc.wtd.w <- sra.inc.30.min.conc.wtd %>%
+  pivot_wider(names_from = min, values_from = conc_gkg_wtd) %>%
+  mutate(NonCrys = Al_ox + .5 * Fe_ox,
+         Fe_cr = Fe_dc - Fe_ox,
+         Year = factor(year),
+         year = year - 2000)
+# save
+save(sra.inc.30.min.conc.wtd.w, file = "sra.inc.30.min.conc.wtd.w.RData")
 
 # mods
 # non-crystalline
-NonCrys.inc.blk.mod <- lm(inc.blk ~ NonCrys + Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
-NonCrys.blk.mod <- lm(d14c_blk ~ NonCrys + Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
-NonCrys.inc.mod <- lm(d14c_inc ~ NonCrys + Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
+NonCrys.inc.blk.mod <- lm(inc.blk ~ NonCrys + year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
+NonCrys.blk.mod <- lm(d14c_wtd ~ NonCrys + year, sra.blk.30.min.conc.wtd.w)
+NonCrys.inc.mod <- lm(d14c_wtd ~ NonCrys + year, sra.inc.30.min.conc.wtd.w[sra.inc.30.min.conc.wtd.w$PMeco != "GRrf", ])
+NonCrys.inc.01.mod <- sra.inc.30.min.conc.wtd.w %>% 
+  filter(PMeco != "GRrf") %>% 
+  filter(year == 1) %>% 
+  lm(d14c_wtd ~ NonCrys, .)
 
 # crystalline
-crys.inc.blk.mod <- lm(inc.blk ~ Fe_cr + Year,
+crys.inc.blk.mod <- lm(inc.blk ~ Fe_cr + year,
      sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
-crys.blk.mod <- lm(d14c_blk ~ Fe_cr + Year, sra.blk.inc.rep.min.30.df)
-crys.inc.mod <- lm(d14c_inc ~ Fe_cr + Year,
-     sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
+crys.blk.mod <- lm(d14c_wtd ~ Fe_cr + year, sra.blk.30.min.conc.wtd.w)
+crys.inc.mod <- lm(d14c_wtd ~ Fe_cr + year,
+     sra.inc.30.min.conc.wtd.w[sra.inc.30.min.conc.wtd.w$PMeco != "GRrf", ])
 
 # pval fxs
 p.coef.fx <- function(lm, r, c) {
@@ -1288,26 +2430,11 @@ p.mod.fx <- function(lm, print = TRUE) {
     ifelse(p < 0.001, "<0.001", p)
   }
 }
-
-
-# bulk
-summary(lm(d14c_blk ~ Al_ox + Year, sra.blk.inc.rep.min.30.df))
-summary(lm(d14c_blk ~ Al_py + Year, sra.blk.inc.rep.min.30.df))
-summary(lm(d14c_blk ~ Fe_ox + Year, sra.blk.inc.rep.min.30.df))
-summary(lm(d14c_blk ~ Fe_dc + Year, 
-           sra.blk.inc.rep.min.30.df[-grep("pp", sra.blk.inc.rep.min.30.df$PMeco), ]))
-
-# inc 
-# NB: 1) no Fe_dc due to GRrf issues
-#     2) Year interaction sig. for Al_py, Fe_ox; 2001 slope flat for those mins
-summary(lm(d14c_inc ~ Al_ox + Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])) # R2 = 0.68, p < 0.0001
-summary(lm(d14c_inc ~ Al_py * Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])) # R2 = 0.69, p < 0.0001
-summary(lm(d14c_inc ~ Fe_ox * Year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])) # R2 = 0.68, p < 0.0001
 ```
 
-Mineral assemblage data is reported fully in Rasmussen et al. (2018). Here we focus on the selective dissolution data with respect to the trends we observed in $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~, and the difference between bulk and respired ^14^C, $\Delta$^14^C~*respired-bulk*~. We observed a significant negative correlation between $\Delta$^14^C~*bulk*~ and the concentration of oxalate extractable iron, oxalate extractable aluminum, and pyrophosphate extractable aluminum (SI). For simplicity, we focus here on the sum of oxalate extractable aluminum and half of the oxalate extractable iron as a proxy for non-crystalline metal oxide abundance, and the difference of dithionite-citrate extractable iron and ammonium-oxalate extractable iron as a proxy for crystalline Fe-oxide abundance. The relationship between non-crystalline oxide abundance and $\Delta$^14^C~*bulk*~ was highly significant (*p* `r p.coef.fx(NonCrys.blk.mod,2,4)`), with the model explaining `r round(summary(NonCrys.blk.mod)$adj.r.squared,0)*100` percent of the observed variation. In contrast, we did not find a significant relationship between crystalline Fe-oxide abundance and $\Delta$^14^C~*bulk*~. 
+Mineral assemblage data is reported fully in Rasmussen et al. (2018). Here we focus on the selective dissolution data with respect to the trends we observed in $\Delta$^14^C~*bulk*~, $\Delta$^14^C~*respired*~, and $\Delta$^14^C~*respired-bulk*~. We observed a significant negative correlation between $\Delta$^14^C~*bulk*~ and the concentration of oxalate extractable iron, oxalate extractable aluminum, and pyrophosphate extractable aluminum (SI). For simplicity, we focus here on the sum of oxalate extractable aluminum and half of the oxalate extractable iron as a proxy for non-crystalline metal oxide abundance, and the difference of dithionite-citrate extractable iron and ammonium-oxalate extractable iron as a proxy for crystalline Fe-oxide abundance. The relationship between non-crystalline oxide abundance and $\Delta$^14^C~*bulk*~ was highly significant (*p* `r p.coef.fx(NonCrys.blk.mod,2,4)`), while the relationship between crystalline Fe-oxide abundance and $\Delta$^14^C~*bulk*~ was not significant (**Fig. \@ref(fig:plot-min-14c-0-30-blk-inc)**).
 
-We also observed a significant (*p* = `r p.coef.fx(NonCrys.inc.mod,2,4)`) negative relationship between $\Delta$^14^C~*respired*~ and non-crystalline oxide abundance, although it was not as strong as the $\Delta$^14^C~*bulk*~ relationship. However, we observed a stronger relationship between poorly crystalline oxide abundance and $\Delta$^14^C~*respired-bulk*~ (**Fig. \@ref(fig:plot-min-14c-0-30-blk-inc), a**) than for either $\Delta$^14^C~*bulk*~ or $\Delta$^14^C~*respired*~. As with $\Delta$^14^C~*bulk*~, there was no relationship with crystalline Fe-oxide abundance for either $\Delta$^14^C~*respired*~ or $\Delta$^14^C~*respired-bulk*~ (**Fig. \@ref(fig:plot-min-14c-0-30-blk-inc), b**).
+We observed a significant relationship between $\Delta$^14^C~*respired*~ and poorly crystalline metal oxide abundance for the 2001 samples (*p* = `r p.coef.fx(NonCrys.inc.01.mod,2,4)`), but not for the 2019 samples. Accordingly, the combined set of 2001 and 2019 data was only marginally significant(*p* = `r p.coef.fx(NonCrys.inc.mod,2,4)`). However, we did see a highly significant relationship between poorly crystalline metal oxide abundance and $\Delta$^14^C~*respired-bulk*~ (**Fig. \@ref(fig:plot-min-14c-0-30-blk-inc), a**). As with $\Delta$^14^C~*bulk*~, there was no relationship with crystalline Fe-oxide abundance for either $\Delta$^14^C~*respired*~ or $\Delta$^14^C~*respired-bulk*~  (**Fig. \@ref(fig:plot-min-14c-0-30-blk-inc), b**). 
 
 ```{r plot-min-setup, include = FALSE}
 # plot fx (for reps df)
@@ -1373,6 +2500,7 @@ blk.inc.min.30.plot.fx <- function(df, d14c_var,
                                   "cold (2019)" = 1)) +
     scale_linetype_manual(name = NULL,
                           values = c("2001" = 1, "2019" = 2)) +
+    scale_y_continuous(limits = c(-30, 170)) +
     theme_bw() +
     theme(panel.grid = element_blank(),
           axis.title = element_blank(),
@@ -1410,15 +2538,16 @@ blk.inc.min.30.p.ls <- list(
   theme(axis.text.y = element_text(color = "white")))
 
 # common y axis label
-x.grob <- textGrob(expression('Mineral concentration (g kg'^-2*')'),
+x.grob <- textGrob(expression('Metal concentration (g kg'^-2*')'),
                    gp = gpar(fontface = "bold", fontsize = 14))
 y.grob <- textGrob(expression(Delta*''^14*'C'[italic(respired)]- Delta*''^14*'C'[italic(bulk)]*' (‰)'),
                    gp = gpar(fontface = "bold", fontsize = 14), rot = 90)
 
 # add labels
 pg <- arrangeGrob(
-  plot_grid(plotlist = blk.inc.min.30.p.ls, nrow = 1, labels = c("a)", "b)"),
-            label_size = 12, label_x = .12, label_y = .95),
+  plot_grid(plotlist = blk.inc.min.30.p.ls, nrow = 1, 
+            labels = c("(a)", "(b)"), label_size = 12, 
+            label_x = .12, label_y = .95),
   left = y.grob, bottom = x.grob)
 
 # add legend
@@ -1434,19 +2563,20 @@ blk.inc.30.lg <- get_legend(
 )
 
 # add text annotations
-NonCrys.R2 <- round(summary(NonCrys.inc.blk.mod)$adj.r.squared, 2)
+NonCrys.p <- p.coef.fx(NonCrys.inc.blk.mod, 2, 4)
+Crys.p <- p.coef.fx(crys.inc.blk.mod, 2, 4)
 p3 <- add_sub(
   add_sub(
     pg, 
-    expr(paste(italic(R)^2, " = ", !! NonCrys.R2, "***")), 
+    expr(paste("PCM, ", italic(p), " = ", !! NonCrys.p)), 
     vpadding = grid::unit(0, "lines"),
-    x = .3, y = -1.8),
-  expr(italic(ns)),
+    x = .27, y = -2.8, size = 11),
+  expr(paste("CRM, ", italic(p), " = ", !! Crys.p)),
   vpadding = grid::unit(0, "lines"),
-  x = .8, y = -3)
+  x = .76, y = -1.8, size = 11)
 ```
 
-(ref:plot-min-14c-0-30-blk-inc-cap) Relationship of poorly crystalline and crystalline minerals to the difference of $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ ($\Delta$^14^C~*respired-bulk*~). ^a)^ Poorly crystalline metal oxide content (oxalate-extractable aluminum + 1/2 oxalate-extractable iron), ^b)^ Crystalline Fe content (dithionite-extractable iron - oxalate-extractable iron). Points show mass-weighted mineral concentrations and carbon-weighted values of $\Delta$^14^C~*respired-bulk*~ for 0-30cm profiles. Lines show linear model fits from **Eq. 5**.
+(ref:plot-min-14c-0-30-blk-inc-cap) Relationship of poorly crystalline and crystalline minerals to the difference of $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ ($\Delta$^14^C~*respired-bulk*~). ^a)^ Poorly crystalline metal oxide content (oxalate-extractable aluminum + 1/2 oxalate-extractable iron), ^b)^ Crystalline Fe content (dithionite-extractable iron - oxalate-extractable iron). Points show mass-weighted mineral concentrations and carbon-weighted values of $\Delta$^14^C~*respired-bulk*~ for 0-30cm profiles. Lines show partial slopes for 2001 and 2019 from the linear model fit (**Eq. 5**).
 
 ```{r plot-min-14c-0-30-blk-inc, fig.cap = "(ref:plot-min-14c-0-30-blk-inc-cap)"}
 # plot
@@ -1454,27 +2584,29 @@ plot_grid(p3, blk.inc.30.lg, ncol = 1, rel_heights = c(1, .25))
 ```
 
 # Discussion
-Climatic and mineralogical factors both play key roles in soil carbon persistence. However, the relevance of parent material for explaining soil organic matter persistence in soils with mixed mineralogies is still poorly explained. In the current study we illuminate how parent material interactions with climate lead to the development of distinct mineral assemblages, which in turn control the dynamics of soil C cycling at timescales ranging from annual to centennial. Our key findings are that soil mineral characteristics mediate climatic controls on soil C cycling, and that mineralogical controls on soil C cycling are not limited to soil C persistence on centennial timescales, but are also relevant for C cycling on shorter timescales as well. 
+
+Climatic and mineralogical factors both play key roles in soil carbon persistence. However, the relevance of parent material for explaining soil organic matter persistence in soils with mixed mineralogies is still poorly explained. In the current study we illuminate how parent material interactions with climate lead to the development of distinct mineral assemblages, which in turn control the dynamics of soil C cycling at timescales ranging from annual to centennial. Our key findings are that soil mineral characteristics mediate climatic controls on soil C cycling, and that mineralogical controls on soil C cycling are not limited to soil C persistence on centennial timescales, but are relevant for C cycling on shorter timescales as well. 
 
 Our results challenge the primacy of climatic controls on soil carbon persistence, insofar as we observed the most depleted $\Delta$^14^C~*bulk*~ in soils of the cool climate zone, not the cold climate zone. We found that climate is a critical factor for explaining the dynamics of both persistent and more transient soil C pools, as measured by proxy with $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~, respectively. However, our results indicate that soil mineral characteristics moderate the strength of the climate effect. This is particularly apparent at depth. These results are supported by a recent study in which the authors used a depth-resolved model with energy and substrate limitation prescribed by Michalis Menten kinetics to model profiles of $\Delta$^14^C~*bulk*~ (Ahrens et al. 2020). The authors found that site mean annual temperature could only explain a minimal amount of variation in the observed radiocarbon profiles, while varying sorption potential in the model allowed for a superior fit. 
 
-Previous work at our study sites showed that poorly crystalline metal oxides were key to explaining both soil C accumulation and $\Delta$^14^C~*bulk*~ values in these soils (Rasmussen et al., 2018). Our results confirm these findings and extend them to demonstrate a significant negative correlation between poorly crystalline metal oxides and $\Delta$^14^C~*respired*~. However, the interpretation of the relationship with $\Delta$^14^C~*respired*~ is complicated by bomb-C dynamics, as C fixed from the atmosphere in the past 5 years now has the same $\Delta$^14^C as C fixed in the latter half of the 19th century (Graven et al., 2017). We focus here instead on the difference between bulk and respired ^14^C, $\Delta$^14^C~*respired-bulk*~, which we observed to remain stable between 2001 and 2019. Focusing on $\Delta$^14^C~*respired-bulk*~ has the additional advantage of offering a unique insight into the magnitude of the difference between the cycling rates of persistent and more transiently cycling soil C. 
+Previous work at our study sites showed that poorly crystalline metal oxides were key to explaining both soil C accumulation and $\Delta$^14^C~*bulk*~ values in these soils (Rasmussen et al., 2018). Our results confirm these findings and extend them to demonstrate a significant correlation between poorly crystalline metal oxide abundance and $\Delta$^14^C~*respired-bulk*~ and a marginally significant correlation with $\Delta$^14^C~*respired*~. [say something about raw resp data and bombC issues]. However, we focus here on $\Delta$^14^C~*respired-bulk*~, as this metric offers a unique insight into the magnitude of the difference between the cycling rates of persistent and more transiently cycling soil C.
  
-We would expect the greatest differences between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ to be found in soils with a pool of old soil C protected from decomposition in some way, and another pool of soil C that is readily decomposed. In contrast, the smallest differences should occur for soils lacking strong soil C protection mechanisms, in which the majority of soil C has an equal probability of being decomposed by microbes. Accordingly, we observed the smallest differences between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ in the soils with the lowest concentration of poorly crystalline metal oxides, while we observed the largest differences in the soils with the highest concentrations of these minerals. We interpret these findings as providing evidence for a key role of poorly crystalline metal oxides in protecting soil organic matter from decomposition. The absolute values of $\Delta$^14^C~*bulk*~ at depth in the soils with low poorly crystalline metal oxide content (e.g. granitic soils) were depleted relative to the atmosphere, indicating persistent soil C, but we also observed similarly depleted values of $\Delta$^14^C~*respired*~ in these soils. This suggests that soil C persistence in soils lacking poorly crystalline metal oxides (or substantial concentrations of any other minerals known to protect soil C) is due to other physical constraints on decomposition that are alleviated under laboratory incubation conditions, for example transport or isolation [Gleixner et al., 2013].
+We would expect the greatest differences between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ to be found in soils with a pool of old soil C protected from decomposition in some way, and another pool of soil C that is readily decomposed. In contrast, the smallest differences should occur for soils lacking strong soil C protection mechanisms, in which the majority of soil C has an equal probability of being decomposed by microbes. Accordingly, we observed the smallest differences between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ in the soils with the lowest concentration of poorly crystalline metal oxides, while we observed the largest differences in the soils with the highest concentrations of these minerals. We interpret these findings as providing evidence for a key role of poorly crystalline metal oxides in protecting soil organic matter from decomposition. The values of $\Delta$^14^C~*bulk*~ in the subsurface layers (0.1-0.3 m) of the soils with low poorly crystalline metal oxide content (e.g. granitic soils) were depleted relative to the atmosphere, indicating persistent soil C, but we also observed similarly depleted values of $\Delta$^14^C~*respired*~ in these soils. This suggests that soil C persistence in these soils is due to other physical constraints on decomposition that are alleviated under laboratory incubation conditions, for example transport or isolation [Gleixner et al., 2013].
 
-The soils with the largest difference between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ were those that had both highly depleted $\Delta$^14^C~*bulk*~ values and $\Delta$^14^C~*respired*~ values that were enriched relative to the atmosphere. If we employ a theoretical compartmental model to interpret this finding, a possible scenario would involve one pool of centennial to millennially cycling soil C whose signal dominates the $\Delta$^14^C~*bulk*~ signal, and second pool of soil C enriched with C fixed from the atmosphere in the years immediately following the bomb-C spike, e.g. 1964 to 1990, whose signal dominates the $\Delta$^14^C~*respired*~ signal. More complex model structures could potentially be fit to these data, but the data provide clear evidence for the presence of at least two distinct pools with highly depleted C largely inaccessible to the microbial community, and another pool enriched with decadally cycling C dominating the respiration flux. This stands in contrast to the soils with $\Delta$^14^C~*respired*~ values close to that of the atmosphere, in which the respired signal is likely dominated by sub-decadally cycling C. 
+The soils with the largest difference between $\Delta$^14^C~*respired*~ and $\Delta$^14^C~*bulk*~ were those that had both strongly depleted values of $\Delta$^14^C~*bulk*~ and values of $\Delta$^14^C~*respired*~ that were enriched relative to the atmosphere. If we employ a theoretical compartmental model to interpret this finding, a possible scenario would involve one pool of centennial to millennial cycling soil C whose signal dominates the $\Delta$^14^C~*bulk*~ signal, and second pool of soil C enriched with C fixed from the atmosphere in the years immediately following the bomb-C spike, e.g. 1964 to 1990, whose signal dominates the $\Delta$^14^C~*respired*~ signal. More complex model structures could potentially be fit to these data, but the data provide clear evidence for the presence of at least two distinct pools with strongly depleted C largely inaccessible to the microbial community, and another pool enriched with decadally cycling C dominating the respiration flux. This stands in contrast to the soils with $\Delta$^14^C~*respired*~ values close to that of the atmosphere, in which the respired signal is likely dominated by sub-decadally cycling C. 
 
 Laboratory studies on soil organic matter associations with poorly crystalline metal oxides such as goethite show that only a portion of the organic matter is so tightly bound as to resist desorption (Kaiser and Guggenberger, 2003). Further studies have demonstrated that a portion of the organic matter can be mobilized by exchange with DOC (Leinemann et al., 2018). In this scenario the highly depleted $\Delta$^14^C~*bulk*~ values observed in the soils with high concentrations of poorly crystalline minerals may derive from organic matter that is strongly sorbed or trapped in micropores, while the bomb-C enriched decadally cycling C observed in the respiration flux could derive from the more microbially accessible and DOC-exchangeable mineral associated soil C pool. However, the rates of change over time that we observed for $\Delta$^14^C~*respired*~ indicate that annually cycling C is also an important component of soil organic matter at all of our sites. 
 
-Our finding that parent material explains more of the variation in $\Delta$^14^C~*respired*~ at depth than climate suggests the role of soil minerals in regulating annually to decadally cycling soil C is of particular importance in deeper soil layers. DOC has been shown to move downward through the soil profile via preferential sorption of new soil C inputs and corresponding desorption of older DOC, which is then available to the microbial community (Kaiser and Kalbitz, 2012). This process is mineral controlled, and while we did not test it directly, such a process could explain why we see the an increased importance of parent material, and the interaction between climate and parent material, for explaining $\Delta$^14^C~*respired*~ trends with depth.
+Our finding that parent material explains more of the variation in $\Delta$^14^C~*respired*~ at depth than climate suggests the role of soil minerals in regulating annually to decadally cycling soil C is of particular importance in deeper soil layers. DOC has been shown to move downward through the soil profile via preferential sorption of new soil C inputs and corresponding desorption of older DOC, which is then available to the microbial community (Kaiser and Kalbitz, 2012). This process is mineral controlled, and while we did not test it directly, such a process could explain why we see an increased importance of parent material, and the interaction between climate and parent material, for explaining $\Delta$^14^C~*respired*~ trends with depth.
 
-In contrast to what we observed for the poorly crystalline metal oxides, the lack of correlation we observed between crystalline Fe oxides and soil radiocarbon suggests that these minerals do not play an important role in explaining soil C persistence, at least in these soils. Other studies have shown that crystalline Fe oxides do protect soil C from microbial decomposition, but that the overall sorption capacity of these mineral species is low [?]. We observed a large increase in the amount of iron dissolved from crystalline minerals at the warm sites relative to the cool or cold sites, along with a corresponding decrease in soil C concentration and relative enrichment in both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~. This increase in crystalline iron was also associated with a corresponding decrease in the amount of poorly crystalline minerals. Together these trends suggest that these soils have lost poorly crystalline minerals through leaching and transformation into crystalline species. The patterns of carbon stocks, $\Delta$^14^C~*bulk*~, and $\Delta$^14^C~*respired*~ observed across the weathering gradient suggest that mineral weathering leads to a reduction in soil carbon stocks, which is caused by losses of old $\Delta$^14^C depleted carbon, and that this process is relevant across a range of igneous parent materials.
+In contrast to what we observed for the poorly crystalline metal oxides, the lack of correlation we observed between crystalline Fe oxides and soil radiocarbon suggests that these minerals do not play an important role in explaining soil C persistence, at least in these soils. Other studies have shown that crystalline Fe oxides do protect soil C from microbial decomposition, but that the overall sorption capacity of these mineral species is low [Kahle et al., 2003]. We observed a large increase in the amount of iron released from crystalline minerals (via selective dissolution) at the warm sites relative to the cool or cold sites, along with a corresponding decrease in soil C concentration and relative enrichment in both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~. This increase in crystalline iron was also associated with a corresponding decrease in the abundance of poorly crystalline metal oxides. Together these trends suggest that these soils have lost poorly crystalline metal oxides through leaching and transformation into crystalline species. The patterns of C concentrations and associated SOC stocks, $\Delta$^14^C~*bulk*~, and $\Delta$^14^C~*respired*~ observed across the climate/weathering gradient suggest that weathering of poorly crystalline metal oxides leads to a reduction in soil carbon stocks, which is caused by losses of old $\Delta$^14^C depleted carbon associated with these minerals, and that this process is relevant across a range of igneous parent materials.
 
-The sensitivity of decomposition to temperature is of particular interest for understanding how soil C dynamics may change under a warming climate. Comparing the change in $\Delta$^14^C~*respired*~ over time for the different climate zones across the different lithologies provides insight into this question. Focusing on the near surface soils (0-10 cm), where climate effects are strongest, we observed that the rate of change in $\Delta$^14^C~*respired*~ was correlated with poorly crystalline metal oxide content. We observed a linear relationship between temperature and the rate of change in $\Delta$^14^C~*respired*~ over time for the granitic soils, which had low concentrations of poorly crystalline metal oxides in all three climate zones. In contrast, $\Delta$^14^C~*respired*~ changed more over time in the coldest climate zone for the basaltic and andesitic soils than in the cool climate zone with higher concentrations of poorly crystalline metal oxides. Furthermore, the change in $\Delta$^14^C~*respired*~ over time was similar for all three parent materials at the warm climate zone with minimal poorly crystalline metal oxide content. These findings provide evidence that the temperature sensitivity of soil organic matter decomposition may be attenuated in the presence of poorly crystalline minerals. If this is true, we would expect that potential increases in decomposition rates due to climate warming, and the accompanying carbon losses, would be greater in soils lacking substantial concentrations of poorly crystalline metal oxides than in soils enriched in these minerals.
+The sensitivity of decomposition to temperature is of particular interest for understanding how soil C dynamics may change under a warming climate. Comparing the change in $\Delta$^14^C~*respired*~ over time for the different climate zones across the different lithologies provides insight into this question. Focusing on the near surface soils (0-0.1 m), where climate effects are strongest, we observed that the rate of change in $\Delta$^14^C~*respired*~ over time was correlated with poorly crystalline metal oxide content. We observed a linear relationship between MAT and the rate of change in $\Delta$^14^C~*respired*~ over time for the granitic soils, which had low concentrations of poorly crystalline metal oxides in all three climate zones. In contrast, $\Delta$^14^C~*respired*~ changed more over time in the coldest climate zone for the basaltic and andesitic soils than in the cool climate zone with higher concentrations of poorly crystalline metal oxides. Furthermore, the change in $\Delta$^14^C~*respired*~ over time was similar for all three parent materials at the warm climate zone with minimal poorly crystalline metal oxide content. These findings provide evidence that the temperature sensitivity of soil organic matter decomposition may be attenuated in the presence of poorly crystalline minerals. If this is true, we would expect that potential increases in decomposition rates, and accompanying carbon losses due to climate warming, would be greater in soils lacking substantial concentrations of poorly crystalline metal oxides than in soils enriched in these minerals.
 
 # Conclusion
-Our study shows clearly that parent material and climate interact to control soil C dynamics. This interaction was the key to explain trends in $\Delta$^14^C~*bulk*~, which is a proxy for the mean age of soil C, and additionally in $\Delta$^14^C~*respired*~, which reveals the relative contributions of faster or more slowly cycling soil C to respiration. We observed that the trends in both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ were best explained by climate at the soil surface, but best explained by parent material in deeper soil layers. This importance of climate was reflected in the changes in $\Delta$^14^C we observed over time, both for bulk C and respired CO~2~. We saw greater changes at the soil surface than in the deeper layers, and in the highly weathered soils of the warm climate sites than in the poorly developed soils of the cold sites. Yet contrary to the expected temperature-decomposition relationship, we saw the most depleted $\Delta$^14^C~*bulk*~ in the cool climate zone with intermediate MAT, which is also where we saw the least amount of change in $\Delta$^14^C over time at all depths. 
 
-The effect of the interaction between parent material and climate on soil C dynamics is best explained by the development of distinct mineral assemblages via weathering, in particular the formation and subsequent loss of poorly crystalline metal oxides. We confirm the findings of other studies showing that poorly crystalline minerals are highly correlated with the age of soil C, as measured by proxy with $\Delta$^14^C~*bulk*~. We extend this finding to show that it is specifically the poorly crystalline metal oxide content that is correlated with $\Delta$^14^C~*bulk*~, and that the correlation with crystalline Fe content is not significant. Furthermore, we provide mechanistic evidence for the protective effect of mineral-association on decomposition of soil organic matter by demonstrating that the difference between $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ is more strongly correlated with poorly crystalline mineral content than $\Delta$^14^C~*bulk*~ alone. Finally, the time series data of $\Delta$^14^C~*respired*~ provides preliminary evidence that the association of soil organic matter with poorly crystalline metal oxides may attenuate the temperature sensitivity of decomposition.
+Our study shows clearly that parent material and climate interact to control soil C dynamics. This interaction was the key to explain trends in $\Delta$^14^C~*bulk*~, which is a proxy for the mean age of soil C, and additionally in $\Delta$^14^C~*respired*~, which reveals the relative contributions of faster or more slowly cycling soil C to respiration. We observed that the trends in both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ were best explained by climate at the soil surface, but by parent material in deeper soil layers. The overall importance of climate was reflected in the changes in $\Delta$^14^C we observed over time, both for bulk C and respired CO~2~. We saw greater changes at the soil surface than in the deeper layers, and in the highly weathered soils of the warm climate sites than in the poorly developed soils of the cold sites. Yet contrary to the expected temperature-decomposition relationship, we saw the most depleted $\Delta$^14^C~*bulk*~ in the cool climate zone with intermediate MAT, which is also where we saw the least amount of change in $\Delta$^14^C over time at all depths. 
+
+The effect of the interaction between parent material and climate on soil C dynamics is best explained by the development of distinct mineral assemblages via weathering, in particular the formation and subsequent loss of poorly crystalline metal oxides. We confirm the findings of other studies showing that poorly crystalline minerals are highly correlated with the age of soil C, as measured by proxy with $\Delta$^14^C~*bulk*~. We extend this finding to show that it is specifically the poorly crystalline metal oxide content that is correlated with $\Delta$^14^C~*bulk*~, and that the correlation with crystalline Fe content is not significant. Furthermore, we provide mechanistic evidence for the protective effect of mineral-association on decomposition of soil organic matter by demonstrating that the difference between $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*respired*~ is highly correlated with poorly crystalline mineral content. Finally, the signal from decadally cycling soil C in $\Delta$^14^C~*respired*~ from the sites enriched with poorly crystalline metal oxides provides preliminary evidence that the association of soil organic matter with these mineral phases may attenuate the temperature sensitivity of decomposition.
  
 In future work we intend to quantify the timescales of soil carbon cycling in mineral and non-mineral associated pools with a compartmental modeling approach, using the radiocarbon time series presented here in addition to radiocarbon measurements of soil density and thermal fractions as constraints. With this modeling framework we also hope to test additional hypotheses regarding mineral association and temperature sensitivity of soil organic matter.
