@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2021) (preloaded format=pdflatex 2022.3.10)  11 OCT 2022 17:15
+This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2021) (preloaded format=pdflatex 2022.3.10)  12 OCT 2022 14:43
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -593,27 +593,34 @@ Package csquotes Info: Redefining alias 'default' -> 'english'.
 File: l3backend-pdftex.def 2021-03-18 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count318
 \l__pdf_internal_box=\box60
-) (./sra-blk-inc-SI.aux)
+) (./sra-blk-inc-SI.aux
+
+LaTeX Warning: Label `tab:pct-C-change-tbl' multiply defined.
+
+
+LaTeX Warning: Label `tab:inc-trend-stats' multiply defined.
+
+)
 \openout1 = `sra-blk-inc-SI.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 136.
-LaTeX Font Info:    ... okay on input line 136.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 130.
+LaTeX Font Info:    ... okay on input line 130.
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
 *geometry* verbose mode - [ preamble ] result:
@@ -686,14 +693,14 @@ Package caption Info: longtable package is loaded.
 Package: ltcaption 2020/05/30 v1.4b longtable captions (AR)
 )
 Package caption Info: End \AtBeginDocument code.
-LaTeX Info: Redefining \microtypecontext on input line 136.
+LaTeX Info: Redefining \microtypecontext on input line 130.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using protrusion set `basicmath'.
 Package microtype Info: Automatic font expansion enabled (level 2),
 (microtype)             stretch: 20, shrink: 20, step: 1, non-selected.
 Package microtype Info: Using default expansion set `alltext-nott'.
-LaTeX Info: Redefining \showhyphens on input line 136.
+LaTeX Info: Redefining \showhyphens on input line 130.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
@@ -701,7 +708,7 @@ Package microtype Info: No adjustment of character kerning.
 File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman 
 (RS)
 )
-Package hyperref Info: Link coloring OFF on input line 136.
+Package hyperref Info: Link coloring OFF on input line 130.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/hyperref/nameref.sty
 Package: nameref 2021-04-02 v2.47 Cross-referencing by name of section
 (/usr/local/texlive/2021/texmf-dist/tex/latex/refcount/refcount.sty
@@ -713,9 +720,9 @@ Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 )
 \c@section@level=\count325
 )
-LaTeX Info: Redefining \ref on input line 136.
-LaTeX Info: Redefining \pageref on input line 136.
-LaTeX Info: Redefining \nameref on input line 136.
+LaTeX Info: Redefining \ref on input line 130.
+LaTeX Info: Redefining \pageref on input line 130.
+LaTeX Info: Redefining \nameref on input line 130.
 (./sra-blk-inc-SI.out) (./sra-blk-inc-SI.out)
 \@outlinefile=\write5
 \openout5 = `sra-blk-inc-SI.out'.
@@ -723,46 +730,46 @@ LaTeX Info: Redefining \nameref on input line 136.
 
 Class apa6 Warning: Abstract not defined.
 
-Class apa6 Info: Keywords not defined on input line 138.
+Class apa6 Info: Keywords not defined on input line 132.
 LaTeX Font Info:    Trying to load font information for T1+lmss on input line 1
-38.
+32.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/lm/t1lmss.fd
 File: t1lmss.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 1
-38.
+32.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/lm/ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 1
-38.
+32.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/lm/omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-138.
+132.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-138.
+132.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/lm/omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 138.
+(Font)              <12> on input line 132.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 138.
+(Font)              <8> on input line 132.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 138.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 138
+(Font)              <6> on input line 132.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 132
 .
 (/usr/local/texlive/2021/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 ) (/usr/local/texlive/2021/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 138
+LaTeX Font Info:    Trying to load font information for U+msb on input line 132
 .
 (/usr/local/texlive/2021/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
@@ -773,139 +780,131 @@ File: mt-eur.cfg 2006/07/31 v1.1 microtype config. file: AMS Euler Roman (RS)
 ) [1{/usr/local/texlive/2021/texmf-var/fonts/map/pdftex/updmap/pdftex.map}
 
 ]
-\openout3 = `sra-blk-inc-SI.ttt'.
-
-(sra-blk-inc-SI.ttt)
-<sra-blk-inc-SI_files/figure-latex/plot-C-timeseries-1.pdf, id=48, 454.69875pt 
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <10> on input line 152.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <7> on input line 152.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <5> on input line 152.
+[2]
+<sra-blk-inc-SI_files/figure-latex/plot-C-timeseries-1.pdf, id=56, 454.69875pt 
 x 313.17pt>
 File: sra-blk-inc-SI_files/figure-latex/plot-C-timeseries-1.pdf Graphic file (t
 ype pdf)
 <use sra-blk-inc-SI_files/figure-latex/plot-C-timeseries-1.pdf>
 Package pdftex.def Info: sra-blk-inc-SI_files/figure-latex/plot-C-timeseries-1.
-pdf  used on input line 185.
+pdf  used on input line 184.
 (pdftex.def)             Requested size: 454.70456pt x 313.174pt.
-<sra-blk-inc-SI_files/figure-latex/plot-cmtv-flx-rates-1.pdf, id=49, 461.725pt 
+[3 <./sra-blk-inc-SI_files/figure-latex/plot-C-timeseries-1.pdf>]
+<sra-blk-inc-SI_files/figure-latex/plot-cmtv-flx-rates-1.pdf, id=72, 461.725pt 
 x 301.125pt>
 File: sra-blk-inc-SI_files/figure-latex/plot-cmtv-flx-rates-1.pdf Graphic file 
 (type pdf)
 <use sra-blk-inc-SI_files/figure-latex/plot-cmtv-flx-rates-1.pdf>
 Package pdftex.def Info: sra-blk-inc-SI_files/figure-latex/plot-cmtv-flx-rates-
-1.pdf  used on input line 199.
+1.pdf  used on input line 200.
 (pdftex.def)             Requested size: 461.72388pt x 301.12425pt.
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 2
-03.
+04.
 (/usr/local/texlive/2021/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [2]
-<sra-blk-inc-SI_files/figure-latex/plot-d14c-pro-01-1.pdf, id=65, 466.74374pt x
- 353.32pt>
+) [4
+
+ <./sra-blk-inc-SI_files/figure-latex/plot-cmtv-flx-rates-1.pdf>]
+<sra-blk-inc-SI_files/figure-latex/plot-d14c-pro-01-1.pdf, id=105, 466.74374pt 
+x 353.32pt>
 File: sra-blk-inc-SI_files/figure-latex/plot-d14c-pro-01-1.pdf Graphic file (ty
 pe pdf)
 <use sra-blk-inc-SI_files/figure-latex/plot-d14c-pro-01-1.pdf>
 Package pdftex.def Info: sra-blk-inc-SI_files/figure-latex/plot-d14c-pro-01-1.p
-df  used on input line 215.
+df  used on input line 218.
 (pdftex.def)             Requested size: 466.74971pt x 353.32452pt.
+[5
 
-Underfull \vbox (badness 6758) has occurred while \output is active []
+] [6 <./sra-blk-inc-SI_files/figure-latex/plot-d14c-pro-01-1.pdf>] [7
 
-[3 <./sra-blk-inc-SI_files/figure-latex/plot-C-timeseries-1.pdf>] [4 <./sra-blk
--inc-SI_files/figure-latex/plot-cmtv-flx-rates-1.pdf>] [5 <./sra-blk-inc-SI_fil
-es/figure-latex/plot-d14c-pro-01-1.pdf>]
+] [8] [9] [10
 
-LaTeX Warning: Reference `fig:min-all-blk-inc-plot' on page 6 undefined on inpu
-t line 538.
-
-<sra-blk-inc-SI_files/figure-latex/min-all-inc-blk-plot-1.pdf, id=161, 461.725p
+] [11] [12]
+<sra-blk-inc-SI_files/figure-latex/min-all-inc-blk-plot-1.pdf, id=194, 461.725p
 t x 313.17pt>
 File: sra-blk-inc-SI_files/figure-latex/min-all-inc-blk-plot-1.pdf Graphic file
  (type pdf)
 <use sra-blk-inc-SI_files/figure-latex/min-all-inc-blk-plot-1.pdf>
 Package pdftex.def Info: sra-blk-inc-SI_files/figure-latex/min-all-inc-blk-plot
--1.pdf  used on input line 545.
+-1.pdf  used on input line 551.
 (pdftex.def)             Requested size: 461.72388pt x 313.16922pt.
-<sra-blk-inc-SI_files/figure-latex/min-all-blk-plot-1.pdf, id=162, 461.725pt x 
+<sra-blk-inc-SI_files/figure-latex/min-all-blk-plot-1.pdf, id=195, 461.725pt x 
 313.17pt>
 File: sra-blk-inc-SI_files/figure-latex/min-all-blk-plot-1.pdf Graphic file (ty
 pe pdf)
 <use sra-blk-inc-SI_files/figure-latex/min-all-blk-plot-1.pdf>
 Package pdftex.def Info: sra-blk-inc-SI_files/figure-latex/min-all-blk-plot-1.p
-df  used on input line 556.
+df  used on input line 562.
 (pdftex.def)             Requested size: 461.72388pt x 313.16922pt.
-<sra-blk-inc-SI_files/figure-latex/min-all-inc-plot-1.pdf, id=163, 461.725pt x 
+<sra-blk-inc-SI_files/figure-latex/min-all-inc-plot-1.pdf, id=196, 461.725pt x 
 313.17pt>
 File: sra-blk-inc-SI_files/figure-latex/min-all-inc-plot-1.pdf Graphic file (ty
 pe pdf)
 <use sra-blk-inc-SI_files/figure-latex/min-all-inc-plot-1.pdf>
 Package pdftex.def Info: sra-blk-inc-SI_files/figure-latex/min-all-inc-plot-1.p
-df  used on input line 567.
+df  used on input line 573.
 (pdftex.def)             Requested size: 461.72388pt x 313.16922pt.
-<sra-blk-inc-SI_files/figure-latex/min-blk30-plot-1.pdf, id=164, 461.725pt x 31
+<sra-blk-inc-SI_files/figure-latex/min-blk30-plot-1.pdf, id=197, 461.725pt x 31
 3.17pt>
 File: sra-blk-inc-SI_files/figure-latex/min-blk30-plot-1.pdf Graphic file (type
  pdf)
 <use sra-blk-inc-SI_files/figure-latex/min-blk30-plot-1.pdf>
 Package pdftex.def Info: sra-blk-inc-SI_files/figure-latex/min-blk30-plot-1.pdf
-  used on input line 578.
+  used on input line 584.
 (pdftex.def)             Requested size: 461.72388pt x 313.16922pt.
-<sra-blk-inc-SI_files/figure-latex/min-inc30-plot-1.pdf, id=165, 461.725pt x 31
+<sra-blk-inc-SI_files/figure-latex/min-inc30-plot-1.pdf, id=198, 461.725pt x 31
 3.17pt>
 File: sra-blk-inc-SI_files/figure-latex/min-inc30-plot-1.pdf Graphic file (type
  pdf)
 <use sra-blk-inc-SI_files/figure-latex/min-inc30-plot-1.pdf>
 Package pdftex.def Info: sra-blk-inc-SI_files/figure-latex/min-inc30-plot-1.pdf
-  used on input line 589.
+  used on input line 595.
 (pdftex.def)             Requested size: 461.72388pt x 313.16922pt.
-[6] [7 <./sra-blk-inc-SI_files/figure-latex/min-all-inc-blk-plot-1.pdf>] [8 <./
-sra-blk-inc-SI_files/figure-latex/min-all-blk-plot-1.pdf>] [9 <./sra-blk-inc-SI
-_files/figure-latex/min-all-inc-plot-1.pdf>] [10 <./sra-blk-inc-SI_files/figure
--latex/min-blk30-plot-1.pdf>] [11 <./sra-blk-inc-SI_files/figure-latex/min-inc3
-0-plot-1.pdf>] AED endfloat: Processing end Figures and Tables (./sra-blk-inc-S
-I.ttt [12
+[13
 
+] [14 <./sra-blk-inc-SI_files/figure-latex/min-all-inc-blk-plot-1.pdf>] [15 <./
+sra-blk-inc-SI_files/figure-latex/min-all-blk-plot-1.pdf>] [16 <./sra-blk-inc-S
+I_files/figure-latex/min-all-inc-plot-1.pdf>] [17 <./sra-blk-inc-SI_files/figur
+e-latex/min-blk30-plot-1.pdf>] [18 <./sra-blk-inc-SI_files/figure-latex/min-inc
+30-plot-1.pdf>] AED endfloat: Processing end Figures and Tables (./sra-blk-inc-
+SI.aux)
 
-
-
-] [13
-
-] [14
-
-] [15
-
-] [16
-
-] [17
-
-]) [18
-
-] (./sra-blk-inc-SI.aux)
-
-LaTeX Warning: There were undefined references.
+LaTeX Warning: There were multiply-defined labels.
 
 Package rerunfilecheck Info: File `sra-blk-inc-SI.out' has not changed.
-(rerunfilecheck)             Checksum: EBF6520C2C3FAA8F79495005BEE3F073;1181.
+(rerunfilecheck)             Checksum: 18AD1ED807609F1ABC9C0F81FE5005F9;1294.
  ) 
 Here is how much of TeX's memory you used:
- 16380 strings out of 478994
- 253053 string characters out of 5858184
- 630140 words of memory out of 5000000
- 33355 multiletter control sequences out of 15000+600000
- 459864 words of font info for 125 fonts, out of 8000000 for 9000
+ 16480 strings out of 478994
+ 254482 string characters out of 5858184
+ 638169 words of memory out of 5000000
+ 33406 multiletter control sequences out of 15000+600000
+ 491005 words of font info for 172 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 83i,12n,88p,2253b,516s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 83i,12n,88p,2253b,567s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/local/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/lo
-cal/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}{/usr/local/texlive/2
-021/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/usr/local/texlive/2021/texmf-dist
-/fonts/enc/dvips/lm/lm-rm.enc}</usr/local/texlive/2021/texmf-dist/fonts/type1/p
-ublic/lm/lmbx12.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/l
-mmi12.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmr12.pfb><
-/usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmr8.pfb></usr/local/t
-exlive/2021/texmf-dist/fonts/type1/public/lm/lmri12.pfb></usr/local/texlive/202
-1/texmf-dist/fonts/type1/public/lm/lmri8.pfb></usr/local/texlive/2021/texmf-dis
-t/fonts/type1/public/lm/lmss8.pfb>
-Output written on sra-blk-inc-SI.pdf (18 pages, 403961 bytes).
+cal/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/usr/local/texlive/20
+21/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr/local/texlive/2021/texmf-dist/
+fonts/enc/dvips/lm/lm-ts1.enc}</usr/local/texlive/2021/texmf-dist/fonts/type1/p
+ublic/lm/lmbx10.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/l
+mbx12.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmbx8.pfb><
+/usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmmi10.pfb></usr/local
+/texlive/2021/texmf-dist/fonts/type1/public/lm/lmmi12.pfb></usr/local/texlive/2
+021/texmf-dist/fonts/type1/public/lm/lmr10.pfb></usr/local/texlive/2021/texmf-d
+ist/fonts/type1/public/lm/lmr12.pfb></usr/local/texlive/2021/texmf-dist/fonts/t
+ype1/public/lm/lmr8.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/
+lm/lmri12.pfb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmri8.p
+fb></usr/local/texlive/2021/texmf-dist/fonts/type1/public/lm/lmss8.pfb>
+Output written on sra-blk-inc-SI.pdf (18 pages, 473931 bytes).
 PDF statistics:
- 409 PDF objects out of 1000 (max. 8388607)
- 312 compressed objects within 4 object streams
- 51 named destinations out of 1000 (max. 500000)
- 30825 words of extra memory for PDF output out of 35830 (max. 10000000)
+ 421 PDF objects out of 1000 (max. 8388607)
+ 320 compressed objects within 4 object streams
+ 49 named destinations out of 1000 (max. 500000)
+ 47201 words of extra memory for PDF output out of 51595 (max. 10000000)
 

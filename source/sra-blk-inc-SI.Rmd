@@ -38,7 +38,7 @@ output:
     toc: yes
     toc_depth: 2
 figurelist: yes
-floatsintext: no
+floatsintext: yes
 footnotelist: no
 linenumbers: yes
 figsintext: yes
@@ -52,6 +52,12 @@ header_includes:
 - \usepackage{booktabs}
 - \usepackage{longtable}
 ---
+
+\renewcommand{\appendixname}{Supplementary Information}
+\renewcommand{\thesection}{S\arabic{section}} \setcounter{section}{0}
+\renewcommand{\thefigure}{S\arabic{figure}} \setcounter{figure}{0}
+\renewcommand{\thetable}{S\arabic{table}} \setcounter{table}{0}
+
 ```{r global_options, include = FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
                       fig.align = 'center', dev = c('cairo_pdf', 'png'))
@@ -161,7 +167,7 @@ blkC.ts.sig.df <- bind_rows(lapply(
   select(c(Depth, Site, year.trend, SE, df, lower.CL, upper.CL))
 ```
 
-We did not observe clear trends in soil carbon concentration over time for the majority of sites, making us confident that most sites are at steady-state with regards to carbon stock changes (**SI Fig. \@ref(fig:plot-C-timeseries)**). Although we did observe substantial variation in some sites, this is likely due to spatial heterogeneity in soil C concentration that cannot be avoided when destructively resampling the same sites over time (**SI Fig. \@ref(fig:plot-C-timeseries)**). However, we did observe significant trends in soil C concentration with time for a a few of the sites when considered by specific depth increments. However, a caveat is that we did not account for potential differences in the mass of soil sampled over time, as we only considered depth-based increments. We observed significant changes at two sites for the surface layer (0-0.1 m), and at two additional sites in the intermediate depth layer (0.1-0.2 m), but C concentration changes were only significant at a single site showed changes for the deepest depth layer (0.2-0.3 m) (**SI Table \@ref(tab:pct-C-change-tbl)**). The soil at the cold climate andesite site was an outlier in that the soil C concentration showed a consistently significant increase in the two deeper depth layers over the study period, while the other soils with significant changes showed decreases in C concentrations (**SI Table \@ref(tab:pct-C-change-tbl)**).
+We did not observe clear trends in soil carbon concentration over time for the majority of sites, making us confident that most sites are at steady-state with regards to carbon stock changes (**Fig. \@ref(fig:plot-C-timeseries)**). Although we did observe substantial variation in some sites, this is likely due to spatial heterogeneity in soil C concentration that cannot be avoided when destructively resampling the same sites over time (**Fig. \@ref(fig:plot-C-timeseries)**). However, we did observe significant trends in soil C concentration with time for a a few of the sites when considered by specific depth increments. However, a caveat is that we did not account for potential differences in the mass of soil sampled over time, as we only considered depth-based increments. We observed significant changes at two sites for the surface layer (0-0.1 m), and at two additional sites in the intermediate depth layer (0.1-0.2 m), but C concentration changes were only significant at a single site showed changes for the deepest depth layer (0.2-0.3 m) (**Table \@ref(tab:pct-C-change-tbl)**). The soil at the cold climate andesite site was an outlier in that the soil C concentration showed a consistently significant increase in the two deeper depth layers over the study period, while the other soils with significant changes showed decreases in C concentrations (**Table \@ref(tab:pct-C-change-tbl)**).
 
 (ref:pct-C-change-tbl-cap) Changes in soil C concentration (%), 2001-2019. (Only signficant trends shown).
 
@@ -369,6 +375,8 @@ ggplot(emmip.blkC.df, aes(xvar, yvar)) +
 #         strip.background = element_blank(),
 #         strip.text = element_blank())
 ```
+
+\clearpage
 
 # Respiration fluxes
 
@@ -606,9 +614,11 @@ plot_grid(pg.resp, resp.lg, ncol = 1, rel_heights = c(1, .2))
 # plot_grid(pg, lg, ncol = 1, rel_heights = c(1, .08))
 ```
 
+\clearpage
+
 # Radiocarbon depth profiles: 2001 data
 
-Depth profiles of $\Delta$^14^C~*bulk*~ were similar in 2001 (**SI Fig. \@ref(fig:plot-d14c-pro-01)**) as to what we observed in 2019. We observed the most depleted ^14^C overall in the cool climate sites, where we also observed the clearest differences among parent materials. Parent material differences were least apparent for the cold climate sites, as we also observed in 2019. Within climate zones andesitic soils tended be most depleted and the granitic soils most enriched, with the basaltic parent material intermediate between the other two. 
+Depth profiles of $\Delta$^14^C~*bulk*~ were similar in 2001 (**Fig. \@ref(fig:plot-d14c-pro-01)**) as to what we observed in 2019. We observed the most depleted ^14^C overall in the cool climate sites, where we also observed the clearest differences among parent materials. Parent material differences were least apparent for the cold climate sites, as we also observed in 2019. Within climate zones andesitic soils tended be most depleted and the granitic soils most enriched, with the basaltic parent material intermediate between the other two. 
 
 ```{r bulk-inc-plot-data}
 # 2001
@@ -746,7 +756,10 @@ blk.inc.pro.legend <- get_legend(
 plot_grid(pg, blk.inc.pro.legend, rel_widths = c(4, 1))
 ```
 
-# Bulk and respired 14C contrasts
+\clearpage
+
+# Parent material and climate effects on bulk and respired ^14^C
+## Contrasts
 
 ```{r models-blk-sum-con, include = FALSE}
 # load 14c 
@@ -994,8 +1007,10 @@ cts.table.fx(cts.blk.inc.20, "(ref:blk-inc-contrasts-20-cap)")
 ```{r blk-inc-contrasts-30}
 cts.table.fx(cts.blk.inc.30, "(ref:blk-inc-contrasts-30-cap)")
 ```
-# Temporal trend analysis
-## Trends
+
+\clearpage
+
+## Temporal trends & contrasts
 
 Please see the main text for discussion of the temporal trends in both $\Delta$^14^C~*bulk*~ and $\Delta$^14^C~*bulk*~. See SI tables **\@ref(tab:blk-trend-stats)** and **\@ref(tab:inc-trend-stats)** for statistics.
 
@@ -1063,9 +1078,7 @@ emt.inc.PMeco.30 <- emtrends(inc.PMeco.30.lm, pairwise ~ PM | ECO, var = "year")
 trend.tbl.fx(emt.inc.PMeco.10, emt.inc.PMeco.20, emt.inc.PMeco.30, "(ref:inc-trend-stats-cap)")
 ```
 
-## Contrasts
-
-We saw more significant contrasts for $\Delta$^14^C~*respired*~ than we did for $\Delta$^14^C~*bulk*~ (**SI Fig. \@ref(tab:blk-inc-trend-contrasts)**). When considered within climate zones, the basaltic and granitic soils were more similar to one another overall than were either to the andesitic soils. We observed parent material contrasts more commonly in the cool and cold climate sites than in the warm sites; however we only observed significant contrasts for the cold climate sites in the $\Delta$^14^C~*respired*~ data, and not for $\Delta$^14^C~*bulk*~. When considered within parent materials, we saw more siginificant contrasts for the granitic and basaltic soils than for the andesitic soils (**SI Fig. \@ref(tab:blk-inc-trend-contrasts)**). 
+We saw more significant contrasts in the change over time in $\Delta$^14^C~*respired*~ than we did for $\Delta$^14^C~*bulk*~ (**Table \@ref(tab:blk-inc-trend-contrasts)**). When considered within climate zones, trends for the basaltic and granitic soils were more similar to one another overall than were either to the andesitic soils. We observed parent material trend contrasts more commonly in the cool and cold climate sites than in the warm sites; however we only observed significant trend contrasts for the cold climate sites in the $\Delta$^14^C~*respired*~ data, and not for $\Delta$^14^C~*bulk*~. When considered within parent materials, we saw more siginificant trend contrasts for the granitic and basaltic soils than for the andesitic soils (**Table \@ref(tab:blk-inc-trend-contrasts)**). 
 
 
 ```{r contrast-fxs}
@@ -1153,6 +1166,8 @@ kable(emt.cts,
   #               font_size = 10)
 ```
 
+\clearpage
+
 # Mineral assemblages
 
 ```{r load-min-14c-wtd-data}
@@ -1189,9 +1204,9 @@ NonCrys.inc.feo.mod <- lm(d14c_wtd_inc ~ Fe_ox + year, sra.blk.inc.rep.min.30.df
 NonCrys.inc.fed.mod <- lm(d14c_wtd_inc ~ Fe_dc + year, sra.blk.inc.rep.min.30.df[sra.blk.inc.rep.min.30.df$PMeco != "GRrf", ])
 ```
 
-We simplified the data in the main text to consider the relationship between $\Delta$^14^C and either poorly crystalline metal oxides or crystalline metal oxides. We present here the individual regression plots for $\Delta$^14^C~*bulk*~ (**SI Fig. \@ref(fig:min-blk30-plot)**) and $\Delta$^14^C~*respired*~ (**SI Fig. \@ref(fig:min-inc30-plot)**). 
+We simplified the data in the main text to consider the relationship between $\Delta$^14^C and either poorly crystalline metal oxides or crystalline metal oxides. We present here the individual regression plots for $\Delta$^14^C~*bulk*~ (**Fig. \@ref(fig:min-blk30-plot)**) and $\Delta$^14^C~*respired*~ (**Fig. \@ref(fig:min-inc30-plot)**). 
 
-We also present here the results of the individual regression analyses for $\Delta$^14^C~*bulk*~ (**SI Fig. \@ref(fig:min-all-blk-plot)**), $\Delta$^14^C~*respired*~ (**SI Fig. \@ref(fig:min-all-inc-plot)**), and $\Delta$^14^C~*respired-bulk*~ vs. Al selectively dissolved with ammonium oxalate (Al~o~) or sodium pyrophosphate (Al~p~), and Fe selectively dissolved with ammonium oxalate (Fe~o~), or dithionite citrate (Fe~d~) **SI Fig. \@ref(fig:min-all-blk-inc-plot)**. The relationships between Al~o~, Al~p~, and Fe~o~ and $\Delta$^14^C~*respired-bulk*~ in the models derived from Eq. (4) (main text) were all highly significant (*p* < 0.001). P-values for the metal oxide concentration coefficients in the $\Delta$^14^C~*respired-bulk*~ and $\Delta$^14^C~*bulk*~ models were highly significant (< 0.001 at $\alpha$ = 0.1) for Al~o~, Al~p~, and Fe~o~. The coefficient for Al~o~ in $\Delta$^14^C~*respired*~ model also had a p-value of < 0.001, but while still significant, p-values were larger for Al~p~ and Fe~o~ in the $\Delta$^14^C~*respired*~ models: `r paste(p.coef.fx(NonCrys.inc.alp.mod, 2, 4), p.coef.fx(NonCrys.inc.feo.mod, 2, 4), sep = ", ")`, respectively.
+We also present here the results of the individual regression analyses for $\Delta$^14^C~*bulk*~ (**Fig. \@ref(fig:min-all-blk-plot)**), $\Delta$^14^C~*respired*~ (**Fig. \@ref(fig:min-all-inc-plot)**), and $\Delta$^14^C~*respired-bulk*~ vs. Al selectively dissolved with ammonium oxalate (Al~o~) or sodium pyrophosphate (Al~p~), and Fe selectively dissolved with ammonium oxalate (Fe~o~), or dithionite citrate (Fe~d~) **Fig. \@ref(fig:min-all-inc-blk-plot)**. The relationships between Al~o~, Al~p~, and Fe~o~ and $\Delta$^14^C~*respired-bulk*~ in the models derived from Eq. (4) (main text) were all highly significant (*p* < 0.001). P-values for the metal oxide concentration coefficients in the $\Delta$^14^C~*respired-bulk*~ and $\Delta$^14^C~*bulk*~ models were highly significant (< 0.001 at $\alpha$ = 0.1) for Al~o~, Al~p~, and Fe~o~. The coefficient for Al~o~ in $\Delta$^14^C~*respired*~ model also had a p-value of < 0.001, but while still significant, p-values were larger for Al~p~ and Fe~o~ in the $\Delta$^14^C~*respired*~ models: `r paste(p.coef.fx(NonCrys.inc.alp.mod, 2, 4), p.coef.fx(NonCrys.inc.feo.mod, 2, 4), sep = ", ")`, respectively.
 In contrast, the concentration of Fe~d~ was not significant in any of the models. 
 
 ```{r min-30-blk-inc-plot-setup}

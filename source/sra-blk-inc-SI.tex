@@ -95,12 +95,6 @@
   {}{\typeout{Failed to patch title.}}
 \makeatother
 \shorttitle{Supplemental information}
-\DeclareDelayedFloatFlavor{ThreePartTable}{table}
-\DeclareDelayedFloatFlavor{lltable}{table}
-\DeclareDelayedFloatFlavor*{longtable}{table}
-\makeatletter
-\renewcommand{\efloat@iwrite}[1]{\immediate\expandafter\protected@write\csname efloat@post#1\endcsname{}}
-\makeatother
 \usepackage{lineno}
 
 \linenumbers
@@ -136,10 +130,15 @@
 \begin{document}
 \maketitle
 
+\renewcommand{\appendixname}{Supplementary Information}
+\renewcommand{\thesection}{S\arabic{section}} \setcounter{section}{0}
+\renewcommand{\thefigure}{S\arabic{figure}} \setcounter{figure}{0}
+\renewcommand{\thetable}{S\arabic{table}} \setcounter{table}{0}
+
 \hypertarget{soil-carbon}{%
 \section{Soil carbon}\label{soil-carbon}}
 
-We did not observe clear trends in soil carbon concentration over time for the majority of sites, making us confident that most sites are at steady-state with regards to carbon stock changes (\textbf{SI Fig. \ref{fig:plot-C-timeseries}}). Although we did observe substantial variation in some sites, this is likely due to spatial heterogeneity in soil C concentration that cannot be avoided when destructively resampling the same sites over time (\textbf{SI Fig. \ref{fig:plot-C-timeseries}}). However, we did observe significant trends in soil C concentration with time for a a few of the sites when considered by specific depth increments. However, a caveat is that we did not account for potential differences in the mass of soil sampled over time, as we only considered depth-based increments. We observed significant changes at two sites for the surface layer (0-0.1 m), and at two additional sites in the intermediate depth layer (0.1-0.2 m), but C concentration changes were only significant at a single site showed changes for the deepest depth layer (0.2-0.3 m) (\textbf{SI Table \ref{tab:pct-C-change-tbl}}). The soil at the cold climate andesite site was an outlier in that the soil C concentration showed a consistently significant increase in the two deeper depth layers over the study period, while the other soils with significant changes showed decreases in C concentrations (\textbf{SI Table \ref{tab:pct-C-change-tbl}}).
+We did not observe clear trends in soil carbon concentration over time for the majority of sites, making us confident that most sites are at steady-state with regards to carbon stock changes (\textbf{Fig. \ref{fig:plot-C-timeseries}}). Although we did observe substantial variation in some sites, this is likely due to spatial heterogeneity in soil C concentration that cannot be avoided when destructively resampling the same sites over time (\textbf{Fig. \ref{fig:plot-C-timeseries}}). However, we did observe significant trends in soil C concentration with time for a a few of the sites when considered by specific depth increments. However, a caveat is that we did not account for potential differences in the mass of soil sampled over time, as we only considered depth-based increments. We observed significant changes at two sites for the surface layer (0-0.1 m), and at two additional sites in the intermediate depth layer (0.1-0.2 m), but C concentration changes were only significant at a single site showed changes for the deepest depth layer (0.2-0.3 m) (\textbf{Table \ref{tab:pct-C-change-tbl}}). The soil at the cold climate andesite site was an outlier in that the soil C concentration showed a consistently significant increase in the two deeper depth layers over the study period, while the other soils with significant changes showed decreases in C concentrations (\textbf{Table \ref{tab:pct-C-change-tbl}}).
 
 
 
@@ -189,6 +188,8 @@ Depth & Site & Trend & $SE$ & df & $lower$ & $upper$\\
 \caption{Changes in soil C concentration, 2001-2019. Points show replicate profiles (n = 3); lines show marginal mean estimates of linear trends in soil C concentration with time; ribbons show 95\% CIs around trend estimates.}\label{fig:plot-C-timeseries}
 \end{figure}
 
+\clearpage
+
 \hypertarget{respiration-fluxes}{%
 \section{Respiration fluxes}\label{respiration-fluxes}}
 
@@ -203,10 +204,12 @@ Depth & Site & Trend & $SE$ & df & $lower$ & $upper$\\
 \caption{Heterotrophic respiration rates from incubations of 2019 and 2001 samples. Panels a-c show 2019 data, and panels d-f show 2001 data. Panels in the top row (a, d) show the first depth increment for each year, middle row shows the second depth increment (b, e), and the bottom row shows the third depth increment (c, f). Bars show means for laboratory duplicates averaged over the whole incubation period; error bars ± 1 standard error of the mean. NB: Total CO\textsubscript{2} respired was controlled to be within 10,000 ppm (±1,000 ppm) for all samples; incubation duration varied between 4 and 40 days.}\label{fig:plot-cmtv-flx-rates}
 \end{figure}
 
+\clearpage
+
 \hypertarget{radiocarbon-depth-profiles-2001-data}{%
 \section{Radiocarbon depth profiles: 2001 data}\label{radiocarbon-depth-profiles-2001-data}}
 
-Depth profiles of \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} were similar in 2001 (\textbf{SI Fig. \ref{fig:plot-d14c-pro-01}}) as to what we observed in 2019. We observed the most depleted \textsuperscript{14}C overall in the cool climate sites, where we also observed the clearest differences among parent materials. Parent material differences were least apparent for the cold climate sites, as we also observed in 2019. Within climate zones andesitic soils tended be most depleted and the granitic soils most enriched, with the basaltic parent material intermediate between the other two.
+Depth profiles of \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} were similar in 2001 (\textbf{Fig. \ref{fig:plot-d14c-pro-01}}) as to what we observed in 2019. We observed the most depleted \textsuperscript{14}C overall in the cool climate sites, where we also observed the clearest differences among parent materials. Parent material differences were least apparent for the cold climate sites, as we also observed in 2019. Within climate zones andesitic soils tended be most depleted and the granitic soils most enriched, with the basaltic parent material intermediate between the other two.
 
 
 
@@ -219,8 +222,13 @@ Depth profiles of \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} wer
 \caption{Depth profiles of \(\Delta\)\textsuperscript{14}C\textsubscript{bulk} and \(\Delta\)\textsuperscript{14}C\textsubscript{respired} for 2001 data. Top panels show bulk data, bottom panels respired data. Dotted vertical lines show \(\Delta\)\textsuperscript{14}C of the atmosphere in the year of sampling. Points show the mean of three replicate profiles for bulk soil, and the mean of laboratory duplicates for respired CO\textsubscript{2}. Error bars show ±1 SD for bulk soils and the minimum and maximum for respired CO\textsubscript{2}. Respired CO\textsubscript{2} from the cold granite site (panel f) was extremely depleted in \(\Delta\)\textsuperscript{14}C and thus is excluded for display purposes.}\label{fig:plot-d14c-pro-01}
 \end{figure}
 
-\hypertarget{bulk-and-respired-14c-contrasts}{%
-\section{Bulk and respired 14C contrasts}\label{bulk-and-respired-14c-contrasts}}
+\clearpage
+
+\hypertarget{parent-material-and-climate-effects-on-bulk-and-respired-14c}{%
+\section{\texorpdfstring{Parent material and climate effects on bulk and respired \textsuperscript{14}C}{Parent material and climate effects on bulk and respired 14C}}\label{parent-material-and-climate-effects-on-bulk-and-respired-14c}}
+
+\hypertarget{contrasts}{%
+\subsection{Contrasts}\label{contrasts}}
 
 
 
@@ -372,11 +380,10 @@ Year & Group & Contrast & Est. & $SE$ & $p$ & Est. & $SE$ & $p$\\
 \end{longtable}
 \endgroup{}
 
-\hypertarget{temporal-trend-analysis}{%
-\section{Temporal trend analysis}\label{temporal-trend-analysis}}
+\clearpage
 
-\hypertarget{trends}{%
-\subsection{Trends}\label{trends}}
+\hypertarget{temporal-trends-contrasts}{%
+\subsection{Temporal trends \& contrasts}\label{temporal-trends-contrasts}}
 
 Please see the main text for discussion of the temporal trends in both \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}}. See SI tables \textbf{\ref{tab:blk-trend-stats}} and \textbf{\ref{tab:inc-trend-stats}} for statistics.
 
@@ -466,10 +473,7 @@ Climate & Parent material & Trend & $SE$ & Trend & $SE$ & Trend & $SE$\\
 \end{longtable}
 \endgroup{}
 
-\hypertarget{contrasts}{%
-\subsection{Contrasts}\label{contrasts}}
-
-We saw more significant contrasts for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} than we did for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} (\textbf{SI Fig. \ref{tab:blk-inc-trend-contrasts}}). When considered within climate zones, the basaltic and granitic soils were more similar to one another overall than were either to the andesitic soils. We observed parent material contrasts more commonly in the cool and cold climate sites than in the warm sites; however we only observed significant contrasts for the cold climate sites in the \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} data, and not for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}}. When considered within parent materials, we saw more siginificant contrasts for the granitic and basaltic soils than for the andesitic soils (\textbf{SI Fig. \ref{tab:blk-inc-trend-contrasts}}).
+We saw more significant contrasts in the change over time in \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} than we did for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} (\textbf{Table \ref{tab:blk-inc-trend-contrasts}}). When considered within climate zones, trends for the basaltic and granitic soils were more similar to one another overall than were either to the andesitic soils. We observed parent material trend contrasts more commonly in the cool and cold climate sites than in the warm sites; however we only observed significant trend contrasts for the cold climate sites in the \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} data, and not for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}}. When considered within parent materials, we saw more siginificant trend contrasts for the granitic and basaltic soils than for the andesitic soils (\textbf{Table \ref{tab:blk-inc-trend-contrasts}}).
 
 
 
@@ -530,12 +534,14 @@ Depth & Group & Contrast & Est. & $SE$ & $p$ & Est. & $SE$ & $p$\\
 \end{longtable}
 \endgroup{}
 
+\clearpage
+
 \hypertarget{mineral-assemblages}{%
 \section{Mineral assemblages}\label{mineral-assemblages}}
 
-We simplified the data in the main text to consider the relationship between \(\Delta\)\textsuperscript{14}C and either poorly crystalline metal oxides or crystalline metal oxides. We present here the individual regression plots for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} (\textbf{SI Fig. \ref{fig:min-blk30-plot}}) and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} (\textbf{SI Fig. \ref{fig:min-inc30-plot}}).
+We simplified the data in the main text to consider the relationship between \(\Delta\)\textsuperscript{14}C and either poorly crystalline metal oxides or crystalline metal oxides. We present here the individual regression plots for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} (\textbf{Fig. \ref{fig:min-blk30-plot}}) and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} (\textbf{Fig. \ref{fig:min-inc30-plot}}).
 
-We also present here the results of the individual regression analyses for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} (\textbf{SI Fig. \ref{fig:min-all-blk-plot}}), \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} (\textbf{SI Fig. \ref{fig:min-all-inc-plot}}), and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired-bulk}} vs.~Al selectively dissolved with ammonium oxalate (Al\textsubscript{o}) or sodium pyrophosphate (Al\textsubscript{p}), and Fe selectively dissolved with ammonium oxalate (Fe\textsubscript{o}), or dithionite citrate (Fe\textsubscript{d}) \textbf{SI Fig. \ref{fig:min-all-blk-inc-plot}}. The relationships between Al\textsubscript{o}, Al\textsubscript{p}, and Fe\textsubscript{o} and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired-bulk}} in the models derived from Eq. (4) (main text) were all highly significant (\emph{p} \textless{} 0.001). P-values for the metal oxide concentration coefficients in the \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired-bulk}} and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} models were highly significant (\textless{} 0.001 at \(\alpha\) = 0.1) for Al\textsubscript{o}, Al\textsubscript{p}, and Fe\textsubscript{o}. The coefficient for Al\textsubscript{o} in \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} model also had a p-value of \textless{} 0.001, but while still significant, p-values were larger for Al\textsubscript{p} and Fe\textsubscript{o} in the \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} models: 0.028, 0.086, respectively.
+We also present here the results of the individual regression analyses for \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} (\textbf{Fig. \ref{fig:min-all-blk-plot}}), \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} (\textbf{Fig. \ref{fig:min-all-inc-plot}}), and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired-bulk}} vs.~Al selectively dissolved with ammonium oxalate (Al\textsubscript{o}) or sodium pyrophosphate (Al\textsubscript{p}), and Fe selectively dissolved with ammonium oxalate (Fe\textsubscript{o}), or dithionite citrate (Fe\textsubscript{d}) \textbf{Fig. \ref{fig:min-all-inc-blk-plot}}. The relationships between Al\textsubscript{o}, Al\textsubscript{p}, and Fe\textsubscript{o} and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired-bulk}} in the models derived from Eq. (4) (main text) were all highly significant (\emph{p} \textless{} 0.001). P-values for the metal oxide concentration coefficients in the \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired-bulk}} and \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{bulk}} models were highly significant (\textless{} 0.001 at \(\alpha\) = 0.1) for Al\textsubscript{o}, Al\textsubscript{p}, and Fe\textsubscript{o}. The coefficient for Al\textsubscript{o} in \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} model also had a p-value of \textless{} 0.001, but while still significant, p-values were larger for Al\textsubscript{p} and Fe\textsubscript{o} in the \(\Delta\)\textsuperscript{14}C\textsubscript{\emph{respired}} models: 0.028, 0.086, respectively.
 In contrast, the concentration of Fe\textsubscript{d} was not significant in any of the models.
 
 
